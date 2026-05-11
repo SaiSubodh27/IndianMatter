@@ -1,0 +1,44 @@
+{
+  "status": "partial",
+  "timestamp": "2026-05-05T15:06:35.736171",
+  "material_id": "00x",
+  "results": {
+    "features": {
+      "count": 178,
+      "source": "TRAINING_DATA",
+      "warnings": []
+    },
+    "ea": {
+      "value_ev": null,
+      "value_kcal_mol": null,
+      "source": "UNKNOWN",
+      "confidence": 0.0,
+      "status": "error"
+    },
+    "pre_exponential": {
+      "log10_value": null,
+      "value_s_cm": null,
+      "source": "UNKNOWN",
+      "confidence": 0.0,
+      "status": "error"
+    },
+    "conductivity": {
+      "source": "SKIPPED",
+      "reason": "Invalid EA or pre-exponential",
+      "status": "skipped"
+    },
+    "crystal_type": {
+      "crystal_type": "monoclinic/other",
+      "confidence": 0.7,
+      "source": "ESTIMATED"
+    },
+    "hes_score": {
+      "status": "skipped"
+    }
+  },
+  "errors": [
+    "EA prediction error: X has 178 features, but LGBMRegressor is expecting 312 features as input.",
+    "Pre-exponential prediction error: X has 178 features, but LGBMRegressor is expecting 312 features as input."
+  ],
+  "warnings": []
+}

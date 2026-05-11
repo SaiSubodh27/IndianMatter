@@ -1,0 +1,17 @@
+Metric,Value
+Total DRF materials,321.0
+Unique dopants,1.0
+Accepted materials,42.0
+DRF mean,-0.07042820042889558
+DRF median,0.0
+DRF std,0.2640429891422171
+DRF min,-0.8548518015163762
+DRF max,0.3012604001342233
+S stable pass,47.0
+P_perc pass,302.0
+R_inst pass,321.0
+Verdict count - Negligible,141.0
+Verdict count - Reject,108.0
+Verdict count - Moderate,46.0
+Verdict count - Excellent,15.0
+Verdict count - Good,11.0

@@ -1,0 +1,6 @@
+material_id,m3gnet_energy_ev,m3gnet_energy_per_atom_ev,m3gnet_force_norm_mean_ev_a,m3gnet_force_norm_max_ev_a,m3gnet_n_li_sites,m3gnet_n_li_sites_sampled,li_fd_k_mean_ev_a2,li_fd_k_std_ev_a2,li_fd_k_min_ev_a2,li_fd_k_max_ev_a2,li_fd_k_positive_fraction,li_fd_freq_mean_thz,li_fd_freq_std_thz,li_fd_freq_min_thz,li_fd_freq_max_thz,li_fd_log10_attempt_frequency_hz,m3gnet_feature_status,m3gnet_feature_error
+jy6,-283.98956298828125,-5.461337749774639,1.4306956761293,3.065487011125215,24.0,2.0,3.775236207563163,2.4547246437929138,2.040729019790888,7.406771183013916,1.0,10.975397835545309,3.534118341021817,8.477420285130973,16.150482765361406,13.040420271479132,ok,
+uxo,,,,,,,,,,,,,,,,,failed,ValueError('structure is disordered/partially occupied; ASE requires ordered sites')
+cdk,-152.52496337890625,-6.355206807454427,2.359891858667463,5.872604002268356,8.0,2.0,3.747797446946303,2.097611195629761,1.9235670566558838,6.728106737136841,1.0,11.068633868453395,3.0770775740986114,8.230471395317611,15.392794835543901,13.04409402196232,ok,
+2t8,,,,,,,,,,,,,,,,,failed,ValueError('structure is disordered/partially occupied; ASE requires ordered sites')
+6l9,,,,,,,,,,,,,,,,,failed,ValueError('structure is disordered/partially occupied; ASE requires ordered sites')

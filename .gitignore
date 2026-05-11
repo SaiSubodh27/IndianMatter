@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Large model files
+*.pkl
+pretrained_models/
+
+# Large datasets
+datasets/
+lithium_dataset_full_cleaned.csv
+
+# Trial uploads (duplicates of Obliex CIFs)
+trial_uploads/
+
+# Backup
+IonCastBackup/
+IonCast/
+
+# Temp files
+temp_features_train.txt
+
+# OS
+.DS_Store
+Thumbs.db
