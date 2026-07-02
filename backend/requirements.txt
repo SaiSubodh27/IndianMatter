@@ -6,3 +6,5 @@ PyJWT
 google-auth
 pydantic-settings
 email-validator
+python-multipart
+catboost
