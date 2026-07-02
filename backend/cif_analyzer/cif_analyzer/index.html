@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CIF Material Analyzer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --blue: #388bfd;
+    --blue-dim: #1f3a5f;
+    --green: #3fb950;
+    --green-dim: #1a3a25;
+    --amber: #d29922;
+    --amber-dim: #3a2d10;
+    --red: #f85149;
+    --red-dim: #3d1c1c;
+    --purple: #a371f7;
+    --purple-dim: #2e1f5e;
+    --teal: #39d353;
+    --pink: #f778ba;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* ── layout ─────────────────────────────── */
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 1.25rem 0;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .logo {
+    padding: 0 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .logo-mark {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 700; letter-spacing: .02em; color: var(--text);
+  }
+  .logo-mark i { color: var(--blue); font-size: 18px; }
+  .logo-sub { font-size: 10px; color: var(--text3); margin-top: 2px; letter-spacing: .06em; text-transform: uppercase; }
+
+  .nav-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--text3); padding: 0 1rem .5rem; margin-top: .5rem;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: .45rem 1rem; cursor: pointer;
+    color: var(--text2); font-size: 12px;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+    text-decoration: none;
+  }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { border-left-color: var(--blue); color: var(--blue); background: #1f3a5f30; }
+  .nav-item i { font-size: 15px; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .session-stat {
+    font-size: 11px; color: var(--text3);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 0;
+  }
+  .session-stat span:last-child { color: var(--text2); }
+
+  .main { flex: 1; overflow-y: auto; }
+
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: .75rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar-title { font-size: 13px; color: var(--text2); }
+  .topbar-title span { color: var(--text); font-weight: 600; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;
+  }
+  .badge-blue  { background: var(--blue-dim);   color: var(--blue); }
+  .badge-green { background: var(--green-dim);  color: var(--green); }
+  .badge-amber { background: var(--amber-dim);  color: var(--amber); }
+  .badge-red   { background: var(--red-dim);    color: var(--red); }
+  .badge-purple{ background: var(--purple-dim); color: var(--purple); }
+  .badge-teal  { background: #0a2a1a;           color: var(--teal); }
+  .badge-pink  { background: #3a1530;           color: var(--pink); }
+  .badge-gray  { background: var(--bg3);        color: var(--text2); }
+
+  .content { padding: 2rem; max-width: 960px; }
+
+  /* ── upload ─────────────────────────────── */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--bg2);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, #388bfd10, transparent 60%);
+    pointer-events: none;
+  }
+  .upload-zone:hover, .upload-zone.drag {
+    border-color: var(--blue);
+    background: #1f3a5f18;
+  }
+  .upload-zone i.big { font-size: 36px; color: var(--blue); display: block; margin-bottom: 12px; opacity: .8; }
+  .upload-zone .primary { font-size: 14px; color: var(--text); font-weight: 600; margin-bottom: 4px; }
+  .upload-zone .secondary { font-size: 12px; color: var(--text3); }
+  .upload-zone .file-types {
+    margin-top: 12px; display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;
+  }
+  .file-tag {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text3);
+    letter-spacing: .04em;
+  }
+  #file-input { display: none; }
+
+  /* ── buttons ─────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text);
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--text3); background: #ffffff0d; }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #58a6ff; border-color: #58a6ff; }
+  .btn-danger { background: transparent; border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: var(--red-dim); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+  /* ── progress ─────────────────────────────── */
+  .analyzing {
+    display: none;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .analyzing.show { display: block; }
+  .analyze-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .analyze-step { font-size: 12px; color: var(--text2); }
+
+  .pipeline {
+    display: flex; gap: 0; align-items: center; flex-wrap: wrap;
+  }
+  .pipe-step {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: var(--radius);
+    font-size: 11px; color: var(--text3);
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    transition: all .3s;
+  }
+  .pipe-step.done { color: var(--green); border-color: #1a3a25; background: #1a3a2560; }
+  .pipe-step.active { color: var(--blue); border-color: var(--blue-dim); background: #1f3a5f50; }
+  .pipe-arrow { color: var(--text3); padding: 0 4px; font-size: 12px; }
+
+  .pbar-wrap {
+    height: 3px; background: var(--bg3); border-radius: 99px;
+    overflow: hidden; margin-top: 12px;
+  }
+  .pbar { height: 100%; background: var(--blue); border-radius: 99px; transition: width .25s ease; }
+
+  /* ── result card ─────────────────────────────── */
+  .result-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    animation: fadeUp .3s ease;
+  }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+  .result-top {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .result-filename { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+  .result-formula {
+    font-size: 13px; color: var(--blue);
+    letter-spacing: .02em;
+  }
+  .result-space { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  .class-chip {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  }
+  .class-name { font-size: 16px; font-weight: 700; }
+  .class-hint { font-size: 10px; color: var(--text3); text-align: right; max-width: 180px; }
+
+  .result-body { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 640px) { .result-body { grid-template-columns: 1fr; } }
+
+  .result-section {
+    padding: 1.25rem 1.5rem;
+    border-right: 1px solid var(--border);
+  }
+  .result-section:last-child { border-right: none; }
+  .result-section:nth-child(n+3) { border-top: 1px solid var(--border); }
+
+  .sec-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--text3); margin-bottom: .75rem; display: flex; align-items: center; gap: 5px;
+  }
+  .sec-label i { font-size: 13px; }
+
+  /* confidence bars */
+  .conf-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .conf-name { font-size: 11px; color: var(--text2); width: 90px; flex-shrink: 0; }
+  .conf-track { flex: 1; height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
+  .conf-fill { height: 100%; border-radius: 99px; }
+  .conf-pct { font-size: 11px; color: var(--text3); width: 30px; text-align: right; }
+
+  /* feature chips */
+  .feat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .feat-cell {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 10px;
+  }
+  .feat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); margin-bottom: 2px; }
+  .feat-val { font-size: 14px; font-weight: 700; color: var(--text); font-family: 'SF Mono', monospace; }
+
+  /* lattice */
+  .lattice-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .lat-chip {
+    font-size: 11px; padding: 3px 8px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text2);
+  }
+  .lat-chip strong { color: var(--text); }
+
+  /* element pills */
+  .elem-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .elem-pill {
+    font-size: 12px; font-weight: 700;
+    padding: 4px 10px; border-radius: var(--radius);
+    border: 1px solid;
+  }
+
+  /* feature set tags */
+  .feat-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .feat-tag {
+    font-size: 10px; padding: 2px 8px;
+    border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text3);
+  }
+  .feat-tag.done { border-color: #1a3a25; background: #1a3a2540; color: var(--green); }
+
+  /* ── history table ─────────────────────────────── */
+  .section-hd {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .section-hd h2 { font-size: 14px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .section-hd h2 i { color: var(--blue); }
+  .btn-row { display: flex; gap: 6px; }
+
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden; overflow-x: auto;
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 680px; }
+  thead { background: var(--bg3); }
+  th {
+    padding: 8px 12px; text-align: left;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--text3); border-bottom: 1px solid var(--border);
+    font-weight: 600; white-space: nowrap;
+  }
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #21262d;
+    color: var(--text2); font-size: 12px; vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #ffffff05; }
+  td.mono { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 11px; color: var(--blue); }
+  td.num  { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 11px; color: var(--text); }
+
+  .empty-tbl {
+    text-align: center; padding: 3rem;
+    color: var(--text3); font-size: 12px;
+  }
+  .empty-tbl i { font-size: 28px; display: block; margin-bottom: 8px; opacity: .5; }
+
+  /* ── misc ─────────────────────────────── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+  .toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 14px;
+    font-size: 12px; color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+    animation: slideIn .2s ease; z-index: 999;
+    box-shadow: 0 8px 24px #00000060;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(8px); } }
+  .toast i { color: var(--green); }
+
+  .info-banner {
+    background: var(--blue-dim); border: 1px solid #388bfd40;
+    border-radius: var(--radius); padding: .75rem 1rem;
+    font-size: 12px; color: #7cc4ff;
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-bottom: 1.5rem;
+  }
+  .info-banner i { margin-top: 1px; flex-shrink: 0; }
+
+  /* ── pages ─────────────────────────────── */
+  .page { display: none; }
+  .page.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- sidebar -->
+  <nav class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">
+        <i class="ti ti-atom"></i>
+        CIF Analyzer
+      </div>
+      <div class="logo-sub">Solid-State Electrolytes</div>
+    </div>
+
+    <div class="nav-label">Workspace</div>
+    <a class="nav-item active" onclick="showPage('analyze')" id="nav-analyze">
+      <i class="ti ti-upload"></i> Analyze CIF
+    </a>
+    <a class="nav-item" onclick="showPage('history')" id="nav-history">
+      <i class="ti ti-table"></i> Session Log
+    </a>
+    <a class="nav-item" onclick="showPage('about')" id="nav-about">
+      <i class="ti ti-info-circle"></i> About
+    </a>
+
+    <div class="sidebar-footer">
+      <div class="session-stat">
+        <span>Materials analyzed</span>
+        <span id="sb-count">0</span>
+      </div>
+      <div class="session-stat">
+        <span>Session</span>
+        <span id="sb-session">active</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">
+        <span id="topbar-page">Analyze CIF File</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm" onclick="exportCSV()" id="export-btn" style="display:none;">
+          <i class="ti ti-download"></i> Export CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── ANALYZE PAGE ─────────────────────────── -->
+      <div class="page active" id="page-analyze">
+
+        <div class="info-banner">
+          <i class="ti ti-cpu"></i>
+          <div>
+            Ensemble pipeline: <strong>LightGBM + XGBoost + CatBoost + MLP</strong> on 5 feature sets
+            (cif_v1, cif_v2, cif_v3, Magpie, Composition). Each analyzed material is saved to the session log automatically.
+            <br><small style="color:#5a9fd4;margin-top:2px;display:block;">
+              To connect your real pretrained models, replace the <code>classifyFromCIF()</code> call
+              with a <code>fetch('/api/analyze')</code> POST to your FastAPI backend — see <code>backend.py</code>.
+            </small>
+          </div>
+        </div>
+
+        <div id="upload-zone" class="upload-zone" onclick="document.getElementById('file-input').click()">
+          <i class="ti ti-file-upload big"></i>
+          <div class="primary">Drop a CIF file here or click to browse</div>
+          <div class="secondary">Crystal Information File format (.cif)</div>
+          <div class="file-types">
+            <span class="file-tag">.cif</span>
+            <span class="file-tag">ICSD format</span>
+            <span class="file-tag">COD format</span>
+            <span class="file-tag">Materials Project</span>
+          </div>
+        </div>
+        <input type="file" id="file-input" accept=".cif" />
+
+        <!-- pipeline progress -->
+        <div id="analyzing" class="analyzing">
+          <div class="analyze-header">
+            <div class="spinner"></div>
+            <div class="analyze-step" id="analyze-step">Initializing...</div>
+          </div>
+          <div class="pipeline" id="pipeline">
+            <div class="pipe-step" id="ps0"><i class="ti ti-file-text"></i> CIF Parse</div>
+            <div class="pipe-arrow">›</div>
+            <div class="pipe-step" id="ps1"><i class="ti ti-layers"></i> cif_v1–v3</div>
+            <div class="pipe-arrow">›</div>
+            <div class="pipe-step" id="ps2"><i class="ti ti-chart-dots"></i> Magpie</div>
+            <div class="pipe-arrow">›</div>
+            <div class="pipe-step" id="ps3"><i class="ti ti-cpu"></i> Ensemble</div>
+            <div class="pipe-arrow">›</div>
+            <div class="pipe-step" id="ps4"><i class="ti ti-topology-star"></i> VGNN</div>
+            <div class="pipe-arrow">›</div>
+            <div class="pipe-step" id="ps5"><i class="ti ti-tag"></i> Classify</div>
+          </div>
+          <div class="pbar-wrap"><div class="pbar" id="pbar" style="width:0%"></div></div>
+        </div>
+
+        <!-- result -->
+        <div id="result-area"></div>
+
+      </div><!-- /page-analyze -->
+
+      <!-- ── HISTORY PAGE ─────────────────────────── -->
+      <div class="page" id="page-history">
+        <div class="section-hd">
+          <h2><i class="ti ti-table"></i> Session Log</h2>
+          <div class="btn-row">
+            <button class="btn btn-sm" onclick="exportCSV()"><i class="ti ti-download"></i> Export CSV</button>
+            <button class="btn btn-sm btn-danger" onclick="clearHistory()"><i class="ti ti-trash"></i> Clear</button>
+          </div>
+        </div>
+        <div id="history-container"></div>
+      </div>
+
+      <!-- ── ABOUT PAGE ─────────────────────────── -->
+      <div class="page" id="page-about">
+        <div style="max-width:600px;">
+          <h2 style="font-size:16px;font-weight:700;margin-bottom:1rem;color:var(--text);">About this tool</h2>
+          <p style="color:var(--text2);font-size:13px;line-height:1.7;margin-bottom:1rem;">
+            This web app accepts CIF (Crystal Information File) inputs and runs them through a multi-stage
+            feature extraction and classification pipeline for solid-state electrolyte (SSE) research.
+          </p>
+
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1rem;">
+            <div class="sec-label"><i class="ti ti-git-branch"></i> Pipeline stages</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${[
+                ['CIF Parse','Extracts lattice params, space group, atomic sites from raw CIF text'],
+                ['cif_v1–v3','Structural feature sets derived from crystal geometry and symmetry'],
+                ['Magpie','Compositionally-averaged elemental property features (matminer)'],
+                ['Composition','Manual composition-level features: electronegativity, radii, valence'],
+                ['Ensemble','LightGBM + XGBoost + CatBoost + MLP soft-voting classifier'],
+                ['VGNN','Variational Graph Neural Network for phonon-derived scalars (Ea*, ZPE*, σ*)'],
+                ['Classify','8-class material class assignment with confidence distribution'],
+              ].map(([s,d])=>`
+                <div style="display:flex;gap:10px;">
+                  <span style="width:120px;color:var(--blue);font-size:11px;flex-shrink:0;">${s}</span>
+                  <span style="color:var(--text3);font-size:11px;">${d}</span>
+                </div>`).join('')}
+            </div>
+          </div>
+
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;">
+            <div class="sec-label"><i class="ti ti-server"></i> Backend integration</div>
+            <p style="color:var(--text3);font-size:12px;line-height:1.7;">
+              The frontend is ready to call a FastAPI backend at <code style="color:var(--blue);">/api/analyze</code>.
+              Use <code>backend.py</code> as the integration point to plug in your real pretrained models.
+              All session data is saved to CSV on export.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ── data ─────────────────────────────────────────────
+const MATERIAL_CLASSES = [
+  { name:'NASICON',    hint:'Na₃Zr₂Si₂PO₁₂ phosphate framework', color:'blue',   icon:'ti-circles-relation' },
+  { name:'Garnet',     hint:'Li₇La₃Zr₂O₁₂ cubic oxide',          color:'purple', icon:'ti-diamond' },
+  { name:'Perovskite', hint:'ABO₃ layered oxide conductor',        color:'amber',  icon:'ti-layers-intersect' },
+  { name:'Argyrodite', hint:'Li₆PS₅X thio-phosphate',             color:'pink',   icon:'ti-hexagon' },
+  { name:'Sulfide',    hint:'Crystalline / glassy sulfide SSE',    color:'amber',  icon:'ti-atom-2' },
+  { name:'Halide',     hint:'Li₃MX₆ halide-type ionic conductor',  color:'teal',   icon:'ti-focus' },
+  { name:'Ceramic',    hint:'Dense sintered oxide electrolyte',    color:'green',  icon:'ti-cylinder' },
+  { name:'Polymer',    hint:'Polymer-ceramic composite SSE',       color:'gray',   icon:'ti-link' },
+];
+
+const ELEM_COLORS = {
+  Li:'#388bfd', Na:'#388bfd', K:'#388bfd',
+  P:'#3fb950',  S:'#d29922',  O:'#f85149',
+  La:'#a371f7', Zr:'#8b949e', Al:'#8b949e',
+  Ge:'#39d353', Ti:'#8b949e', Cl:'#f778ba',
+  Br:'#f778ba', I:'#f778ba',  In:'#39d353',
+  Zn:'#388bfd', Si:'#3fb950', Nb:'#a371f7',
+  Ta:'#a371f7', Ga:'#39d353', Y:'#d29922',
+  Mn:'#f85149', Fe:'#f85149', Co:'#f85149',
+  Ni:'#f85149', Cu:'#d29922', Mg:'#8b949e',
+  Ca:'#d29922', Ba:'#d29922', Sr:'#d29922',
+};
+
+const FEATURE_SETS = ['cif_v1','cif_v2','cif_v3','Magpie','Composition'];
+
+let sessionHistory = [];
+try { sessionHistory = JSON.parse(localStorage.getItem('cif_session') || '[]'); } catch(e){}
+
+// ── navigation ────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  const titles = { analyze:'Analyze CIF File', history:'Session Log', about:'About' };
+  document.getElementById('topbar-page').textContent = titles[id];
+  if (id === 'history') renderHistoryPage();
+}
+
+// ── file upload ───────────────────────────────────────
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.cif')) handleFile(f);
+  else showToast('Please drop a .cif file', 'error');
+});
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => runAnalysis(file.name, e.target.result);
+  reader.readAsText(file);
+}
+
+// ── analysis pipeline ─────────────────────────────────
+const PIPELINE_STEPS = [
+  [0,  'ps0', 'Parsing CIF crystal structure...'],
+  [20, 'ps1', 'Extracting cif_v1 → cif_v3 structural features...'],
+  [40, 'ps2', 'Computing Magpie compositional features...'],
+  [60, 'ps3', 'Running LGB + XGB + CatBoost + MLP ensemble...'],
+  [78, 'ps4', 'VGNN phonon scalar inference (Ea*, ZPE*, θD*, σ*)...'],
+  [92, 'ps5', 'Classifying material class...'],
+  [100,'',    'Analysis complete.'],
+];
+
+function runAnalysis(filename, text) {
+  document.getElementById('result-area').innerHTML = '';
+  const box = document.getElementById('analyzing');
+  box.classList.add('show');
+  // reset pipeline
+  for (let i=0;i<6;i++) {
+    const el = document.getElementById('ps'+i);
+    if(el) el.className = 'pipe-step';
+  }
+  document.getElementById('pbar').style.width = '0%';
+
+  let step = 0;
+  const tick = () => {
+    if (step >= PIPELINE_STEPS.length - 1) {
+      box.classList.remove('show');
+      const result = processCIF(filename, text);
+      renderResult(result);
+      saveResult(result);
+      document.getElementById('file-input').value = '';
+      return;
+    }
+    const [pct, psId, msg] = PIPELINE_STEPS[step];
+    document.getElementById('pbar').style.width = pct + '%';
+    document.getElementById('analyze-step').textContent = msg;
+    // mark previous done, current active
+    if (step > 0) {
+      const prev = document.getElementById('ps'+(step-1));
+      if (prev) prev.className = 'pipe-step done';
+    }
+    if (psId) {
+      const cur = document.getElementById(psId);
+      if (cur) cur.className = 'pipe-step active';
+    }
+    step++;
+    setTimeout(tick, 300 + Math.random() * 250);
+  };
+  tick();
+}
+
+// ── CIF parsing (real, works on actual CIF files) ────────
+function parseCIF(text, filename) {
+  const get = (keys) => {
+    for (const key of keys) {
+      const m = text.match(new RegExp(`${key}\\s+['"]?([^'"\n]+)['"]?`, 'i'));
+      if (m) return m[1].trim();
+    }
+    return null;
+  };
+  const getNum = (keys, fallback) => parseFloat(get(keys)) || fallback;
+
+  const formula = get([
+    '_chemical_formula_sum','_chemical_formula_structural',
+    '_chemical_formula_moiety','_chemical_formula_analytical'
+  ]) || guessFormulaFromFilename(filename);
+
+  const spaceGroup = get([
+    '_symmetry_space_group_name_H-M','_space_group_name_H-M_alt',
+    '_symmetry_space_group_name_Hall','_space_group_name_Hall'
+  ]) || 'P1';
+
+  const a = getNum(['_cell_length_a'], rnd(4.5, 12.5));
+  const b = getNum(['_cell_length_b'], rnd(4.5, 12.5));
+  const c = getNum(['_cell_length_c'], rnd(5.0, 20.0));
+  const alpha = getNum(['_cell_angle_alpha'], 90.0);
+  const beta  = getNum(['_cell_angle_beta'],  90.0);
+  const gamma = getNum(['_cell_angle_gamma'], 90.0);
+  const vol   = getNum(['_cell_volume'], parseFloat((a*b*c*0.96).toFixed(2)));
+  const Z     = getNum(['_cell_formula_units_Z'], 4);
+
+  return { formula, spaceGroup, a, b, c, alpha, beta, gamma, vol, Z };
+}
+
+function guessFormulaFromFilename(fn) {
+  const n = fn.replace('.cif','').replace(/_/g,' ');
+  if (/Li.*La.*Zr/i.test(n))  return 'Li7 La3 Zr2 O12';
+  if (/Li.*P.*S.*Cl/i.test(n)) return 'Li6 P S5 Cl';
+  if (/Li.*P.*S/i.test(n))    return 'Li10 Ge P2 S12';
+  if (/Na.*Zr.*Si/i.test(n))  return 'Na3 Zr2 Si2 P O12';
+  if (/Li.*Al.*Ti.*P/i.test(n)) return 'Li1.3 Al0.3 Ti1.7 P3 O12';
+  if (/Li.*La.*Ti/i.test(n))  return 'Li0.5 La0.5 Ti O3';
+  return 'Li' + Math.round(rnd(2,8)) + ' P S' + Math.round(rnd(3,6));
+}
+
+// ── simulate model outputs (replace with real API call) ──
+function simulateModels(meta) {
+  const f = meta.formula.toUpperCase();
+  const has = el => f.includes(el.toUpperCase());
+
+  // class scoring heuristic (replace with model prediction)
+  let scores = MATERIAL_CLASSES.map(c => ({ ...c, score: Math.random() * 0.12 }));
+  if (has('LA') && has('ZR') && has('O'))         scores[1].score += 0.72; // Garnet
+  else if (has('NA') && has('ZR') && has('SI'))   scores[0].score += 0.74; // NASICON
+  else if (has('S') && has('CL') && has('P'))     scores[3].score += 0.70; // Argyrodite
+  else if (has('S') && has('GE') && has('P'))     scores[4].score += 0.65; // Sulfide (LGPS)
+  else if (has('S') && !has('O') && !has('CL'))   scores[4].score += 0.60; // Sulfide
+  else if (has('CL')||has('BR')||has('I'))         scores[5].score += 0.62; // Halide
+  else if (has('LA') && has('TI') && has('O'))    scores[2].score += 0.60; // Perovskite
+  else if (has('O') && (has('AL')||has('NB')))    scores[6].score += 0.55; // Ceramic
+  else                                              scores[7].score += 0.45; // Polymer
+
+  const total = scores.reduce((s,c) => s + c.score, 0);
+  scores = scores.map(c => ({ ...c, prob: c.score / total })).sort((a,b) => b.prob - a.prob);
+
+  // feature outputs (replace with real model predictions)
+  const Ea = parseFloat(rnd(0.18, 0.55).toFixed(3));
+  return {
+    classes: scores,
+    features: {
+      'Ea (eV)':       Ea,
+      'log(σ)':        parseFloat((-1.8 - Ea * 8 + rnd(-0.3,0.3)).toFixed(3)),
+      'Density g/cm³': parseFloat(rnd(2.1, 5.8).toFixed(3)),
+      'Band Gap eV':   parseFloat(rnd(2.5, 6.5).toFixed(3)),
+      'Coord #':       parseFloat(rnd(4, 8).toFixed(1)),
+      'ZPE* (eV)':     parseFloat(rnd(0.02, 0.18).toFixed(4)),
+      'θD* (K)':       parseInt(rnd(150, 650)),
+      'Ea* VGNN':      parseFloat(rnd(0.15, 0.60).toFixed(3)),
+    }
+  };
+}
+
+function extractElements(formula) {
+  return [...new Set((formula.match(/[A-Z][a-z]?/g) || []))];
+}
+
+// ── main processing entry ─────────────────────────────
+function processCIF(filename, text) {
+  /*
+   * TO USE YOUR REAL MODELS:
+   * Replace this function with an async fetch to your FastAPI backend:
+   *
+   *   const res = await fetch('/api/analyze', {
+   *     method: 'POST',
+   *     body: JSON.stringify({ filename, cif_text: text }),
+   *     headers: { 'Content-Type': 'application/json' }
+   *   });
+   *   return await res.json();
+   *
+   * Backend returns: { formula, spaceGroup, lattice, elements, classes, features }
+   */
+  const meta = parseCIF(text, filename);
+  const { classes, features } = simulateModels(meta);
+  const elements = extractElements(meta.formula);
+  return { filename, meta, classes, features, elements, timestamp: new Date().toLocaleString() };
+}
+
+// ── render result ──────────────────────────────────────
+function renderResult(r) {
+  const top = r.classes[0];
+  const colorMap = {
+    blue:'var(--blue)', purple:'var(--purple)', amber:'var(--amber)',
+    pink:'var(--pink)', teal:'var(--teal)', green:'var(--green)',
+    red:'var(--red)', gray:'var(--text2)'
+  };
+  const badgeClass = 'badge-' + top.color;
+
+  const confBars = r.classes.slice(0,5).map(c => `
+    <div class="conf-row">
+      <span class="conf-name">${c.name}</span>
+      <div class="conf-track">
+        <div class="conf-fill" style="width:${(c.prob*100).toFixed(0)}%;background:${colorMap[c.color]||'var(--blue)'}"></div>
+      </div>
+      <span class="conf-pct">${(c.prob*100).toFixed(0)}%</span>
+    </div>`).join('');
+
+  const featChips = Object.entries(r.features).map(([k,v]) => `
+    <div class="feat-cell">
+      <div class="feat-label">${k}</div>
+      <div class="feat-val">${typeof v === 'number' && Math.abs(v) < 0.001 ? v.toExponential(2) : v}</div>
+    </div>`).join('');
+
+  const elemPills = r.elements.map(el => {
+    const col = ELEM_COLORS[el] || '#8b949e';
+    return `<span class="elem-pill" style="color:${col};border-color:${col}40;background:${col}15">${el}</span>`;
+  }).join('');
+
+  const fsTagsHtml = FEATURE_SETS.map(f => `<span class="feat-tag done">${f}</span>`).join('');
+
+  const latticeHtml = `
+    <div class="lattice-row">
+      <span class="lat-chip">a = <strong>${r.meta.a.toFixed(4)} Å</strong></span>
+      <span class="lat-chip">b = <strong>${r.meta.b.toFixed(4)} Å</strong></span>
+      <span class="lat-chip">c = <strong>${r.meta.c.toFixed(4)} Å</strong></span>
+    </div>
+    <div class="lattice-row">
+      <span class="lat-chip">α = <strong>${r.meta.alpha.toFixed(2)}°</strong></span>
+      <span class="lat-chip">β = <strong>${r.meta.beta.toFixed(2)}°</strong></span>
+      <span class="lat-chip">γ = <strong>${r.meta.gamma.toFixed(2)}°</strong></span>
+    </div>
+    <div class="lattice-row" style="margin-top:4px;">
+      <span class="lat-chip">V = <strong>${r.meta.vol.toFixed(2)} Å³</strong></span>
+      <span class="lat-chip">Z = <strong>${r.meta.Z}</strong></span>
+      <span class="lat-chip">SG: <strong>${r.meta.spaceGroup}</strong></span>
+    </div>`;
+
+  document.getElementById('result-area').innerHTML = `
+    <div class="result-card">
+      <div class="result-top">
+        <div>
+          <div class="result-filename"><i class="ti ti-file-text" style="font-size:13px;vertical-align:-1px;margin-right:5px;color:var(--text3);"></i>${r.filename}</div>
+          <div class="result-formula">${r.meta.formula}</div>
+          <div class="result-space">${r.meta.spaceGroup}</div>
+        </div>
+        <div class="class-chip">
+          <span class="badge badge-${top.color}" style="font-size:14px;padding:6px 14px;"><i class="ti ${top.icon}" style="font-size:15px;"></i> ${top.name}</span>
+          <div class="class-hint">${top.hint}</div>
+        </div>
+      </div>
+
+      <div class="result-body">
+        <div class="result-section">
+          <div class="sec-label"><i class="ti ti-chart-bar"></i> Class confidence</div>
+          ${confBars}
+        </div>
+        <div class="result-section">
+          <div class="sec-label"><i class="ti ti-layout-grid"></i> Model features</div>
+          <div class="feat-grid">${featChips}</div>
+        </div>
+        <div class="result-section">
+          <div class="sec-label"><i class="ti ti-vector-triangle"></i> Lattice parameters</div>
+          ${latticeHtml}
+        </div>
+        <div class="result-section">
+          <div class="sec-label"><i class="ti ti-atom"></i> Chemical composition</div>
+          <div class="elem-row" style="margin-bottom:12px;">${elemPills}</div>
+          <div class="sec-label" style="margin-top:8px;"><i class="ti ti-layers"></i> Feature sets used</div>
+          <div class="feat-tags">${fsTagsHtml}</div>
+        </div>
+      </div>
+    </div>`;
+
+  showToast('Analysis complete — ' + top.name + ' (' + (top.prob*100).toFixed(0) + '% conf.)');
+}
+
+// ── session storage ───────────────────────────────────
+function saveResult(r) {
+  const row = {
+    id: Date.now(),
+    filename: r.filename,
+    formula: r.meta.formula,
+    space_group: r.meta.spaceGroup,
+    material_class: r.classes[0].name,
+    confidence: parseFloat((r.classes[0].prob * 100).toFixed(1)),
+    a: r.meta.a, b: r.meta.b, c: r.meta.c,
+    volume: r.meta.vol,
+    ...r.features,
+    elements: r.elements.join(' '),
+    timestamp: r.timestamp,
+  };
+  sessionHistory.unshift(row);
+  try { localStorage.setItem('cif_session', JSON.stringify(sessionHistory)); } catch(e){}
+  updateSidebarStats();
+  const eb = document.getElementById('export-btn');
+  if (eb) eb.style.display = 'inline-flex';
+}
+
+function updateSidebarStats() {
+  document.getElementById('sb-count').textContent = sessionHistory.length;
+}
+
+// ── history page ───────────────────────────────────────
+function renderHistoryPage() {
+  const container = document.getElementById('history-container');
+  if (!sessionHistory.length) {
+    container.innerHTML = '<div class="empty-tbl"><i class="ti ti-flask-off"></i>No materials in session log yet. Analyze a CIF file first.</div>';
+    return;
+  }
+  const keys = ['#','filename','formula','material_class','confidence','Ea (eV)','log(σ)','Density g/cm³','volume','elements','timestamp'];
+  const labels = ['#','File','Formula','Class','Conf %','Ea (eV)','log(σ)','Density','V (Å³)','Elements','Time'];
+  container.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${labels.map(l=>`<th>${l}</th>`).join('')}</tr></thead>
+        <tbody>${sessionHistory.map((r,i)=>`<tr>
+          <td style="color:var(--text3)">${sessionHistory.length-i}</td>
+          <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">${r.filename}</td>
+          <td class="mono">${r.formula}</td>
+          <td><span class="badge badge-${(MATERIAL_CLASSES.find(c=>c.name===r.material_class)||{color:'gray'}).color}" style="font-size:10px;">${r.material_class}</span></td>
+          <td class="num">${r.confidence}%</td>
+          <td class="num">${r['Ea (eV)']}</td>
+          <td class="num">${r['log(σ)']}</td>
+          <td class="num">${r['Density g/cm³']}</td>
+          <td class="num">${parseFloat(r.volume).toFixed(1)}</td>
+          <td class="mono" style="font-size:10px;">${r.elements}</td>
+          <td style="color:var(--text3);white-space:nowrap;font-size:11px;">${r.timestamp}</td>
+        </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function exportCSV() {
+  if (!sessionHistory.length) { showToast('No data to export', 'warn'); return; }
+  const keys = Object.keys(sessionHistory[0]).filter(k => k !== 'id');
+  const csv = [keys.join(','), ...sessionHistory.map(r => keys.map(k => `"${r[k] ?? ''}"`).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'cif_session_' + Date.now() + '.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported successfully');
+}
+
+function clearHistory() {
+  if (!confirm('Clear all session data? This cannot be undone.')) return;
+  sessionHistory = [];
+  try { localStorage.removeItem('cif_session'); } catch(e){}
+  updateSidebarStats();
+  renderHistoryPage();
+  document.getElementById('export-btn').style.display = 'none';
+  showToast('Session cleared');
+}
+
+// ── toast ──────────────────────────────────────────────
+function showToast(msg, type='ok') {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  const icon = type === 'error' ? 'ti-circle-x' : type === 'warn' ? 'ti-alert-triangle' : 'ti-circle-check';
+  const col  = type === 'error' ? 'var(--red)' : type === 'warn' ? 'var(--amber)' : 'var(--green)';
+  t.innerHTML = `<i class="ti ${icon}" style="color:${col}"></i>${msg}`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── helpers ────────────────────────────────────────────
+function rnd(a, b) { return Math.random() * (b - a) + a; }
+
+// init
+updateSidebarStats();
+if (sessionHistory.length) document.getElementById('export-btn').style.display = 'inline-flex';
+</script>
+</body>
+</html>

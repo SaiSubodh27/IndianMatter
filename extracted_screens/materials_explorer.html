@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Materials Explorer - IndianMatter</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#ffdbcd",
+                        "surface-container-highest": "#353535",
+                        "tertiary-container": "#009cfc",
+                        "surface-bright": "#393939",
+                        "inverse-primary": "#a33e00",
+                        "surface": "#131313",
+                        "primary": "#ffb596",
+                        "on-secondary-container": "#ffa177",
+                        "secondary": "#ffb596",
+                        "on-primary": "#581e00",
+                        "surface-container-high": "#2a2a2a",
+                        "outline-variant": "#5a4136",
+                        "on-surface": "#e2e2e2",
+                        "inverse-surface": "#e2e2e2",
+                        "on-secondary": "#581e00",
+                        "on-background": "#e2e2e2",
+                        "primary-fixed-dim": "#ffb596",
+                        "on-secondary-fixed-variant": "#7a3006",
+                        "tertiary-fixed-dim": "#9ccaff",
+                        "error-container": "#93000a",
+                        "background": "#131313",
+                        "secondary-container": "#7d3208",
+                        "on-tertiary-container": "#003155",
+                        "surface-dim": "#131313",
+                        "on-error-container": "#ffdad6",
+                        "inverse-on-surface": "#303030",
+                        "surface-variant": "#353535",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-tertiary-fixed-variant": "#00497b",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1b1b1b",
+                        "on-primary-fixed-variant": "#7c2e00",
+                        "on-tertiary": "#003256",
+                        "tertiary-fixed": "#d0e4ff",
+                        "surface-container": "#1f1f1f",
+                        "primary-container": "#ff6600",
+                        "on-surface-variant": "#e3bfb1",
+                        "on-secondary-fixed": "#360f00",
+                        "on-tertiary-fixed": "#001d35",
+                        "secondary-fixed-dim": "#ffb596",
+                        "primary-fixed": "#ffdbcd",
+                        "on-primary-container": "#561d00",
+                        "on-error": "#690005",
+                        "tertiary": "#9ccaff",
+                        "outline": "#aa8a7d",
+                        "surface-tint": "#ffb596",
+                        "on-primary-fixed": "#360f00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Space Grotesk", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .neon-glow {
+            box-shadow: 0px 0px 15px rgba(255, 102, 0, 0.3);
+        }
+        .neon-glow-hover:hover {
+            box-shadow: 0px 0px 20px rgba(255, 102, 0, 0.5);
+        }
+        .glass-card {
+            background-color: rgba(27, 27, 27, 0.6);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col antialiased">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-neutral-950/60 backdrop-blur-xl bg-neutral-800/20 backdrop-blur-md shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
+<div class="flex justify-between items-center px-8 h-20 w-full max-w-[1920px] mx-auto">
+<div class="flex items-center gap-8">
+<div class="text-2xl font-bold tracking-tighter text-orange-500 font-['Space_Grotesk'] tracking-tight">
+                    IndianMatter
+                </div>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-['Space_Grotesk'] tracking-tight text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 transition-all duration-300 scale-98 active:scale-95 px-3 py-2 rounded-md" href="#">Discover</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-orange-400 border-b-2 border-orange-500 pb-1 hover:bg-neutral-800/50 transition-all duration-300 scale-98 active:scale-95 px-3 py-2" href="#">Datasets</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 transition-all duration-300 scale-98 active:scale-95 px-3 py-2 rounded-md" href="#">API</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 transition-all duration-300 scale-98 active:scale-95 px-3 py-2 rounded-md" href="#">Documentation</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-container-low border border-outline-variant/20 rounded-md py-1.5 pl-9 pr-4 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-64 transition-all placeholder:text-on-surface-variant/50" placeholder="Search structures, formulas..." type="text"/>
+</div>
+<button class="font-['Space_Grotesk'] tracking-tight text-on-primary bg-gradient-to-br from-primary to-primary-container px-5 py-2 rounded-md font-medium hover:brightness-110 transition-all neon-glow scale-98 active:scale-95">
+                    Sign In
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Layout -->
+<div class="flex flex-1 pt-20 max-w-[1920px] w-full mx-auto">
+<!-- SideNavBar (Filters) -->
+<aside class="hidden md:flex flex-col h-[calc(100vh-5rem)] sticky top-20 w-72 bg-surface-container-low border-r border-outline-variant/20 overflow-y-auto">
+<div class="p-6 flex flex-col gap-8">
+<div>
+<h2 class="font-headline text-lg font-semibold text-on-surface mb-4">Chemical Space</h2>
+<div class="space-y-4">
+<div>
+<label class="block font-label text-xs text-on-surface-variant mb-2">Include Elements</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded text-sm text-on-surface px-3 py-2 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. Li, Fe, O" type="text"/>
+</div>
+</div>
+<div>
+<label class="block font-label text-xs text-on-surface-variant mb-2">Exclude Elements</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded text-sm text-on-surface px-3 py-2 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. Toxic elements" type="text"/>
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 class="font-headline text-lg font-semibold text-on-surface mb-4">Crystal System</h2>
+<div class="flex flex-col gap-2">
+<label class="flex items-center gap-3 cursor-pointer group">
+<input class="form-checkbox bg-surface-container-lowest border-outline-variant/40 text-primary rounded-sm focus:ring-primary focus:ring-offset-surface-container-low" type="checkbox"/>
+<span class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Cubic</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input class="form-checkbox bg-surface-container-lowest border-outline-variant/40 text-primary rounded-sm focus:ring-primary focus:ring-offset-surface-container-low" type="checkbox"/>
+<span class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Hexagonal</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input class="form-checkbox bg-surface-container-lowest border-outline-variant/40 text-primary rounded-sm focus:ring-primary focus:ring-offset-surface-container-low" type="checkbox"/>
+<span class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Tetragonal</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input class="form-checkbox bg-surface-container-lowest border-outline-variant/40 text-primary rounded-sm focus:ring-primary focus:ring-offset-surface-container-low" type="checkbox"/>
+<span class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Orthorhombic</span>
+</label>
+</div>
+</div>
+<div>
+<h2 class="font-headline text-lg font-semibold text-on-surface mb-4">Properties</h2>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between mb-2">
+<label class="font-label text-xs text-on-surface-variant">Band Gap (eV)</label>
+<span class="font-body text-xs text-primary">0 - 5.2</span>
+</div>
+<input class="w-full h-1 bg-surface-container-highest rounded-full appearance-none cursor-pointer accent-primary" type="range"/>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<label class="font-label text-xs text-on-surface-variant">Formation Energy (eV/atom)</label>
+<span class="font-body text-xs text-primary">-4.0 - 0</span>
+</div>
+<input class="w-full h-1 bg-surface-container-highest rounded-full appearance-none cursor-pointer accent-primary" type="range"/>
+</div>
+</div>
+</div>
+<button class="mt-auto w-full py-2 bg-surface-container-highest hover:bg-surface-bright text-primary font-label text-sm rounded-md transition-colors border border-outline-variant/20 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">filter_list</span>
+                    Apply Filters
+                </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 p-8 overflow-y-auto bg-surface">
+<header class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="font-headline text-3xl font-bold text-on-surface mb-2">Materials Explorer</h1>
+<p class="text-on-surface-variant text-sm max-w-2xl">Querying global databases (Materials Project, AFLOW, OQMD) for advanced material structures and predicted properties.</p>
+</div>
+<div class="flex gap-3 text-sm">
+<span class="px-3 py-1.5 rounded-full bg-secondary-container/20 text-primary border border-secondary-container/30 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                        142,854 Structures
+                    </span>
+</div>
+</header>
+<!-- Results Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Material Card 1 -->
+<div class="glass-card rounded-lg p-5 border border-outline-variant/20 hover:border-primary/50 transition-all group relative overflow-hidden flex flex-col h-full">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-surface-container-lowest/80 z-0"></div>
+<div class="relative z-10 flex justify-between items-start mb-4">
+<h3 class="font-headline text-xl font-bold text-on-surface group-hover:text-primary transition-colors">Li7La3Zr2O12</h3>
+<div class="px-2 py-1 bg-surface-container-highest rounded text-xs font-label text-on-surface-variant tracking-wider">CUBIC</div>
+</div>
+<div class="relative z-10 w-full h-40 bg-surface-container-lowest rounded-md mb-4 flex items-center justify-center overflow-hidden border border-outline-variant/10">
+<img alt="3D rendering of complex crystal molecular structure with glowing orange and blue spheres connected by thin bonds against deep black background" class="w-full h-full object-cover opacity-80 mix-blend-screen group-hover:scale-105 transition-transform duration-500" data-alt="3D rendering of complex crystal molecular structure with glowing orange and blue spheres connected by thin bonds against deep black background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmxsTzGYilufLvFdZuGfTyIHf4A52tLscUEJqMMC2aWZVks5pSUS5oOAGLGx7DCwtHPE7sykdgksyYSN1AvyMVpr_kyQwYHVEnwUh9f7O5-4FCip-Keo1ZxcHIRPYneE6tWDuGmHXuRr8aoH3j_4WLc8QZSf4d5rxgQcHcAk_ELL_2tfdTSGyqYx4pyEa8jr-SHjAoUfqvvUDiEivIifKp82dIviJD1Vk49IlzdGOlPt0jE5iInMl5rFczdxVBwIvkqNOIPXKvkcU"/>
+</div>
+<div class="relative z-10 space-y-3 mt-auto">
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Symmetry Group</span>
+<span class="font-body text-on-surface">Ia-3d</span>
+</div>
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Band Gap</span>
+<span class="font-body text-on-surface">4.82 eV</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Formation Energy</span>
+<span class="font-body text-on-surface">-3.12 eV/atom</span>
+</div>
+</div>
+</div>
+<!-- Material Card 2 -->
+<div class="glass-card rounded-lg p-5 border border-outline-variant/20 hover:border-primary/50 transition-all group relative overflow-hidden flex flex-col h-full">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-surface-container-lowest/80 z-0"></div>
+<div class="relative z-10 flex justify-between items-start mb-4">
+<h3 class="font-headline text-xl font-bold text-on-surface group-hover:text-primary transition-colors">CsPbI3</h3>
+<div class="px-2 py-1 bg-surface-container-highest rounded text-xs font-label text-on-surface-variant tracking-wider">ORTHO</div>
+</div>
+<div class="relative z-10 w-full h-40 bg-surface-container-lowest rounded-md mb-4 flex items-center justify-center overflow-hidden border border-outline-variant/10">
+<img alt="Microscopic view of geometric perovskite crystal lattice structure with bright glowing nodes on dark backdrop" class="w-full h-full object-cover opacity-80 mix-blend-screen group-hover:scale-105 transition-transform duration-500" data-alt="Microscopic view of geometric perovskite crystal lattice structure with bright glowing nodes on dark backdrop" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBELT8GpyWUgh6xr6_wyiC0jlyUzBOFH04wurT4QqQhC-wFZrLnMtfP1UfEHUrmCLvzraTlTxqP996ETFLLGm0yOGiVrTVcdpuSsjRUEIRzQm2pJ2q0NiiHFlhK7HnCm33DUsPDgauNyhYswbCte0AAEWLdYur9pYmwam5cuY76Sa3nFB6wqST5jJCEMeJWKZcxO1XTPnYC1FZrE1eS-_uXJWIhd9tuc0OCnH4GiaTS13FFBPeoG5NrDxezWuk8SRcGrtz-D1kUiA0"/>
+</div>
+<div class="relative z-10 space-y-3 mt-auto">
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Symmetry Group</span>
+<span class="font-body text-on-surface">Pnma</span>
+</div>
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Band Gap</span>
+<span class="font-body text-on-surface">1.73 eV</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Formation Energy</span>
+<span class="font-body text-on-surface">-1.45 eV/atom</span>
+</div>
+</div>
+</div>
+<!-- Material Card 3 -->
+<div class="glass-card rounded-lg p-5 border border-outline-variant/20 hover:border-primary/50 transition-all group relative overflow-hidden flex flex-col h-full">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-surface-container-lowest/80 z-0"></div>
+<div class="relative z-10 flex justify-between items-start mb-4">
+<h3 class="font-headline text-xl font-bold text-on-surface group-hover:text-primary transition-colors">MoS2</h3>
+<div class="px-2 py-1 bg-surface-container-highest rounded text-xs font-label text-on-surface-variant tracking-wider">HEX</div>
+</div>
+<div class="relative z-10 w-full h-40 bg-surface-container-lowest rounded-md mb-4 flex items-center justify-center overflow-hidden border border-outline-variant/10">
+<img alt="Abstract rendering of 2D material layers showing honeycomb atomic arrangement floating in dark space" class="w-full h-full object-cover opacity-80 mix-blend-screen group-hover:scale-105 transition-transform duration-500" data-alt="Abstract rendering of 2D material layers showing honeycomb atomic arrangement floating in dark space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgAPfPh1LivdB_tWmf6kMFJIVV-pHDrCyEWndqtzRn3-xCCwcSX-tU8n80B_LjYWRcjK0OHxsHLz60G3lgaSN2EMQm0edcF0kdTwH31sDWiYzl38YdDEynccI4l432EYrko8cAFDMgzcvMDwQSBYJ_sJf4ZFgL8GL8UU31gzxE9j8o_7VlxM4FGCt4KBJKCXZmn1Am9yxZHOqbxudvyrmV5zTBEp1MODcNads4yhhxTDj7-O6ngMUBl2wW_CsCUYx6MuxUs6eh588"/>
+</div>
+<div class="relative z-10 space-y-3 mt-auto">
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Symmetry Group</span>
+<span class="font-body text-on-surface">P6_3/mmc</span>
+</div>
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Band Gap</span>
+<span class="font-body text-on-surface">1.80 eV</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Formation Energy</span>
+<span class="font-body text-on-surface">-0.92 eV/atom</span>
+</div>
+</div>
+</div>
+<!-- Material Card 4 -->
+<div class="glass-card rounded-lg p-5 border border-outline-variant/20 hover:border-primary/50 transition-all group relative overflow-hidden flex flex-col h-full">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-surface-container-lowest/80 z-0"></div>
+<div class="relative z-10 flex justify-between items-start mb-4">
+<h3 class="font-headline text-xl font-bold text-on-surface group-hover:text-primary transition-colors">BaTiO3</h3>
+<div class="px-2 py-1 bg-surface-container-highest rounded text-xs font-label text-on-surface-variant tracking-wider">TETRA</div>
+</div>
+<div class="relative z-10 w-full h-40 bg-surface-container-lowest rounded-md mb-4 flex items-center justify-center overflow-hidden border border-outline-variant/10">
+<img alt="Scientific visualization of a distorted unit cell with central atom displaced, rendered in neon orange against dark background" class="w-full h-full object-cover opacity-80 mix-blend-screen group-hover:scale-105 transition-transform duration-500" data-alt="Scientific visualization of a distorted unit cell with central atom displaced, rendered in neon orange against dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0vBS8M2NbNy8elvFWc94HqoSPJjRGI4z03mQsoxY1hVsCcEkLOaBihbE7wNSnC_iaFwU1RBFiCY3ZYfF27JJY9H89rJvdQXKJUE0bcaHfFZ8hDknfpaPBStbVwE9crSZ4_-l_r6WfVLBDUY1kPKAlan-O-En1Od6HKpID4viMtXxztmVle3raQni58YB_rGdqU032174yOCHi0ls22q--Gg1paMjs5qxT2FOIe9EiwyPiTFz6xq2m-bOj77fiU04xKShBOc-gByo"/>
+</div>
+<div class="relative z-10 space-y-3 mt-auto">
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Symmetry Group</span>
+<span class="font-body text-on-surface">P4mm</span>
+</div>
+<div class="flex justify-between items-center text-sm border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant">Band Gap</span>
+<span class="font-body text-on-surface">3.20 eV</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Formation Energy</span>
+<span class="font-body text-on-surface">-3.48 eV/atom</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-12 flex justify-center">
+<button class="px-6 py-2 border border-outline-variant/30 rounded-md text-primary font-label text-sm hover:bg-surface-container-high transition-colors">Load More Results</button>
+</div>
+</main>
+</div>
+</body></html>

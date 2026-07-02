@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>IndianMatter - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#ffb596",
+                        "on-primary": "#581e00",
+                        "on-secondary-fixed": "#360f00",
+                        "background": "#131313",
+                        "primary-fixed-dim": "#ffb596",
+                        "tertiary-container": "#009cfc",
+                        "on-secondary-fixed-variant": "#7a3006",
+                        "on-primary-fixed": "#360f00",
+                        "tertiary-fixed": "#d0e4ff",
+                        "tertiary-fixed-dim": "#9ccaff",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#ffdbcd",
+                        "surface-container-highest": "#353535",
+                        "primary": "#ffb596",
+                        "surface-bright": "#393939",
+                        "on-error-container": "#ffdad6",
+                        "surface-container": "#1f1f1f",
+                        "surface-variant": "#353535",
+                        "on-tertiary-container": "#003155",
+                        "error-container": "#93000a",
+                        "error": "#ffb4ab",
+                        "inverse-surface": "#e2e2e2",
+                        "on-secondary-container": "#ffa177",
+                        "surface": "#131313",
+                        "on-primary-container": "#561d00",
+                        "secondary-container": "#7d3208",
+                        "inverse-on-surface": "#303030",
+                        "primary-fixed": "#ffdbcd",
+                        "on-tertiary-fixed": "#001d35",
+                        "on-tertiary": "#003256",
+                        "on-primary-fixed-variant": "#7c2e00",
+                        "on-background": "#e2e2e2",
+                        "on-secondary": "#581e00",
+                        "on-surface": "#e2e2e2",
+                        "surface-container-high": "#2a2a2a",
+                        "on-tertiary-fixed-variant": "#00497b",
+                        "secondary": "#ffb596",
+                        "surface-container-low": "#1b1b1b",
+                        "tertiary": "#9ccaff",
+                        "secondary-fixed-dim": "#ffb596",
+                        "inverse-primary": "#a33e00",
+                        "primary-container": "#ff6600",
+                        "outline-variant": "#5a4136",
+                        "outline": "#aa8a7d",
+                        "surface-dim": "#131313",
+                        "on-surface-variant": "#e3bfb1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .glass-card {
+            background: rgba(27, 27, 27, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .neon-glow {
+            box-shadow: 0px 0px 15px rgba(255, 102, 0, 0.3);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-container selection:text-on-primary-container min-h-screen flex">
+<!-- SideNavBar Shell -->
+<aside class="h-screen w-64 bg-neutral-950 border-r border-neutral-800/20 flex flex-col py-6 sticky top-0 shrink-0 font-['Space_Grotesk'] text-sm">
+<div class="px-6 mb-10 flex items-center gap-3">
+<div class="w-8 h-8 bg-gradient-to-br from-primary to-primary-container rounded-lg flex items-center justify-center neon-glow">
+<span class="material-symbols-outlined text-on-primary-container text-xl" data-icon="science">science</span>
+</div>
+<span class="text-orange-500 font-bold text-lg tracking-tight">Scientific Lab</span>
+</div>
+<nav class="flex-1 px-4 space-y-2">
+<!-- Active: Dashboard -->
+<a class="flex items-center gap-4 px-4 py-3 text-orange-400 bg-neutral-900/50 border-r-4 border-orange-500 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-neutral-500 hover:bg-neutral-900 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="science">science</span>
+<span>Crystal Explorer</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-neutral-500 hover:bg-neutral-900 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="calculate">calculate</span>
+<span>Calculations</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-neutral-500 hover:bg-neutral-900 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+<span>Structures</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-neutral-500 hover:bg-neutral-900 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-4 space-y-6">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary py-3 rounded-md font-semibold text-xs tracking-widest uppercase hover:opacity-90 transition-all neon-glow">
+                New Experiment
+            </button>
+<div class="pt-6 border-t border-neutral-900">
+<div class="flex items-center gap-3 px-4 mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center border border-outline-variant/20 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a professional scientist wearing a lab coat in a clinical high-tech research environment with blue light accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC68WJHnseYFJywXT6emB0TEwQP1NEEEskehYCsKQwfNjeCn3RIiogyYrhm1ccDLaq4fChHpvwEKZN9pTEpUyJCWmeONVRi9Tsb9ocgJDh6N5aMLDvk97aev5gUH1Q7eyj19TK3A9qYN0nNSdvDbIYlg_WOCEcd4dy70Pss86mcbG9EBULg_Nb7Kxyru26wMDiNEzsnLx4_tzVDJqYTkhXljUCPLNPqGK0zUCuFyBgt4N1w0f14TwdAXmIWyXMSrOEZOnAMelXuJ0U"/>
+</div>
+<div>
+<p class="text-on-surface text-xs font-bold">User profile</p>
+<p class="text-neutral-500 text-[10px] uppercase tracking-wider">AI Researcher</p>
+</div>
+</div>
+<a class="flex items-center gap-4 px-4 py-3 text-neutral-500 hover:bg-neutral-900 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span>Help Center</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 relative overflow-x-hidden">
+<!-- Header Overlay -->
+<header class="h-20 px-8 flex items-center justify-between sticky top-0 z-40 bg-neutral-950/60 backdrop-blur-xl border-b border-neutral-800/20">
+<div class="flex items-center gap-8">
+<h1 class="text-2xl font-bold tracking-tighter text-orange-500 font-headline">IndianMatter</h1>
+<nav class="hidden md:flex items-center gap-6 font-['Space_Grotesk'] text-sm">
+<a class="text-orange-400 border-b-2 border-orange-500 pb-1" href="#">Discover</a>
+<a class="text-neutral-400 hover:text-neutral-200 transition-colors" href="#">Datasets</a>
+<a class="text-neutral-400 hover:text-neutral-200 transition-colors" href="#">API</a>
+<a class="text-neutral-400 hover:text-neutral-200 transition-colors" href="#">Documentation</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 rounded-md bg-neutral-800/50 text-on-surface text-sm font-medium hover:bg-neutral-800 transition-all border border-outline-variant/20">
+                    Sign In
+                </button>
+</div>
+</header>
+<div class="p-8 max-w-7xl mx-auto space-y-12">
+<!-- Hero Search Panel -->
+<section class="relative">
+<div class="absolute inset-0 bg-gradient-to-r from-primary-container/10 to-transparent blur-3xl -z-10 rounded-full scale-110"></div>
+<div class="glass-card p-10 rounded-xl border border-outline-variant/10 neon-glow relative overflow-hidden">
+<!-- Subtle background texture -->
+<div class="absolute top-0 right-0 p-8 opacity-10">
+<span class="material-symbols-outlined text-[160px]" data-icon="microscope">magnification_small</span>
+</div>
+<div class="relative z-10 max-w-2xl">
+<h2 class="text-4xl font-bold font-headline tracking-tight text-on-surface mb-4">Explore the Molecular Frontier</h2>
+<p class="text-on-surface-variant text-lg mb-8 leading-relaxed">Predict material properties and crystal structures using our high-fidelity AI models trained on Bharat's specific mineralogical datasets.</p>
+<div class="flex flex-col md:flex-row gap-3">
+<div class="relative flex-1">
+<input class="w-full bg-surface-container-low border border-outline-variant/30 rounded-md px-12 py-4 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-body" placeholder="Enter composition (e.g., SrTiO3, MoS2...)" type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary-container" data-icon="search">search</span>
+</div>
+<div class="relative w-full md:w-56">
+<select class="w-full h-full bg-surface-container-low border border-outline-variant/30 rounded-md px-4 py-4 text-on-surface appearance-none focus:outline-none focus:border-primary transition-all font-label text-xs uppercase tracking-widest">
+<option>Materials Project</option>
+<option>AFLOW</option>
+<option>OQMD</option>
+<option>Indian Mineral DB</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" data-icon="expand_more">expand_more</span>
+</div>
+<button class="bg-primary-container text-on-primary-container px-8 py-4 rounded-md font-bold uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-[0.98] transition-transform neon-glow">
+                                Predict
+                            </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats & Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Card 1: Recent Predictions -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/10 flex flex-col group hover:bg-surface-container-high transition-colors">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-xs font-label uppercase tracking-widest text-neutral-500 mb-1">Recent Predictions</p>
+<h3 class="text-2xl font-bold font-headline text-on-surface">1,402</h3>
+</div>
+<div class="p-2 bg-primary/10 rounded-lg">
+<span class="material-symbols-outlined text-primary" data-icon="timeline">timeline</span>
+</div>
+</div>
+<div class="mt-auto h-16 w-full flex items-end gap-1">
+<!-- Sparkline Mockup -->
+<div class="flex-1 bg-primary/20 h-1/4 rounded-t-sm group-hover:h-1/2 transition-all"></div>
+<div class="flex-1 bg-primary/20 h-1/2 rounded-t-sm group-hover:h-3/4 transition-all"></div>
+<div class="flex-1 bg-primary/40 h-1/3 rounded-t-sm group-hover:h-2/3 transition-all"></div>
+<div class="flex-1 bg-primary/60 h-3/4 rounded-t-sm group-hover:h-full transition-all"></div>
+<div class="flex-1 bg-primary/30 h-1/2 rounded-t-sm group-hover:h-2/3 transition-all"></div>
+<div class="flex-1 bg-primary-container h-5/6 rounded-t-sm group-hover:h-[90%] transition-all"></div>
+<div class="flex-1 bg-primary/40 h-2/3 rounded-t-sm group-hover:h-1/2 transition-all"></div>
+</div>
+</div>
+<!-- Card 2: Saved Materials -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/10 flex flex-col group hover:bg-surface-container-high transition-colors">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-xs font-label uppercase tracking-widest text-neutral-500 mb-1">Saved Materials</p>
+<h3 class="text-2xl font-bold font-headline text-on-surface">48</h3>
+</div>
+<div class="p-2 bg-tertiary-container/10 rounded-lg">
+<span class="material-symbols-outlined text-tertiary-container" data-icon="bookmark">bookmark</span>
+</div>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant font-medium">SrTiO3 (Perovskite)</span>
+<span class="text-neutral-500">2h ago</span>
+</div>
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant font-medium">MoS2 (2D Monolayer)</span>
+<span class="text-neutral-500">5h ago</span>
+</div>
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant font-medium">GaN (Semiconductor)</span>
+<span class="text-neutral-500">1d ago</span>
+</div>
+</div>
+</div>
+<!-- Card 3: Performance Metrics -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/10 flex flex-col group hover:bg-surface-container-high transition-colors">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-xs font-label uppercase tracking-widest text-neutral-500 mb-1">Model Accuracy</p>
+<h3 class="text-2xl font-bold font-headline text-on-surface">98.4%</h3>
+</div>
+<div class="p-2 bg-primary-container/10 rounded-lg">
+<span class="material-symbols-outlined text-primary-container" data-icon="verified">verified</span>
+</div>
+</div>
+<div class="space-y-4">
+<div class="w-full bg-surface-container-lowest h-2 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[98.4%] neon-glow"></div>
+</div>
+<div class="flex justify-between text-[10px] uppercase tracking-widest font-bold">
+<span class="text-neutral-500">RMSE: 0.012 eV/atom</span>
+<span class="text-primary">VASP Validated</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Asymmetric Data Section -->
+<section class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+<!-- Large Section: Active Simulations -->
+<div class="lg:col-span-3 space-y-6">
+<div class="flex justify-between items-center">
+<h3 class="text-xl font-bold font-headline tracking-tight">Active Computational Jobs</h3>
+<a class="text-primary text-xs uppercase tracking-widest font-bold flex items-center gap-2" href="#">View Queue <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span></a>
+</div>
+<div class="space-y-1">
+<!-- Job Item 1 -->
+<div class="group flex items-center justify-between p-4 bg-surface-container-low border-b border-neutral-900/50 hover:bg-surface-container-high transition-all">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse neon-glow"></div>
+<div>
+<p class="text-sm font-bold text-on-surface">Elastic Tensor Calculation</p>
+<p class="text-[10px] text-neutral-500 uppercase">System: Na2O-SiO2 Glass</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-mono text-primary">64% Completed</p>
+<p class="text-[10px] text-neutral-500 uppercase">Node: NVIDIA-A100-80GB</p>
+</div>
+</div>
+<!-- Job Item 2 -->
+<div class="group flex items-center justify-between p-4 bg-surface-container-low border-b border-neutral-900/50 hover:bg-surface-container-high transition-all">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse neon-glow"></div>
+<div>
+<p class="text-sm font-bold text-on-surface">Band Structure Prediction</p>
+<p class="text-[10px] text-neutral-500 uppercase">System: CsPbI3</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-mono text-primary">22% Completed</p>
+<p class="text-[10px] text-neutral-500 uppercase">Node: AMD-EPYC-7763</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Small Section: Quick Stats -->
+<div class="lg:col-span-2 bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/10 relative overflow-hidden flex flex-col justify-center">
+<img class="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" data-alt="Microscopic view of crystal lattice structures with glowing orange atoms and dark molecular bonds on a black background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9N3eNmGa5bm9JmfFB9j4H3UZh8X_PYeL76zACpnKcb7OsLwt9-AOBp4QtMTqNnyQMlcWx8_It95LOHOOzl6YjhJA17WUjpqyMYsjInmDDZTCCm5VK6s5vKydB1IiYyfFUYoi3sBQFNjkG8U5IDVLpg8ttfogKJqHjEEKjFvrwCHMCCsGLQVb9dBvTfkwtUaO2SAOpGC6uKor-GA8PdAbJ4wleToWGzMdpWXGZdgrcUyKE_1Fv1GqsnaCXwwn1f3QkMY53nQb_l8s"/>
+<div class="relative z-10 text-center space-y-4">
+<div class="w-16 h-16 bg-primary-container/20 border border-primary/30 rounded-full flex items-center justify-center mx-auto mb-4">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="bolt">bolt</span>
+</div>
+<h4 class="text-xl font-bold font-headline text-on-surface">Supercomputing Status</h4>
+<p class="text-sm text-on-surface-variant max-w-xs mx-auto">All systems operational at CDAC-BENGALURU. Latency: 14ms.</p>
+<div class="flex justify-center gap-2 pt-4">
+<span class="px-3 py-1 bg-neutral-900 text-[10px] font-bold text-neutral-400 border border-neutral-800 rounded-full uppercase tracking-widest">Active</span>
+<span class="px-3 py-1 bg-neutral-900 text-[10px] font-bold text-neutral-400 border border-neutral-800 rounded-full uppercase tracking-widest">High Load</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer -->
+<footer class="w-full py-12 border-t border-neutral-900 bg-neutral-950 flex flex-col items-center gap-4 px-8 mt-20">
+<div class="flex gap-8 mb-4">
+<a class="text-neutral-600 hover:text-orange-300 transition-colors text-xs uppercase tracking-widest font-['Inter']" href="#">Privacy Policy</a>
+<a class="text-neutral-600 hover:text-orange-300 transition-colors text-xs uppercase tracking-widest font-['Inter']" href="#">Terms of Service</a>
+<a class="text-neutral-600 hover:text-orange-300 transition-colors text-xs uppercase tracking-widest font-['Inter']" href="#">Research Ethics</a>
+<a class="text-neutral-600 hover:text-orange-300 transition-colors text-xs uppercase tracking-widest font-['Inter']" href="#">Contact</a>
+</div>
+<p class="text-neutral-700 text-[10px] uppercase tracking-[0.2em] font-['Inter']">
+                © 2024 IndianMatter. Engineered for Scientific Discovery.
+            </p>
+</footer>
+</main>
+</body></html>

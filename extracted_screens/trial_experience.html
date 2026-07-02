@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Trial Mode | IndianMatter</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#ffb596",
+                        "on-primary": "#581e00",
+                        "on-secondary-fixed": "#360f00",
+                        "background": "#131313",
+                        "primary-fixed-dim": "#ffb596",
+                        "tertiary-container": "#009cfc",
+                        "on-secondary-fixed-variant": "#7a3006",
+                        "on-primary-fixed": "#360f00",
+                        "tertiary-fixed": "#d0e4ff",
+                        "tertiary-fixed-dim": "#9ccaff",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#ffdbcd",
+                        "surface-container-highest": "#353535",
+                        "primary": "#ffb596",
+                        "surface-bright": "#393939",
+                        "on-error-container": "#ffdad6",
+                        "surface-container": "#1f1f1f",
+                        "surface-variant": "#353535",
+                        "on-tertiary-container": "#003155",
+                        "error-container": "#93000a",
+                        "error": "#ffb4ab",
+                        "inverse-surface": "#e2e2e2",
+                        "on-secondary-container": "#ffa177",
+                        "surface": "#131313",
+                        "on-primary-container": "#561d00",
+                        "secondary-container": "#7d3208",
+                        "inverse-on-surface": "#303030",
+                        "primary-fixed": "#ffdbcd",
+                        "on-tertiary-fixed": "#001d35",
+                        "on-tertiary": "#003256",
+                        "on-primary-fixed-variant": "#7c2e00",
+                        "on-background": "#e2e2e2",
+                        "on-secondary": "#581e00",
+                        "on-surface": "#e2e2e2",
+                        "surface-container-high": "#2a2a2a",
+                        "on-tertiary-fixed-variant": "#00497b",
+                        "secondary": "#ffb596",
+                        "surface-container-low": "#1b1b1b",
+                        "tertiary": "#9ccaff",
+                        "secondary-fixed-dim": "#ffb596",
+                        "inverse-primary": "#a33e00",
+                        "primary-container": "#ff6600",
+                        "outline-variant": "#5a4136",
+                        "outline": "#aa8a7d",
+                        "surface-dim": "#131313",
+                        "on-surface-variant": "#e3bfb1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(27, 27, 27, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(90, 65, 54, 0.1);
+        }
+        .neon-glow {
+            box-shadow: 0px 0px 15px rgba(255, 102, 0, 0.2);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #2a2a2a;
+            height: 4px;
+            border-radius: 2px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffb596;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 bg-neutral-950/60 backdrop-blur-xl shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex justify-between items-center px-8 h-20 w-full">
+<div class="text-2xl font-bold tracking-tighter text-orange-500 font-headline">IndianMatter</div>
+<div class="hidden md:flex items-center gap-8 font-headline tracking-tight">
+<a class="text-neutral-400 hover:text-neutral-200 transition-all duration-300" href="#">Discover</a>
+<a class="text-neutral-400 hover:text-neutral-200 transition-all duration-300" href="#">Datasets</a>
+<a class="text-neutral-400 hover:text-neutral-200 transition-all duration-300" href="#">API</a>
+<a class="text-neutral-400 hover:text-neutral-200 transition-all duration-300" href="#">Documentation</a>
+</div>
+<button class="bg-neutral-800/50 px-6 py-2 rounded-lg text-orange-400 font-headline font-semibold scale-98 active:scale-95 transition-transform hover:bg-neutral-800/70">Sign In</button>
+</nav>
+<main class="min-h-screen pt-32 pb-20 px-6 flex flex-col items-center">
+<!-- Trial Mode Header -->
+<div class="w-full max-w-5xl mb-12 text-center md:text-left">
+<span class="font-headline text-primary text-xs uppercase tracking-[0.3em] mb-2 block">Experimental Protocol</span>
+<h1 class="font-headline text-4xl md:text-6xl font-bold tracking-tight mb-4 text-on-surface">Predictive Analysis <span class="text-primary-container">Trial Mode</span></h1>
+<p class="text-on-surface-variant max-w-2xl text-lg font-light leading-relaxed">Instantly calculate ionic conductivity and activation energy for solid-state electrolytes using our neural network pre-trained on 45,000+ crystal structures.</p>
+</div>
+<div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left: Inputs & Upload -->
+<div class="lg:col-span-7 glass-card p-8 rounded-xl space-y-8">
+<!-- CIF Upload Box -->
+<div class="group relative border-2 border-dashed border-outline-variant/30 rounded-lg p-10 flex flex-col items-center justify-center transition-all duration-300 hover:border-primary-container/50 hover:bg-surface-container-low/40">
+<span class="material-symbols-outlined text-5xl text-outline mb-4 group-hover:text-primary transition-colors" data-icon="upload_file">upload_file</span>
+<h3 class="font-headline text-xl font-medium mb-1">Drag &amp; Drop CIF File</h3>
+<p class="text-on-surface-variant text-sm font-light">Crystallographic Information Framework (.cif) only</p>
+<button class="mt-6 px-4 py-2 bg-surface-container-high rounded text-xs font-headline font-bold uppercase tracking-widest hover:bg-surface-container-highest transition-colors">Select File</button>
+</div>
+<!-- Chemical Composition Input -->
+<div class="space-y-4">
+<label class="font-headline text-sm font-semibold tracking-wide text-primary uppercase">Chemical Composition</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg p-4 text-on-surface placeholder:text-outline-variant focus:ring-2 focus:ring-primary-container transition-all" placeholder="e.g. Li7La3Zr2O12" type="text"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline" data-icon="science">science</span>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="bg-secondary-container/10 border border-secondary-container/20 px-3 py-1 rounded-full text-primary text-[10px] font-headline">Li-Ion</span>
+<span class="bg-secondary-container/10 border border-secondary-container/20 px-3 py-1 rounded-full text-primary text-[10px] font-headline">Garnet-type</span>
+<span class="bg-secondary-container/10 border border-secondary-container/20 px-3 py-1 rounded-full text-primary text-[10px] font-headline">Cubic Phase</span>
+</div>
+</div>
+<!-- Temperature Selection -->
+<div class="space-y-6">
+<div class="flex justify-between items-center">
+<label class="font-headline text-sm font-semibold tracking-wide text-primary uppercase">Temperature (K)</label>
+<span class="text-2xl font-headline font-bold text-on-surface">298 <span class="text-sm font-light text-on-surface-variant tracking-normal">K</span></span>
+</div>
+<input class="w-full accent-primary bg-transparent cursor-pointer" max="1000" min="200" type="range" value="298"/>
+<div class="flex justify-between text-[10px] font-headline text-outline tracking-widest uppercase">
+<span>200 K</span>
+<span>400 K</span>
+<span>600 K</span>
+<span>800 K</span>
+<span>1000 K</span>
+</div>
+</div>
+<!-- Primary CTA -->
+<button class="w-full bg-gradient-to-br from-primary to-primary-container h-16 rounded-lg text-on-primary font-headline font-extrabold text-lg uppercase tracking-widest neon-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" data-icon="bolt">bolt</span>
+                    Predict Properties
+                </button>
+</div>
+<!-- Right: Results Visualization -->
+<div class="lg:col-span-5 space-y-6">
+<div class="glass-card rounded-xl overflow-hidden">
+<div class="p-6 bg-surface-container-high/40 border-b border-outline-variant/10">
+<h2 class="font-headline text-lg font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="analytics">analytics</span>
+                            Simulation Output
+                        </h2>
+</div>
+<div class="p-8 space-y-10">
+<!-- Metric 1 -->
+<div class="relative">
+<div class="flex justify-between items-end mb-4">
+<div>
+<p class="text-[10px] font-headline uppercase tracking-widest text-outline mb-1">Activation Energy</p>
+<h4 class="text-4xl font-headline font-bold text-on-surface">0.32 <span class="text-sm text-outline-variant font-normal">eV</span></h4>
+</div>
+<div class="h-10 w-10 rounded bg-tertiary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" data-icon="energy_savings_leaf">energy_savings_leaf</span>
+</div>
+</div>
+<div class="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[32%] rounded-full"></div>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="relative">
+<div class="flex justify-between items-end mb-4">
+<div>
+<p class="text-[10px] font-headline uppercase tracking-widest text-outline mb-1">Ionic Conductivity</p>
+<h4 class="text-4xl font-headline font-bold text-on-surface">1.2e-4 <span class="text-sm text-outline-variant font-normal">S/cm</span></h4>
+</div>
+<div class="h-10 w-10 rounded bg-primary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="show_chart">show_chart</span>
+</div>
+</div>
+<div class="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="bg-tertiary-container h-full w-[65%] rounded-full"></div>
+</div>
+</div>
+<!-- Visualization Mockup -->
+<div class="bg-surface-container-lowest rounded-lg p-4 h-48 relative overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(circle at 2px 2px, #5a4136 1px, transparent 0); background-size: 24px 24px;"></div>
+<img class="w-full h-full object-cover rounded opacity-40 mix-blend-luminosity" data-alt="abstract 3d visualization of molecular crystal structure lattice with orange neon connection lines representing ionic paths" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtmx9_LTZxW1e63UPkHYLb3Dr4tkUUo7mAxQRANTgoprbEVGCP-b0YriOgP2_E_ZwiehT4kwYkqUTpqC1creePC00JXYLiIOvdlCJDsLzNXVn-Sgw4VxW4ktJWIA2r3XZWFmcnQpegJ_-g-Lru3_4M1K4Co686GCtisTmWUGETXnJNlCdQnnC-e-a4PVV-oUq1n8XSSFi8HIBNjEa5U_v2vyS90_e8sWxXWgHCE9Jps_zDZMcYc6dtjY7Okqfuc98ad2_WF4x_IjM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+<div class="relative z-10 text-center">
+<span class="material-symbols-outlined text-primary text-4xl mb-2 animate-pulse" data-icon="view_in_ar">view_in_ar</span>
+<p class="text-[10px] font-headline uppercase tracking-[0.2em] text-outline">Structural Diffusion Map</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Help Tip -->
+<div class="bg-surface-container-low rounded-lg p-6 border-l-4 border-primary/40">
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<div>
+<p class="text-xs font-headline font-bold uppercase tracking-widest text-on-surface mb-1">Researcher Tip</p>
+<p class="text-sm text-on-surface-variant font-light">Trial mode uses a simplified Gaussian process model. For preciseDFT-backed results, upgrade to Professional tier.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Note -->
+<div class="mt-16 text-center space-y-4">
+<p class="text-on-surface-variant font-light">Login to unlock full features, batch processing, and high-fidelity DFT simulations.</p>
+<a class="inline-flex items-center gap-2 font-headline text-primary font-bold uppercase tracking-widest text-xs hover:text-primary-container transition-colors group" href="#">
+                Create Researcher Account
+                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</a>
+</div>
+</main>
+<!-- Footer Component -->
+<footer class="bg-neutral-950 w-full py-12 border-t border-neutral-900 flex flex-col items-center gap-4 px-8">
+<div class="flex flex-wrap justify-center gap-8 mb-4">
+<a class="text-neutral-600 hover:text-orange-300 transition-colors font-body text-xs uppercase tracking-widest" href="#">Privacy Policy</a>
+<a class="text-neutral-600 hover:text-orange-300 transition-colors font-body text-xs uppercase tracking-widest" href="#">Terms of Service</a>
+<a class="text-neutral-600 hover:text-orange-300 transition-colors font-body text-xs uppercase tracking-widest" href="#">Research Ethics</a>
+<a class="text-neutral-600 hover:text-orange-300 transition-colors font-body text-xs uppercase tracking-widest" href="#">Contact</a>
+</div>
+<p class="text-neutral-600 font-body text-xs uppercase tracking-widest">© 2024 IndianMatter. Engineered for Scientific Discovery.</p>
+</footer>
+</body></html>

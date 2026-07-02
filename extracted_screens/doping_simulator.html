@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Doping Simulator | IndianMatter</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#ffb596",
+                        "on-primary": "#581e00",
+                        "on-secondary-fixed": "#360f00",
+                        "background": "#131313",
+                        "primary-fixed-dim": "#ffb596",
+                        "tertiary-container": "#009cfc",
+                        "on-secondary-fixed-variant": "#7a3006",
+                        "on-primary-fixed": "#360f00",
+                        "tertiary-fixed": "#d0e4ff",
+                        "tertiary-fixed-dim": "#9ccaff",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#ffdbcd",
+                        "surface-container-highest": "#353535",
+                        "primary": "#ffb596",
+                        "surface-bright": "#393939",
+                        "on-error-container": "#ffdad6",
+                        "surface-container": "#1f1f1f",
+                        "surface-variant": "#353535",
+                        "on-tertiary-container": "#003155",
+                        "error-container": "#93000a",
+                        "error": "#ffb4ab",
+                        "inverse-surface": "#e2e2e2",
+                        "on-secondary-container": "#ffa177",
+                        "surface": "#131313",
+                        "on-primary-container": "#561d00",
+                        "secondary-container": "#7d3208",
+                        "inverse-on-surface": "#303030",
+                        "primary-fixed": "#ffdbcd",
+                        "on-tertiary-fixed": "#001d35",
+                        "on-tertiary": "#003256",
+                        "on-primary-fixed-variant": "#7c2e00",
+                        "on-background": "#e2e2e2",
+                        "on-secondary": "#581e00",
+                        "on-surface": "#e2e2e2",
+                        "surface-container-high": "#2a2a2a",
+                        "on-tertiary-fixed-variant": "#00497b",
+                        "secondary": "#ffb596",
+                        "surface-container-low": "#1b1b1b",
+                        "tertiary": "#9ccaff",
+                        "secondary-fixed-dim": "#ffb596",
+                        "inverse-primary": "#a33e00",
+                        "primary-container": "#ff6600",
+                        "outline-variant": "#5a4136",
+                        "outline": "#aa8a7d",
+                        "surface-dim": "#131313",
+                        "on-surface-variant": "#e3bfb1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .neon-glow { box-shadow: 0px 0px 15px rgba(255, 102, 0, 0.3); }
+        .glass-card { background: rgba(27, 27, 27, 0.6); backdrop-filter: blur(16px); }
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { height: 4px; background: #2a2a2a; border-radius: 2px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffb596; margin-top: -6px; cursor: pointer; box-shadow: 0 0 10px rgba(255, 181, 150, 0.5); }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary/30 min-h-screen flex">
+<!-- SideNavBar Anchor -->
+<aside class="hidden md:flex h-screen w-64 border-r border-neutral-800/20 bg-neutral-950 flex-col py-6 sticky top-0 shrink-0">
+<div class="px-6 mb-10">
+<h1 class="text-orange-500 font-bold font-headline text-xl tracking-tighter uppercase">IndianMatter</h1>
+<div class="mt-8 flex items-center gap-3 p-3 bg-surface-container-low rounded-lg">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">science</span>
+</div>
+<div>
+<p class="text-xs font-headline font-bold text-on-surface">Scientific Lab</p>
+<p class="text-[10px] text-neutral-500 uppercase tracking-widest">AI Researcher</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1 px-4">
+<a class="flex items-center gap-3 px-4 py-3 text-neutral-500 font-headline text-sm hover:bg-neutral-900 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-orange-400 bg-neutral-900/50 border-r-4 border-orange-500 font-headline text-sm transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">science</span>
+                Crystal Explorer
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-neutral-500 font-headline text-sm hover:bg-neutral-900 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calculate</span>
+                Calculations
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-neutral-500 font-headline text-sm hover:bg-neutral-900 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">layers</span>
+                Structures
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-neutral-500 font-headline text-sm hover:bg-neutral-900 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</nav>
+<div class="px-4 mt-auto space-y-4">
+<button class="w-full py-3 bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold rounded-md neon-glow text-sm transition-transform active:scale-95">
+                New Experiment
+            </button>
+<a class="flex items-center gap-3 px-4 py-3 text-neutral-500 font-headline text-sm hover:bg-neutral-900 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+                Help Center
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 min-w-0 overflow-y-auto bg-background">
+<!-- Header Section -->
+<header class="px-8 pt-12 pb-6">
+<div class="flex items-center gap-2 mb-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-[10px] font-headline text-primary tracking-[0.2em] uppercase">Simulation Environment v2.4</span>
+</div>
+<h2 class="text-4xl font-headline font-bold text-on-surface tracking-tight mb-2">Doping Simulator</h2>
+<p class="text-on-surface-variant max-w-2xl text-sm leading-relaxed">
+                Harness the power of Transformer-based Graph Neural Networks to predict how atomic substitutions influence the electronic and mechanical properties of crystalline structures.
+            </p>
+</header>
+<div class="px-8 pb-12 grid grid-cols-12 gap-8">
+<!-- Left: Controls Panel (Asymmetric smaller column) -->
+<section class="col-span-12 lg:col-span-4 space-y-6">
+<div class="glass-card p-6 rounded-xl border border-outline-variant/10">
+<h3 class="text-xs font-headline font-bold text-primary uppercase tracking-widest mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">tune</span> Parameters
+                    </h3>
+<div class="space-y-8">
+<!-- Base Material -->
+<div class="space-y-3">
+<label class="text-[10px] font-headline text-neutral-400 uppercase tracking-widest">Base Material</label>
+<div class="relative group">
+<select class="w-full bg-surface-container-low border-none rounded-md px-4 py-3 text-sm text-on-surface appearance-none focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer">
+<option>Graphene (Monolayer)</option>
+<option>MoS2 (Transition Metal Dichalcogenide)</option>
+<option>h-BN (Hexagonal Boron Nitride)</option>
+<option>Silicon Carbide (4H-SiC)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-3 text-neutral-500 pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Dopant -->
+<div class="space-y-3">
+<label class="text-[10px] font-headline text-neutral-400 uppercase tracking-widest">Substitution Dopant</label>
+<div class="relative group">
+<select class="w-full bg-surface-container-low border-none rounded-md px-4 py-3 text-sm text-on-surface appearance-none focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer">
+<option>Nitrogen (N)</option>
+<option>Boron (B)</option>
+<option>Phosphorus (P)</option>
+<option>Arsenic (As)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-3 text-neutral-500 pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Percentage Slider -->
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<label class="text-[10px] font-headline text-neutral-400 uppercase tracking-widest">Concentration</label>
+<span class="text-primary font-headline text-sm font-bold">2.45%</span>
+</div>
+<input class="w-full" max="10" min="0" step="0.01" type="range" value="2.45"/>
+<div class="flex justify-between text-[8px] text-neutral-600 font-headline uppercase tracking-tighter">
+<span>Trace (0%)</span>
+<span>Heavy (10%)</span>
+</div>
+</div>
+<button class="w-full py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold rounded-md neon-glow text-base transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3">
+                            Calculate Doping Effect
+                            <span class="material-symbols-outlined text-lg">bolt</span>
+</button>
+</div>
+</div>
+<!-- Simulation Info Chip -->
+<div class="p-4 bg-surface-container-lowest rounded-md flex items-center gap-4">
+<div class="p-2 rounded-full bg-secondary-container/20">
+<span class="material-symbols-outlined text-primary text-xl">memory</span>
+</div>
+<div>
+<p class="text-xs font-headline font-bold text-on-surface">Compute Engine Active</p>
+<p class="text-[10px] text-neutral-500">Latency: 142ms • Precision: FLOAT32</p>
+</div>
+</div>
+</section>
+<!-- Right: Results Visualization (Bento Grid Style) -->
+<section class="col-span-12 lg:col-span-8 space-y-8">
+<!-- Comparison Section -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Before Visualization -->
+<div class="glass-card rounded-xl overflow-hidden flex flex-col">
+<div class="p-4 border-b border-outline-variant/5 flex justify-between items-center bg-surface-container-low/30">
+<span class="text-[10px] font-headline font-bold text-neutral-400 uppercase tracking-widest">Pristine State</span>
+<span class="text-[10px] px-2 py-0.5 rounded bg-surface-container-highest text-neutral-300">REF-01</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest relative group cursor-crosshair">
+<div class="absolute inset-0 flex items-center justify-center opacity-30">
+<div class="w-48 h-48 border border-primary/20 rounded-full animate-pulse"></div>
+</div>
+<img alt="Crystal Structure" class="w-full h-full object-cover mix-blend-screen opacity-70" data-alt="abstract hexagonal molecular lattice structure of graphene rendered in neon orange and black scientific digital visualization" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2CF_LXsChK9WAgaQqn5b9TgH-U_6w43BxwfvZpuTe28Lmj5q0R1fx4MglwEBXWQ1fLRqtymcQC3C8loOyT4exD_idNThEoBGa_vM96OhsmBMAUW46evLYL48XFQ8WiVzJ9BddL72JKj44yF3WyF2NOmunc7T9LX7gG9lkEgO7Vxgn2zmbGx-x64QdvntNOH2U4L1HxMXZq7_0z-LKKgqnYTUJsbe6NJ1_Px8ONY-2GZ0StN2FYrKTXu1LiZ4fKXScJO8Jw6ZMPUE"/>
+<div class="absolute bottom-4 left-4 p-2 glass-card rounded border border-outline-variant/10">
+<p class="text-[8px] font-headline text-neutral-500 uppercase">Symmetry Group</p>
+<p class="text-xs font-bold font-headline text-on-surface">P6/mmm (No. 191)</p>
+</div>
+</div>
+</div>
+<!-- After Visualization -->
+<div class="glass-card rounded-xl overflow-hidden flex flex-col ring-1 ring-primary/30">
+<div class="p-4 border-b border-outline-variant/5 flex justify-between items-center bg-surface-container-low/30">
+<span class="text-[10px] font-headline font-bold text-primary uppercase tracking-widest">Simulated Doping (N-Doped)</span>
+<span class="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">PRED-99</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest relative">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-64 h-64 border border-primary/10 rounded-full border-dashed"></div>
+</div>
+<img alt="Doped Crystal Structure" class="w-full h-full object-cover mix-blend-screen" data-alt="graphene molecular structure with nitrogen atom substitutions highlighted by glowing orange points in a futuristic scientific simulation" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr7u_bs7XoerrHrybKX-ZhuO_rVN7VAlT-OO7_64eN1WVH2dBfdqQdrvR8bPDOccyWLnvbECsjD9JRvRRZ69N5tK21mrYAYCoh4LNzj2tOh1eG8ufZQ6uUnAjblLUe1IHoJQZQKmL1lpH8BhdhPBtXRhmuJGWY1idlt0O9VqLrO5MAEWDABuMMi5ifm5UZFUM9q2IodBKmDteM__aIwlZVRu73qGFoNLA4MdgfW9rs5Itx7_mHqHLyU13RBTtpQyAIyiX_Am9rF0k"/>
+<div class="absolute bottom-4 right-4 p-2 glass-card rounded border border-primary/20 bg-primary/5">
+<p class="text-[8px] font-headline text-primary uppercase">Predicted Shift</p>
+<p class="text-xs font-bold font-headline text-on-surface">+1.2eV Bandgap</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Metrics Bento -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+<div class="glass-card p-6 rounded-xl border border-outline-variant/10">
+<p class="text-[10px] font-headline text-neutral-400 uppercase tracking-widest mb-2">Conductivity Change</p>
+<div class="flex items-baseline gap-2">
+<h4 class="text-3xl font-headline font-bold text-on-surface">+142%</h4>
+<span class="text-[10px] text-primary">▲</span>
+</div>
+<p class="text-[10px] text-neutral-500 mt-4 leading-tight">Enhanced charge carrier density observed at Fermi level.</p>
+</div>
+<div class="glass-card p-6 rounded-xl border border-outline-variant/10">
+<p class="text-[10px] font-headline text-neutral-400 uppercase tracking-widest mb-2">Thermal Stability</p>
+<div class="flex items-baseline gap-2">
+<h4 class="text-3xl font-headline font-bold text-on-surface">-12.5%</h4>
+<span class="text-[10px] text-error">▼</span>
+</div>
+<p class="text-[10px] text-neutral-500 mt-4 leading-tight">Slight reduction in melting point due to lattice strain.</p>
+</div>
+<div class="glass-card p-6 rounded-xl border border-outline-variant/10">
+<p class="text-[10px] font-headline text-neutral-400 uppercase tracking-widest mb-2">Work Function</p>
+<div class="flex items-baseline gap-2">
+<h4 class="text-3xl font-headline font-bold text-on-surface">4.12 eV</h4>
+</div>
+<p class="text-[10px] text-neutral-500 mt-4 leading-tight">Optimized for electron injection in OLED devices.</p>
+</div>
+</div>
+<!-- Analysis Chart Placeholder -->
+<div class="glass-card p-8 rounded-xl border border-outline-variant/10 relative overflow-hidden">
+<div class="flex justify-between items-end mb-12">
+<div>
+<h3 class="text-lg font-headline font-bold text-on-surface">Density of States (DOS)</h3>
+<p class="text-xs text-neutral-500">Electronic structure analysis of n-doped vs pristine graphene</p>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-1 bg-neutral-700"></span>
+<span class="text-[10px] font-headline uppercase text-neutral-500">Pristine</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-1 bg-primary"></span>
+<span class="text-[10px] font-headline uppercase text-primary">Doped</span>
+</div>
+</div>
+</div>
+<div class="h-48 flex items-end justify-between gap-1">
+<!-- Simulated Chart -->
+<div class="flex-1 h-[20%] bg-surface-container-lowest rounded-t-sm relative group">
+<div class="absolute bottom-0 w-full bg-primary/20 h-[150%] transition-all"></div>
+</div>
+<div class="flex-1 h-[40%] bg-surface-container-lowest rounded-t-sm relative">
+<div class="absolute bottom-0 w-full bg-primary/20 h-[120%]"></div>
+</div>
+<div class="flex-1 h-[30%] bg-surface-container-lowest rounded-t-sm relative">
+<div class="absolute bottom-0 w-full bg-primary/20 h-[180%]"></div>
+</div>
+<div class="flex-1 h-[10%] bg-surface-container-lowest rounded-t-sm relative">
+<div class="absolute bottom-0 w-full bg-primary/60 h-[500%] shadow-[0_0_15px_rgba(255,102,0,0.4)]"></div>
+</div>
+<div class="flex-1 h-[60%] bg-surface-container-lowest rounded-t-sm relative">
+<div class="absolute bottom-0 w-full bg-primary/20 h-[80%]"></div>
+</div>
+<div class="flex-1 h-[25%] bg-surface-container-lowest rounded-t-sm relative">
+<div class="absolute bottom-0 w-full bg-primary/20 h-[110%]"></div>
+</div>
+<div class="flex-1 h-[45%] bg-surface-container-lowest rounded-t-sm relative">
+<div class="absolute bottom-0 w-full bg-primary/20 h-[90%]"></div>
+</div>
+</div>
+<div class="w-full h-px bg-neutral-800 mt-2"></div>
+<div class="flex justify-between text-[10px] font-headline text-neutral-600 mt-2">
+<span>-4 eV</span>
+<span>-2 eV</span>
+<span class="text-primary font-bold">Fermi Level (0)</span>
+<span>+2 eV</span>
+<span>+4 eV</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer Anchor -->
+<footer class="w-full py-12 border-t border-neutral-900 bg-neutral-950 flex flex-col items-center gap-4 px-8">
+<p class="font-['Inter'] text-xs uppercase tracking-[0.3em] text-neutral-600">© 2024 IndianMatter. Engineered for Scientific Discovery.</p>
+<div class="flex gap-8">
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-neutral-600 hover:text-orange-300 transition-colors" href="#">Privacy Policy</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-neutral-600 hover:text-orange-300 transition-colors" href="#">Terms of Service</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-neutral-600 hover:text-orange-300 transition-colors" href="#">Research Ethics</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-neutral-600 hover:text-orange-300 transition-colors" href="#">Contact</a>
+</div>
+</footer>
+</main>
+</body></html>
