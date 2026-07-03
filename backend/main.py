@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(user_routes.router, prefix="/api/users", tags=["Users"])
 app.include_router(predict_routes.router, prefix="/api/ml", tags=["Predictions (Trial)"])
+app.include_router(predict_routes.router, prefix="/trial", tags=["Trial Mode"])
 
 @app.get("/")
 def read_root():

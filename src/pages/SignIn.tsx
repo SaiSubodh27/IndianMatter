@@ -88,44 +88,32 @@ export default function SignIn() {
   });
 
   return (
-    <div className="font-body selection:bg-primary-container selection:text-white overflow-hidden min-h-screen bg-background relative text-on-surface">
-      {/* Background Decoration */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary-container/10 rounded-full blur-[120px]"></div>
-        <div className="absolute top-1/2 -right-48 w-[500px] h-[500px] bg-tertiary-container/5 rounded-full blur-[150px]"></div>
-        <div className="absolute bottom-0 left-1/4 w-[600px] h-[300px] bg-secondary-container/10 rounded-full blur-[100px]"></div>
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]"></div>
-      </div>
-
-      {/* Main Content Canvas */}
-      <main className="relative z-10 min-h-screen flex items-center justify-center p-6">
-        {/* Login Container */}
-        <div className="w-full max-w-[480px]">
-          {/* Branding Anchor */}
-          <div className="flex flex-col items-center mb-10 space-y-2">
+    <div className="enterprise-page selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900">
+      <main className="flex min-h-screen items-center justify-center px-6 py-10">
+        <div className="w-full max-w-lg">
+          <div className="mb-8 flex flex-col items-center text-center">
             <Link
               to="/"
-              className="w-12 h-12 bg-gradient-to-br from-primary to-primary-container rounded-xl flex items-center justify-center mb-4 neon-glow hover:scale-105 transition-transform"
+              className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-900 shadow-sm transition-transform hover:scale-105 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
             >
-              <span className="material-symbols-outlined text-on-primary text-3xl font-bold">
+              <span className="material-symbols-outlined text-3xl font-bold">
                 science
               </span>
             </Link>
-            <h1 className="font-headline text-3xl font-bold tracking-tighter text-on-surface">
+            <h1 className="font-headline text-3xl font-bold tracking-tight text-gray-900 dark:text-neutral-100">
               IndianMatter
             </h1>
-            <p className="font-label text-on-surface-variant tracking-[0.2em] uppercase text-[10px]">
+            <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400 font-label">
               Scientific Intelligence Portal
             </p>
           </div>
 
-          {/* Glassmorphic Card */}
-          <div className="glass-card rounded-xl p-8 md:p-10 border border-outline-variant/20 shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
+          <div className="enterprise-panel p-8 md:p-10">
             <div className="mb-8">
-              <h2 className="font-headline text-2xl font-semibold text-primary mb-1">
+              <h2 className="mb-1 font-headline text-2xl font-semibold text-gray-900 dark:text-neutral-100">
                 Welcome Back
               </h2>
-              <p className="text-on-surface-variant text-sm">
+              <p className="text-sm text-gray-600 dark:text-neutral-400">
                 Access the advanced materials repository
               </p>
             </div>
@@ -133,7 +121,7 @@ export default function SignIn() {
             <form className="space-y-6" onSubmit={handleSignIn}>
               {/* Error Message */}
               {error && (
-                <div className="bg-error/10 border border-error/50 text-error px-4 py-3 rounded-lg text-xs font-semibold">
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300">
                   {error}
                 </div>
               )}
@@ -141,19 +129,19 @@ export default function SignIn() {
               {/* Email Field */}
               <div className="space-y-2">
                 <label
-                  className="font-label text-xs font-medium text-on-surface-variant uppercase tracking-wider"
+                  className="font-label text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400"
                   htmlFor="email"
                 >
                   Research Email
                 </label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-on-surface-variant/50 group-focus-within:text-primary transition-colors">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 transition-colors pointer-events-none group-focus-within:text-gray-700 dark:text-neutral-500 dark:group-focus-within:text-neutral-200">
                     <span className="material-symbols-outlined text-xl">
                       alternate_email
                     </span>
                   </div>
                   <input
-                    className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-lg py-3.5 pl-12 pr-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container/50 focus:border-primary-container transition-all placeholder:text-on-surface-variant/30 text-sm"
+                    className="enterprise-input pl-12 text-sm"
                     id="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -168,26 +156,26 @@ export default function SignIn() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label
-                    className="font-label text-xs font-medium text-on-surface-variant uppercase tracking-wider"
+                    className="font-label text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400"
                     htmlFor="password"
                   >
                     Access Key
                   </label>
                   <a
-                    className="text-[10px] font-label text-primary hover:text-primary-container transition-colors uppercase tracking-widest"
+                    className="text-[10px] font-label uppercase tracking-widest text-gray-600 transition-colors hover:text-gray-900 dark:text-neutral-400 dark:hover:text-neutral-100"
                     href="#"
                   >
                     Forgot Key?
                   </a>
                 </div>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-on-surface-variant/50 group-focus-within:text-primary transition-colors">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 transition-colors pointer-events-none group-focus-within:text-gray-700 dark:text-neutral-500 dark:group-focus-within:text-neutral-200">
                     <span className="material-symbols-outlined text-xl">
                       lock
                     </span>
                   </div>
                   <input
-                    className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-lg py-3.5 pl-12 pr-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container/50 focus:border-primary-container transition-all placeholder:text-on-surface-variant/30 text-sm"
+                    className="enterprise-input pl-12 text-sm"
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -200,7 +188,7 @@ export default function SignIn() {
 
               {/* Primary Action */}
               <button
-                className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary font-headline font-bold py-4 rounded-lg neon-glow-btn transition-all active:scale-[0.98] flex items-center justify-center gap-2 group hover:shadow-[0_0_20px_rgba(255,102,0,0.4)] disabled:opacity-50"
+                className="enterprise-button-primary w-full py-4 font-headline font-bold disabled:opacity-50"
                 type="submit"
                 disabled={loading}
               >
@@ -214,10 +202,10 @@ export default function SignIn() {
             {/* Divider */}
             <div className="relative my-8">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-outline-variant/10"></div>
+                <div className="w-full border-t border-gray-200 dark:border-neutral-800"></div>
               </div>
               <div className="relative flex justify-center text-xs uppercase tracking-[0.2em] font-label">
-                <span className="bg-transparent px-4 text-on-surface-variant/40">
+                <span className="bg-transparent px-4 text-gray-400 dark:text-neutral-500">
                   OR PROTOCOL
                 </span>
               </div>
@@ -228,7 +216,7 @@ export default function SignIn() {
               <button
                 onClick={() => loginWithGoogle()}
                 type="button"
-                className="flex items-center justify-center gap-3 bg-surface-container-highest/30 hover:bg-surface-container-highest/60 border border-outline-variant/10 rounded-lg py-3.5 transition-all text-sm font-medium text-on-surface group"
+                className="enterprise-button-secondary flex items-center justify-center gap-3 py-3.5 text-sm"
               >
                 <img
                   alt="Google"
@@ -240,11 +228,11 @@ export default function SignIn() {
             </div>
 
             {/* Signup Prompt */}
-            <p className="mt-8 text-center text-xs text-on-surface-variant">
+            <p className="mt-8 text-center text-xs text-gray-500 dark:text-neutral-400">
               New researcher?
               <Link
                 to="/trial"
-                className="text-primary font-semibold hover:underline decoration-primary-container/30 underline-offset-4 ml-1"
+                className="ml-1 font-semibold text-gray-900 underline-offset-4 hover:underline dark:text-neutral-100"
               >
                 Request laboratory access
               </Link>
@@ -252,7 +240,7 @@ export default function SignIn() {
           </div>
 
           {/* Security Footer */}
-          <div className="mt-8 flex items-center justify-center gap-6 text-[10px] font-label text-on-surface-variant/40 uppercase tracking-[0.15em]">
+          <div className="mt-8 flex items-center justify-center gap-6 text-[10px] uppercase tracking-[0.15em] text-gray-400 dark:text-neutral-500 font-label">
             <div className="flex items-center gap-1.5">
               <span className="material-symbols-outlined text-sm">
                 verified_user

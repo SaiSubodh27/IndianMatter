@@ -1,0 +1,163 @@
+{
+  "id": "a5c35de4ac88413e85224a40eaab7f10",
+  "status": "success",
+  "message": "Prediction completed",
+  "prediction_timestamp": "2026-07-02T06:03:21.164585Z",
+  "model_version": "v5_stacking_Ea + v2_model_A",
+  "cif_name": "test_mat.cif",
+  "input_parameters": {
+    "temperature_k": 298.0,
+    "material_id": "auto",
+    "material_name": "test_mat"
+  },
+  "conductivity_prediction": {
+    "value_s_cm": 9.704e-46,
+    "log10_value": -45.013,
+    "unit": "S/cm",
+    "temperature_k": 298.0
+  },
+  "arrhenius_parameters": {
+    "Ea_ev": 2.9573,
+    "logA": 5.0,
+    "temperature_series": [
+      {
+        "temperature_k": 250,
+        "conductivity_s_cm": 2.4235e-55
+      },
+      {
+        "temperature_k": 300,
+        "conductivity_s_cm": 2.0911e-45
+      },
+      {
+        "temperature_k": 350,
+        "conductivity_s_cm": 2.6149e-38
+      },
+      {
+        "temperature_k": 400,
+        "conductivity_s_cm": 5.4989e-33
+      },
+      {
+        "temperature_k": 450,
+        "conductivity_s_cm": 7.5901e-29
+      },
+      {
+        "temperature_k": 500,
+        "conductivity_s_cm": 1.5568e-25
+      },
+      {
+        "temperature_k": 550,
+        "conductivity_s_cm": 7.9803e-23
+      },
+      {
+        "temperature_k": 600,
+        "conductivity_s_cm": 1.4461e-20
+      },
+      {
+        "temperature_k": 650,
+        "conductivity_s_cm": 1.1774e-18
+      },
+      {
+        "temperature_k": 700,
+        "conductivity_s_cm": 5.1137e-17
+      },
+      {
+        "temperature_k": 750,
+        "conductivity_s_cm": 1.3432e-15
+      },
+      {
+        "temperature_k": 800,
+        "conductivity_s_cm": 2.345e-14
+      },
+      {
+        "temperature_k": 850,
+        "conductivity_s_cm": 2.9242e-13
+      },
+      {
+        "temperature_k": 900,
+        "conductivity_s_cm": 2.755e-12
+      },
+      {
+        "temperature_k": 950,
+        "conductivity_s_cm": 2.0497e-11
+      },
+      {
+        "temperature_k": 1000,
+        "conductivity_s_cm": 1.2477e-10
+      }
+    ]
+  },
+  "hes": {
+    "score": 0.0,
+    "normalized": 0.0,
+    "components": {
+      "conductivity": 0,
+      "activation_energy": 0
+    },
+    "validation_status": "low_confidence",
+    "confidence": "Low",
+    "prediction_quality": "Screening Only",
+    "rating": "Low"
+  },
+  "predicted_properties": {
+    "activation_energy": {
+      "value_ev": 2.9573,
+      "unit": "eV"
+    },
+    "pre_exponential_factor": {
+      "log10_value": 5.0,
+      "value": 100000.0,
+      "unit": "S/cm"
+    },
+    "ionic_conductivity": {
+      "value_s_cm": 9.704e-46,
+      "log10_value": -45.013,
+      "unit": "S/cm",
+      "temperature_k": 298.0
+    }
+  },
+  "material_properties": {
+    "chemical_composition": {
+      "formula": "Li2PS2",
+      "source": "CIF file analysis"
+    },
+    "material_classification": {
+      "crystal_system": "Orthorhombic",
+      "crystal_type": "Orthorhombic",
+      "detailed": {
+        "crystal_system": "Orthorhombic",
+        "material_type": "Lithium-based",
+        "ion_conductor_type": "Lithium Solid Electrolyte"
+      }
+    },
+    "structural_details": {
+      "space_group": "Pnma (#62)",
+      "density": 2.418354167317218,
+      "volume": 299.33599999999996,
+      "elements": [
+        "Li",
+        "P",
+        "S"
+      ],
+      "lattice": {
+        "a": 7.1,
+        "b": 6.8,
+        "c": 6.2,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      }
+    }
+  },
+  "scoring": {
+    "hes_score": 0.0,
+    "normalized_hes": 0.0,
+    "hes_rating": "Low",
+    "confidence": "Low",
+    "validation_status": "low_confidence",
+    "model_source": "v5_stacking_Ea + v2_model_A"
+  },
+  "warnings": [
+    "Ea validation warning: Ea exceeds typical range (>2.0 eV): 2.9572509399195495"
+  ],
+  "raw_status": "success"
+}

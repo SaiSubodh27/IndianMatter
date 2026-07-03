@@ -21,6 +21,11 @@ try:
 except ImportError:
     MATMINER_AVAILABLE = False
 
+try:
+    from Surrogative_models.final_validation import PredictionValidator
+except ImportError:
+    PredictionValidator = None
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # GLOBAL MODEL STATE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -37,6 +42,9 @@ v5_model2_A = None
 expected_cols_base = None
 expected_cols_a = None
 
+MODEL_VERSION = "v5_stacking_Ea + v2_model_A"
+SUPPORTED_TEMPERATURE_RANGE_K = (250, 1000)
+
 
 def load_models():
     """Load all v5 models for Ea and v2 model for A on server startup."""
@@ -49,31 +57,39 @@ def load_models():
     try:
         # ── Load v5 stacking models for Ea ──
         v5_base_models = joblib.load(os.path.join(models_dir, "v5_base_models.pkl"))
-        print(f"  ✓ v5_base_models loaded  ({len(v5_base_models)} base learners: {list(v5_base_models.keys())})")
+        print(f"  OK v5_base_models loaded  ({len(v5_base_models)} base learners: {list(v5_base_models.keys())})")
 
         v5_mlp_models = joblib.load(os.path.join(models_dir, "v5_mlp_models.pkl"))
-        print(f"  ✓ v5_mlp_models loaded   ({len(v5_mlp_models)} MLP models: {list(v5_mlp_models.keys())})")
+        print(f"  OK v5_mlp_models loaded   ({len(v5_mlp_models)} MLP models: {list(v5_mlp_models.keys())})")
 
         v5_meta_model = joblib.load(os.path.join(models_dir, "v5_meta_model.pkl"))
-        print(f"  ✓ v5_meta_model loaded   (meta-stacking model for Ea)")
+        print(f"  OK v5_meta_model loaded   (meta-stacking model for Ea)")
 
         # ── Load v2 model for log10(A) ──
         v5_model2_A = joblib.load(os.path.join(models_dir, "v5_model2_A.pkl"))
-        print(f"  ✓ v5_model2_A loaded     (model for log10(A))")
+        print(f"  OK v5_model2_A loaded     (model for log10(A))")
 
-        # ── Load expected feature columns ──
-        with open(os.path.join(models_dir, 'base_cols.pkl'), 'rb') as f:
-            expected_cols_base = pickle.load(f)
-        with open(os.path.join(models_dir, 'a_cols.pkl'), 'rb') as f:
-            expected_cols_a = pickle.load(f)
-        print(f"  ✓ Feature columns loaded (base: {len(expected_cols_base)}, A: {len(expected_cols_a)})")
+        # ── Load expected feature columns from trained artifacts ──
+        expected_cols_base = getattr(v5_base_models.get("lgb"), "feature_name_", None)
+        if expected_cols_base is None:
+            with open(os.path.join(models_dir, 'base_cols.pkl'), 'rb') as f:
+                expected_cols_base = pickle.load(f)
 
-        print("\n══ All models loaded successfully! ══\n")
+        expected_cols_a = getattr(v5_model2_A, "feature_name_", None)
+        if expected_cols_a is None:
+            expected_cols_a = getattr(v5_model2_A, "feature_names_in_", None)
+        if expected_cols_a is None:
+            with open(os.path.join(models_dir, 'a_cols.pkl'), 'rb') as f:
+                expected_cols_a = pickle.load(f)
+
+        expected_cols_base = list(expected_cols_base)
+        expected_cols_a = list(expected_cols_a)
+        print(f"  OK Feature columns loaded (base: {len(expected_cols_base)}, A: {len(expected_cols_a)})")
+
+        print("\nAll models loaded successfully!\n")
 
     except Exception as e:
-        print(f"\n✗ Error loading models: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"\nERROR loading models: {str(e)}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -132,7 +148,44 @@ def extract_features(cif_path: str) -> pd.DataFrame:
         print(f"  Symmetry feature warning: {e}")
 
     df = pd.DataFrame([feats])
+    for col in list(df.columns):
+        safe_col = col.replace(" ", "_")
+        if safe_col not in df.columns:
+            df[safe_col] = df[col]
     return df, structure
+
+
+def _feature_columns_for_model(model, fallback_cols):
+    columns = getattr(model, "feature_names_in_", None)
+    if columns is not None:
+        return list(columns)
+
+    columns = getattr(model, "feature_name_", None)
+    if columns is not None:
+        return list(columns)
+
+    booster = getattr(model, "get_booster", None)
+    if booster is not None:
+        try:
+            columns = booster().feature_names
+            if columns:
+                return list(columns)
+        except Exception:
+            pass
+
+    columns = getattr(model, "feature_names_", None)
+    if columns is not None:
+        return list(columns)
+
+    return list(fallback_cols)
+
+
+def _align_features(df_raw: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    df = df_raw.copy()
+    for col in columns:
+        if col not in df.columns:
+            df[col] = 0.0
+    return df[columns]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -256,17 +309,17 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
         except Exception as struct_e:
             print(f"  Detailed structure parsing warning: {struct_e}")
 
-        # ── 2. Align features to expected columns ──
-        # Fill missing columns with 0.0 (features the CIF didn't produce)
-        for col in expected_cols_base:
-            if col not in df_raw.columns:
-                df_raw[col] = 0.0
-        for col in expected_cols_a:
-            if col not in df_raw.columns:
-                df_raw[col] = 0.0
+        # ── 2. Align features to each trained artifact's expected columns ──
+        df_base = _align_features(df_raw, expected_cols_base)
+        df_a = _align_features(df_raw, expected_cols_a)
 
-        df_base = df_raw[expected_cols_base]
-        df_a = df_raw[expected_cols_a]
+        if PredictionValidator is not None:
+            valid_base, base_msg = PredictionValidator.validate_features(df_base)
+            valid_a, a_msg = PredictionValidator.validate_features(df_a)
+            if not valid_base:
+                raise ValueError(f"Missing or invalid descriptors for Ea model: {base_msg}")
+            if not valid_a:
+                raise ValueError(f"Missing or invalid descriptors for logA model: {a_msg}")
 
         # ── 3. Predict log10(A) using v2 model ──
         pred_A = float(v5_model2_A.predict(df_a)[0])
@@ -274,9 +327,11 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
         # ── 4. Predict Ea using v5 stacking ensemble ──
         X_meta = pd.DataFrame()
         for name, model in v5_base_models.items():
-            X_meta[name] = model.predict(df_base)
+            model_cols = _feature_columns_for_model(model, expected_cols_base)
+            X_meta[name] = model.predict(_align_features(df_raw, model_cols))
         for name, model in v5_mlp_models.items():
-            X_meta[name] = model.predict(df_base)
+            model_cols = _feature_columns_for_model(model, expected_cols_base)
+            X_meta[name] = model.predict(_align_features(df_raw, model_cols))
 
         pred_Ea = float(v5_meta_model.predict(X_meta)[0])
 
@@ -296,24 +351,67 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
         elif hes >= 50: rating = "Good"
         elif hes >= 25: rating = "Moderate"
 
+        normalized_hes = hes / 100.0
+        validation_status = "validated" if hes >= 25 else "low_confidence"
+        confidence = "High" if hes >= 75 else "Medium" if hes >= 50 else "Low"
+        prediction_quality = "Excellent" if hes >= 75 else "Good" if hes >= 50 else "Screening Only"
+
+        warnings_out = []
+        if PredictionValidator is not None:
+            for label, value, validator in [
+                ("Ea", pred_Ea, PredictionValidator.validate_ea),
+                ("logA", pred_A, PredictionValidator.validate_log_a),
+                ("conductivity", conductivity, PredictionValidator.validate_conductivity),
+            ]:
+                is_valid, message = validator(value)
+                if not is_valid:
+                    warnings_out.append(f"{label} validation warning: {message}")
+
+        temp_min, temp_max = SUPPORTED_TEMPERATURE_RANGE_K
+        temperatures = list(range(temp_min, temp_max + 1, 50))
+        temperature_series = [
+            {
+                "temperature_k": temp,
+                "conductivity_s_cm": float(f"{(10 ** pred_A) * math.exp(-pred_Ea / (k_B * temp)):.4e}"),
+            }
+            for temp in temperatures
+        ]
+
         return {
             "status": "success",
             "Ea": round(pred_Ea, 4),
             "logA": round(pred_A, 4),
             "conductivity": float(f"{conductivity:.4e}"),
+            "temperature_k": temperature,
             "composition": composition,
             "classification": crystal_type,
             "classification_detailed": classification_info,
             "detailed_structure": detailed_structure,
             "hes_score": round(hes, 2),
+            "normalized_hes": round(normalized_hes, 4),
             "hes_rating": rating,
-            "source": "v5_stacking_Ea + v2_model_A"
+            "hes_validation": {
+                "components": {
+                    "conductivity": round(cond_score, 2),
+                    "activation_energy": round(ea_score, 2),
+                },
+                "total_score": round(hes, 2),
+                "normalized_score": round(normalized_hes, 4),
+                "validation_status": validation_status,
+                "confidence_level": confidence,
+                "prediction_quality": prediction_quality,
+            },
+            "confidence": confidence,
+            "validation_status": validation_status,
+            "prediction_quality": prediction_quality,
+            "temperature_series": temperature_series,
+            "warnings": warnings_out,
+            "model_version": MODEL_VERSION,
+            "source": MODEL_VERSION
         }
 
     except Exception as e:
         print(f"Prediction pipeline error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return {
             "status": "prediction_failed",
             "error": str(e),

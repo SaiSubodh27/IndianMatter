@@ -1,45 +1,54 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 
+const API_BASE_URL = "http://localhost:8000";
+
+type TrialResult = {
+  id?: string;
+  fileName: string;
+  Ea: number;
+  logA?: number;
+  conductivity: number;
+  composition?: string;
+  materialClass?: string;
+  confidence?: string;
+  validationStatus?: string;
+  predictionQuality?: string;
+  normalizedHes?: number;
+  warnings?: string[];
+  temperatureSeries?: Array<{
+    temperature_k: number;
+    conductivity_s_cm: number;
+  }>;
+  materialDetails?: {
+    crystal_system?: string;
+    material_type?: string;
+    ion_conductor_type?: string;
+  };
+  structuralDetails?: {
+    space_group?: string;
+    density?: number;
+    volume?: number;
+    elements?: string[];
+    lattice?: {
+      a: number;
+      b: number;
+      c: number;
+      alpha: number;
+      beta: number;
+      gamma: number;
+    };
+  };
+  hesScore?: number;
+  hesRating?: string;
+};
+
 export default function Trial() {
   const [temperature, setTemperature] = useState<number>(298);
-  const [files, setFiles] = useState<File[]>([]);
+  const [file, setFile] = useState<File | null>(null);
   const [composition, setComposition] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<
-    Array<{
-      fileName: string;
-      Ea: number;
-      logA?: number;
-      conductivity: number;
-      composition?: string;
-      materialClass?: string;
-      materialDetails?: {
-        crystal_system?: string;
-        material_type?: string;
-        ion_conductor_type?: string;
-      };
-      structuralDetails?: {
-        space_group?: string;
-        density?: number;
-        volume?: number;
-        elements?: string[];
-        lattice?: {
-          a: number;
-          b: number;
-          c: number;
-          alpha: number;
-          beta: number;
-          gamma: number;
-        };
-      };
-      hesScore?: number;
-      hesRating?: string;
-    }>
-  >([]);
-
-  const k = 8.617e-5; // Boltzmann constant in eV/K
-
+  const [result, setResult] = useState<TrialResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,113 +62,90 @@ export default function Trial() {
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const validFiles = Array.from(e.dataTransfer.files).filter((f) =>
-        f.name.endsWith(".cif"),
-      );
-      if (validFiles.length > 0) {
-        setFiles(validFiles);
+      const selected = e.dataTransfer.files[0];
+      if (selected?.name.toLowerCase().endsWith(".cif")) {
+        setFile(selected);
         setError(null);
       } else {
-        setError("Only .cif files are supported.");
+        setError("Only a single .cif file is supported.");
       }
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const validFiles = Array.from(e.target.files).filter((f) =>
-        f.name.endsWith(".cif"),
-      );
-      if (validFiles.length > 0) {
-        setFiles(validFiles);
+      const selected = e.target.files[0];
+      if (selected?.name.toLowerCase().endsWith(".cif")) {
+        setFile(selected);
         setError(null);
       } else {
-        setError("Only .cif files are supported.");
+        setError("Only a single .cif file is supported.");
       }
     }
   };
 
   const handlePredict = async () => {
-    if (files.length === 0) {
-      setError("Please upload at least one .cif file first.");
+    if (!file) {
+      setError("Please upload a .cif file first.");
       return;
     }
 
     setLoading(true);
     setError(null);
-    setResults([]);
+    setResult(null);
 
     try {
-      const newResults = [];
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("temperature", temperature.toString());
-        if (composition.trim() !== "") {
-          formData.append("material_name", composition);
-        }
-
-        const response = await fetch("http://localhost:8000/api/ml/predict", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.detail || `Prediction failed for ${file.name}`,
-          );
-        }
-
-        const data = await response.json();
-
-        let eaVal,
-          logAVal,
-          condVal,
-          compVal,
-          classVal,
-          details,
-          structDetails,
-          hesScore,
-          hesRating;
-
-        // Check if using the new nested structure or old flat structure
-        if (data.predicted_properties) {
-          eaVal = data.predicted_properties.activation_energy.value_ev;
-          logAVal =
-            data.predicted_properties.pre_exponential_factor.log10_value;
-          condVal = data.predicted_properties.ionic_conductivity.value_s_cm;
-          compVal = data.material_properties?.chemical_composition?.formula;
-          classVal =
-            data.material_properties?.material_classification?.detailed
-              ?.ion_conductor_type ||
-            data.material_properties?.material_classification?.crystal_system;
-          details = data.material_properties?.material_classification?.detailed;
-          structDetails = data.material_properties?.structural_details;
-          hesScore = data.scoring?.hes_score;
-          hesRating = data.scoring?.hes_rating;
-        } else {
-          eaVal = data.Ea;
-          logAVal = data.logA;
-          condVal = data.conductivity;
-          compVal = data.composition;
-          classVal = data.classification;
-        }
-
-        newResults.push({
-          fileName: file.name,
-          Ea: eaVal,
-          logA: logAVal,
-          conductivity: condVal,
-          composition: compVal || composition || "Unknown",
-          materialClass: classVal || "Unknown",
-          materialDetails: details,
-          structuralDetails: structDetails,
-          hesScore: hesScore,
-          hesRating: hesRating,
-        });
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("temperature", temperature.toString());
+      if (composition.trim() !== "") {
+        formData.append("material_name", composition);
       }
-      setResults(newResults);
+
+      const response = await fetch(`${API_BASE_URL}/trial/predict`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || `Prediction failed for ${file.name}`);
+      }
+
+      const details =
+        data.material_properties?.material_classification?.detailed;
+
+      setResult({
+        id: data.id,
+        fileName: data.cif_name || file.name,
+        Ea: data.predicted_properties?.activation_energy?.value_ev ?? 0,
+        logA:
+          data.predicted_properties?.pre_exponential_factor?.log10_value ?? 0,
+        conductivity:
+          data.conductivity_prediction?.value_s_cm ??
+          data.predicted_properties?.ionic_conductivity?.value_s_cm ??
+          0,
+        composition:
+          data.material_properties?.chemical_composition?.formula ||
+          composition ||
+          "Unknown",
+        materialClass:
+          details?.ion_conductor_type ||
+          data.material_properties?.material_classification?.crystal_system ||
+          "Unknown",
+        materialDetails: details,
+        structuralDetails: data.material_properties?.structural_details,
+        hesScore: data.hes?.score ?? data.scoring?.hes_score,
+        normalizedHes: data.hes?.normalized ?? data.scoring?.normalized_hes,
+        hesRating: data.hes?.rating ?? data.scoring?.hes_rating,
+        confidence: data.hes?.confidence ?? data.scoring?.confidence,
+        validationStatus:
+          data.hes?.validation_status ?? data.scoring?.validation_status,
+        predictionQuality: data.hes?.prediction_quality,
+        warnings: data.warnings || [],
+        temperatureSeries: data.arrhenius_parameters?.temperature_series || [],
+      });
     } catch (err: any) {
       console.error(err);
       setError(
@@ -255,33 +241,30 @@ export default function Trial() {
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`group relative border-2 border-dashed ${files.length > 0 ? "border-primary bg-primary/5" : "border-outline-variant/30 hover:border-primary-container/50 hover:bg-surface-container-low/40"} rounded-lg p-10 flex flex-col items-center justify-center transition-all duration-300 cursor-pointer`}
+              className={`group relative border-2 border-dashed ${file ? "border-primary bg-primary/5" : "border-outline-variant/30 hover:border-primary-container/50 hover:bg-surface-container-low/40"} rounded-lg p-10 flex flex-col items-center justify-center transition-all duration-300 cursor-pointer`}
             >
               <input
                 type="file"
-                multiple
                 ref={fileInputRef}
                 onChange={handleFileSelect}
                 accept=".cif"
                 className="hidden"
               />
               <span
-                className={`material-symbols-outlined text-5xl ${files.length > 0 ? "text-primary" : "text-outline group-hover:text-primary"} mb-4 transition-colors`}
+                className={`material-symbols-outlined text-5xl ${file ? "text-primary" : "text-outline group-hover:text-primary"} mb-4 transition-colors`}
               >
-                {files.length > 0 ? "task" : "upload_file"}
+                {file ? "task" : "upload_file"}
               </span>
               <h3 className="font-headline text-xl font-medium mb-1">
-                {files.length > 0
-                  ? `${files.length} File(s) Selected`
-                  : "Drag & Drop CIF Files"}
+                {file ? "1 CIF Selected" : "Drag & Drop a CIF File"}
               </h3>
               <p className="text-on-surface-variant text-sm font-light">
-                {files.length > 0
-                  ? `${files.map((f) => f.name).join(", ")}`
+                {file
+                  ? file.name
                   : "Crystallographic Information Framework (.cif) only"}
               </p>
               <button className="mt-6 px-4 py-2 bg-surface-container-high rounded text-xs font-headline font-bold uppercase tracking-widest hover:bg-surface-container-highest transition-colors">
-                {files.length > 0 ? "Change Files" : "Select Files"}
+                {file ? "Change File" : "Select File"}
               </button>
             </div>
 
@@ -358,8 +341,8 @@ export default function Trial() {
             {/* Primary CTA */}
             <button
               onClick={handlePredict}
-              disabled={loading || files.length === 0}
-              className={`w-full bg-gradient-to-br from-primary to-primary-container h-16 rounded-lg text-on-primary font-headline font-extrabold text-lg uppercase tracking-widest neon-glow transition-all flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(255,102,0,0.3)] ${files.length > 0 && !loading ? "hover:scale-[1.02] active:scale-95 cursor-pointer opacity-100" : "opacity-50 cursor-not-allowed grayscale"}`}
+              disabled={loading || !file}
+              className={`w-full bg-gradient-to-br from-primary to-primary-container h-16 rounded-lg text-on-primary font-headline font-extrabold text-lg uppercase tracking-widest neon-glow transition-all flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(255,102,0,0.3)] ${file && !loading ? "hover:scale-[1.02] active:scale-95 cursor-pointer opacity-100" : "opacity-50 cursor-not-allowed grayscale"}`}
             >
               {loading ? (
                 <span className="material-symbols-outlined text-[24px] animate-spin">
@@ -370,7 +353,7 @@ export default function Trial() {
                   bolt
                 </span>
               )}
-              {loading ? "Processing..." : "Predict Properties"}
+                {loading ? "Processing..." : "Predict Properties"}
             </button>
           </div>
 
@@ -386,27 +369,46 @@ export default function Trial() {
                 </h2>
               </div>
               <div className="p-8 space-y-10 max-h-[800px] overflow-y-auto">
-                {loading && results.length === 0 ? (
+                {loading && !result ? (
                   <div className="text-center py-20 text-outline-variant">
                     <span className="material-symbols-outlined text-5xl mb-4 animate-spin text-primary">
                       autorenew
                     </span>
                     <p>Processing structural data...</p>
                   </div>
-                ) : results.length > 0 ? (
-                  results.map((res, idx) => {
-                    const displayCond =
-                      res.logA !== undefined
-                        ? Math.pow(10, res.logA) *
-                          Math.exp(-res.Ea / (k * temperature))
-                        : res.conductivity;
-                    return (
-                      <div
-                        key={idx}
-                        className="space-y-6 pb-10 border-b border-outline-variant/20 last:border-0 last:pb-0"
-                      >
+                ) : result ? (
+                  <div className="space-y-6 pb-10 border-b border-outline-variant/20 last:border-0 last:pb-0">
+                        <div className="flex items-center justify-between gap-4 rounded-lg border border-green-400/20 bg-green-400/10 px-4 py-3 text-green-300">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[20px]">
+                              check_circle
+                            </span>
+                            <span className="font-headline text-xs font-bold uppercase tracking-widest">
+                              Prediction completed
+                            </span>
+                          </div>
+                          {result.id && (
+                            <button
+                              onClick={() => {
+                                const blob = new Blob(
+                                  [JSON.stringify(result, null, 2)],
+                                  { type: "application/json" },
+                                );
+                                const url = URL.createObjectURL(blob);
+                                const anchor = document.createElement("a");
+                                anchor.href = url;
+                                anchor.download = `${result.fileName.replace(/\.cif$/i, "")}_ioncast_report.json`;
+                                anchor.click();
+                                URL.revokeObjectURL(url);
+                              }}
+                              className="rounded bg-green-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-green-200 hover:bg-green-400/20"
+                            >
+                              Download Report
+                            </button>
+                          )}
+                        </div>
                         <h3 className="font-headline text-primary font-semibold border-b border-primary/20 pb-2 mb-4 break-all">
-                          📄 {res.fileName}
+                          {result.fileName}
                         </h3>
                         {/* Material Info Header */}
                         <div className="flex justify-between items-start bg-surface-container-lowest/50 p-4 rounded-lg border border-outline-variant/10 shadow-inner">
@@ -415,19 +417,19 @@ export default function Trial() {
                               Chemical Composition
                             </p>
                             <h4 className="text-xl font-headline font-bold text-on-surface">
-                              {res.composition || "-"}
+                              {result.composition || "-"}
                             </h4>
                             <div className="flex flex-wrap gap-2 mt-2">
-                              {res.materialDetails?.material_type && (
+                              {result.materialDetails?.material_type && (
                                 <span className="bg-secondary-container/10 border border-secondary-container/20 px-2 py-0.5 rounded text-primary text-[9px] font-headline uppercase">
-                                  {res.materialDetails.material_type}
+                                  {result.materialDetails.material_type}
                                 </span>
                               )}
-                              {res.materialDetails?.crystal_system &&
-                                res.materialDetails.crystal_system !==
+                              {result.materialDetails?.crystal_system &&
+                                result.materialDetails.crystal_system !==
                                   "Unknown" && (
                                   <span className="bg-secondary-container/10 border border-secondary-container/20 px-2 py-0.5 rounded text-primary text-[9px] font-headline uppercase">
-                                    {res.materialDetails.crystal_system} Phase
+                                    {result.materialDetails.crystal_system} Phase
                                   </span>
                                 )}
                             </div>
@@ -439,24 +441,24 @@ export default function Trial() {
                             <div className="flex flex-col items-end mt-1 gap-2">
                               <span
                                 className="bg-secondary-container/20 border border-secondary-container/30 px-3 py-1 rounded-full text-primary text-[10px] font-headline uppercase inline-block text-center max-w-[200px] truncate"
-                                title={res.materialClass}
+                                title={result.materialClass}
                               >
-                                {res.materialClass}
+                                {result.materialClass}
                               </span>
-                              {res.hesScore !== undefined && (
+                              {result.hesScore !== undefined && (
                                 <span
                                   className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
-                                    res.hesRating === "Excellent"
+                                    result.hesRating === "Excellent"
                                       ? "text-green-400 border-green-400/30 bg-green-400/10"
-                                      : res.hesRating === "Good"
+                                      : result.hesRating === "Good"
                                         ? "text-blue-400 border-blue-400/30 bg-blue-400/10"
-                                        : res.hesRating === "Moderate"
+                                        : result.hesRating === "Moderate"
                                           ? "text-yellow-400 border-yellow-400/30 bg-yellow-400/10"
                                           : "text-red-400 border-red-400/30 bg-red-400/10"
                                   }`}
                                 >
-                                  HES: {res.hesScore.toFixed(0)} / 100 (
-                                  {res.hesRating})
+                                  HES: {result.hesScore.toFixed(0)} / 100 (
+                                  {result.hesRating})
                                 </span>
                               )}
                             </div>
@@ -473,7 +475,7 @@ export default function Trial() {
                                 Activation Energy
                               </p>
                               <h4 className="text-4xl font-headline font-bold text-on-surface">
-                                {res.Ea}
+                                {result.Ea}
                                 <span className="text-sm text-outline-variant font-normal ml-1">
                                   eV
                                 </span>
@@ -490,7 +492,26 @@ export default function Trial() {
                           </div>
                         </div>
 
-                        {/* Pre-Exponential Factor metric removed dynamically by user request */}
+                        <div className="relative">
+                          <div className="flex justify-between items-end mb-4">
+                            <div>
+                              <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
+                                Arrhenius log(A)
+                              </p>
+                              <h4 className="text-4xl font-headline font-bold text-on-surface">
+                                {result.logA?.toFixed(4)}
+                                <span className="text-sm text-outline-variant font-normal ml-1">
+                                  log10
+                                </span>
+                              </h4>
+                            </div>
+                            <div className="h-10 w-10 rounded bg-secondary-container/30 flex items-center justify-center">
+                              <span className="material-symbols-outlined text-primary">
+                                functions
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
                         {/* Metric 3 */}
                         <div className="relative">
@@ -500,7 +521,7 @@ export default function Trial() {
                                 Ionic Conductivity (σ)
                               </p>
                               <h4 className="text-4xl font-headline font-bold text-primary">
-                                {displayCond.toExponential(2)}
+                                {result.conductivity.toExponential(2)}
                                 <span className="text-sm text-outline-variant font-normal ml-2 text-on-surface">
                                   S/cm
                                 </span>
@@ -513,15 +534,107 @@ export default function Trial() {
                             </div>
                           </div>
                         </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
+                            <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
+                              Confidence
+                            </p>
+                            <p className="text-lg font-headline font-bold text-on-surface">
+                              {result.confidence || "Unknown"}
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
+                            <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
+                              Validation
+                            </p>
+                            <p className="text-lg font-headline font-bold text-on-surface capitalize">
+                              {(result.validationStatus || "unknown").replace(
+                                "_",
+                                " ",
+                              )}
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
+                            <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
+                              Quality
+                            </p>
+                            <p className="text-lg font-headline font-bold text-on-surface">
+                              {result.predictionQuality || "Unknown"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {result.temperatureSeries &&
+                          result.temperatureSeries.length > 0 && (
+                            <div className="rounded-lg bg-surface-container-lowest/60 p-4 border border-outline-variant/10">
+                              <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-4">
+                                Temperature Graph
+                              </p>
+                              <div className="flex h-28 items-end gap-1">
+                                {result.temperatureSeries.map((point) => {
+                                  const maxValue = Math.max(
+                                    ...result.temperatureSeries!.map(
+                                      (p) => p.conductivity_s_cm,
+                                    ),
+                                  );
+                                  const height =
+                                    maxValue > 0
+                                      ? Math.max(
+                                          6,
+                                          (point.conductivity_s_cm / maxValue) *
+                                            100,
+                                        )
+                                      : 6;
+                                  return (
+                                    <div
+                                      key={point.temperature_k}
+                                      className="flex-1 rounded-t bg-primary/80"
+                                      style={{ height: `${height}%` }}
+                                      title={`${point.temperature_k} K: ${point.conductivity_s_cm.toExponential(2)} S/cm`}
+                                    />
+                                  );
+                                })}
+                              </div>
+                              <div className="mt-2 flex justify-between text-[9px] text-outline-variant">
+                                <span>
+                                  {
+                                    result.temperatureSeries[0]
+                                      .temperature_k
+                                  }{" "}
+                                  K
+                                </span>
+                                <span>
+                                  {
+                                    result.temperatureSeries[
+                                      result.temperatureSeries.length - 1
+                                    ].temperature_k
+                                  }{" "}
+                                  K
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                        {result.warnings && result.warnings.length > 0 && (
+                          <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/10 p-4 text-yellow-200">
+                            <p className="text-[10px] font-headline uppercase tracking-widest mb-2">
+                              Warnings
+                            </p>
+                            {result.warnings.map((warning) => (
+                              <p key={warning} className="text-xs">
+                                {warning}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    );
-                  })
                 ) : (
                   <div className="text-center py-20 text-outline-variant">
                     <span className="material-symbols-outlined text-5xl mb-4">
                       science
                     </span>
-                    <p>Upload files and run prediction to view results</p>
+                    <p>Upload a CIF file and run prediction to view results</p>
                   </div>
                 )}
               </div>
@@ -538,8 +651,9 @@ export default function Trial() {
                     Researcher Tip
                   </p>
                   <p className="text-sm text-on-surface-variant font-light">
-                    Trial mode uses a simplified Gaussian process model. For
-                    precise DFT-backed results, upgrade to Professional tier.
+                    Trial mode sends one CIF through the trained backend
+                    inference pipeline and HES validation before showing a
+                    result.
                   </p>
                 </div>
               </div>

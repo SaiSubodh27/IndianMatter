@@ -3,35 +3,79 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    @apply bg-gray-50 text-gray-900 dark:bg-neutral-950 dark:text-neutral-100;
+  }
+
   body {
-    @apply m-0 p-0 font-body tracking-wide;
+    @apply m-0 min-h-screen bg-gray-50 p-0 font-body tracking-wide text-gray-900 antialiased transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100;
+  }
+
+  * {
+    @apply border-neutral-200 dark:border-neutral-800;
   }
 }
 
-.glass-card {
-  background: rgba(27, 27, 27, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(90, 65, 54, 0.2);
+.enterprise-page {
+  @apply min-h-screen bg-gray-50 text-gray-900 dark:bg-neutral-950 dark:text-neutral-100;
 }
-.neon-glow-primary {
-  box-shadow: 0px 0px 15px rgba(255, 102, 0, 0.3);
+
+.enterprise-shell {
+  @apply mx-auto w-full max-w-7xl px-6 py-8 lg:px-8;
 }
-.text-neon {
-  text-shadow: 0 0 10px rgba(255, 181, 150, 0.4);
+
+.enterprise-panel {
+  @apply rounded-xl border border-gray-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900;
 }
-.lattice-bg {
-  background-image: radial-gradient(
-    circle at 2px 2px,
-    rgba(255, 102, 0, 0.05) 1px,
-    transparent 0
-  );
-  background-size: 40px 40px;
+
+.enterprise-panel-muted {
+  @apply rounded-xl border border-gray-200 bg-gray-50 shadow-sm dark:border-neutral-800 dark:bg-neutral-950;
 }
+
+.enterprise-card {
+  @apply rounded-lg border border-gray-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900;
+}
+
+.enterprise-card-soft {
+  @apply rounded-lg border border-gray-200 bg-gray-50 shadow-sm dark:border-neutral-800 dark:bg-neutral-950;
+}
+
+.enterprise-input {
+  @apply w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-500;
+}
+
+.enterprise-select {
+  @apply w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-gray-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:focus:border-neutral-500;
+}
+
+.enterprise-button-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200;
+}
+
+.enterprise-button-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800;
+}
+
+.enterprise-chip {
+  @apply inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200;
+}
+
+.enterprise-muted {
+  @apply text-gray-500 dark:text-neutral-400;
+}
+
+.enterprise-strong {
+  @apply text-gray-900 dark:text-neutral-100;
+}
+
+.enterprise-divider {
+  @apply border-gray-200 dark:border-neutral-800;
+}
+
 .material-symbols-outlined {
   font-variation-settings:
-    'FILL' 0,
-    'wght' 400,
-    'GRAD' 0,
-    'opsz' 24;
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
 }

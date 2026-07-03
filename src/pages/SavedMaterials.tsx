@@ -1,5 +1,3 @@
-// import React from "react";
-
 export default function SavedMaterials() {
   const tableData = [
     {
@@ -41,194 +39,194 @@ export default function SavedMaterials() {
   ];
 
   return (
-    <div className="flex-1 pt-8 px-4 md:px-8 lg:px-12 pb-24 max-w-7xl mx-auto w-full animate-in fade-in h-full flex flex-col">
-      {/* Page Header */}
-      <header className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 text-primary mb-2">
-            <span
-              className="material-symbols-outlined text-sm"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              folder_special
-            </span>
-            <span className="font-label text-xs tracking-wider uppercase">
-              Library
-            </span>
+    <div className="enterprise-page">
+      <div className="enterprise-shell flex h-full min-h-screen flex-col">
+        <header className="mb-8 flex flex-col gap-6 border-b border-gray-200 pb-6 dark:border-neutral-800 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-gray-700 dark:text-neutral-300">
+              <span
+                className="material-symbols-outlined text-sm"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                folder_special
+              </span>
+              <span className="font-label text-xs uppercase tracking-wider">
+                Library
+              </span>
+            </div>
+            <h2 className="mb-3 font-headline text-3xl font-bold leading-none tracking-tight text-gray-900 dark:text-neutral-100 md:text-4xl lg:text-[3.5rem]">
+              Saved Materials
+            </h2>
+            <p className="max-w-2xl text-sm tracking-wide text-gray-600 dark:text-neutral-400 md:text-base">
+              Manage your tracked crystallographic structures and review
+              historical DFT simulation data.
+            </p>
           </div>
-          <h2 className="font-headline text-3xl md:text-4xl lg:text-[3.5rem] font-bold text-on-surface tracking-tight leading-none mb-3">
-            Saved Materials
-          </h2>
-          <p className="font-body text-on-surface-variant text-sm md:text-base max-w-2xl tracking-wide">
-            Manage your tracked crystallographic structures and review
-            historical DFT simulation data.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <button className="h-10 px-4 rounded-md ghost-border text-primary hover:bg-surface-container-highest flex items-center gap-2 molecular-transition font-label text-sm bg-surface-container-low">
-            <span className="material-symbols-outlined text-[18px]">
-              download
-            </span>
-            Export CSV
-          </button>
-          <button className="h-10 px-4 rounded-md gradient-btn text-on-primary font-label font-bold text-sm flex items-center gap-2 neon-glow molecular-transition hover:scale-[1.02] active:scale-95">
-            <span className="material-symbols-outlined text-[18px]">
-              play_circle
-            </span>
-            Batch Predict
-          </button>
-        </div>
-      </header>
+          <div className="flex shrink-0 items-center gap-3">
+            <button className="enterprise-button-secondary h-10 px-4 py-0">
+              <span className="material-symbols-outlined text-[18px]">
+                download
+              </span>
+              Export CSV
+            </button>
+            <button className="enterprise-button-primary h-10 px-4 py-0 font-label text-sm font-semibold">
+              <span className="material-symbols-outlined text-[18px]">
+                play_circle
+              </span>
+              Batch Predict
+            </button>
+          </div>
+        </header>
 
-      {/* Search & Filter Bar */}
-      <section className="glass-card rounded-xl p-2 mb-8 ambient-shadow ghost-border flex flex-col sm:flex-row gap-2 shrink-0">
-        <div className="relative flex-grow">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
-            search
-          </span>
-          <input
-            className="w-full bg-transparent border-none text-on-surface placeholder:text-neutral-600 focus:ring-0 pl-10 h-10 font-body text-sm"
-            placeholder="Search by formula, ID, or property..."
-            type="text"
-          />
-        </div>
-        <div className="h-px sm:h-10 w-full sm:w-px bg-outline-variant/30 hidden sm:block"></div>
-        <div className="flex gap-2 shrink-0">
-          <button className="h-10 px-4 rounded-lg bg-surface-container flex items-center gap-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high molecular-transition text-sm">
-            <span className="material-symbols-outlined text-[18px]">
-              filter_list
+        <section className="enterprise-panel mb-8 flex shrink-0 flex-col gap-2 p-2 sm:flex-row">
+          <div className="relative flex-grow">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500">
+              search
             </span>
-            Filter
-          </button>
-          <button className="h-10 px-4 rounded-lg bg-surface-container flex items-center gap-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high molecular-transition text-sm">
-            <span className="material-symbols-outlined text-[18px]">sort</span>
-            Sort
-          </button>
-        </div>
-      </section>
+            <input
+              className="enterprise-input h-10 pl-10"
+              placeholder="Search by formula, ID, or property..."
+              type="text"
+            />
+          </div>
+          <div className="hidden h-px w-full bg-gray-200 sm:block sm:h-10 sm:w-px dark:bg-neutral-800"></div>
+          <div className="flex gap-2 shrink-0">
+            <button className="enterprise-button-secondary h-10 px-4 py-0 text-sm">
+              <span className="material-symbols-outlined text-[18px]">
+                filter_list
+              </span>
+              Filter
+            </button>
+            <button className="enterprise-button-secondary h-10 px-4 py-0 text-sm">
+              <span className="material-symbols-outlined text-[18px]">
+                sort
+              </span>
+              Sort
+            </button>
+          </div>
+        </section>
 
-      {/* Data Grid View */}
-      <section className="bg-surface-container-lowest rounded-xl ghost-border overflow-hidden flex-1 flex flex-col">
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low border-b border-outline-variant/20">
-                <th className="py-4 px-6 font-label text-xs tracking-wider text-on-surface-variant w-12">
-                  <input
-                    className="rounded bg-surface-container-highest border-outline-variant text-primary focus:ring-primary/50 focus:ring-offset-surface-container-lowest"
-                    type="checkbox"
-                  />
-                </th>
-                <th className="py-4 px-6 font-label text-xs tracking-wider text-on-surface-variant">
-                  Material Formula
-                </th>
-                <th className="py-4 px-6 font-label text-xs tracking-wider text-on-surface-variant">
-                  Date Saved
-                </th>
-                <th className="py-4 px-6 font-label text-xs tracking-wider text-on-surface-variant text-right">
-                  Pred. Conductivity (S/cm)
-                </th>
-                <th className="py-4 px-6 font-label text-xs tracking-wider text-on-surface-variant">
-                  Status
-                </th>
-                <th className="py-4 px-6 font-label text-xs tracking-wider text-on-surface-variant text-right">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/10 font-body text-sm">
-              {tableData.map((row, idx) => (
-                <tr
-                  key={idx}
-                  className="hover:bg-surface-container-low/50 molecular-transition group"
-                >
-                  <td className="py-4 px-6">
+        <section className="enterprise-panel flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950">
+                  <th className="w-12 py-4 px-6 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400">
                     <input
-                      className="rounded bg-surface-container border-outline-variant/50 text-primary focus:ring-primary/50 focus:ring-offset-surface-container-lowest opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="rounded border-gray-300 text-gray-900 focus:ring-gray-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                       type="checkbox"
                     />
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-secondary-container/20 flex items-center justify-center text-primary font-label text-xs border border-primary/20">
-                        {row.element}
-                      </div>
-                      <div>
-                        <div className="font-medium text-on-surface font-headline tracking-wide">
-                          {row.formula}
-                        </div>
-                        <div className="text-xs text-on-surface-variant/70 font-mono mt-0.5">
-                          ID: {row.id}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-on-surface-variant">
-                    {row.date}
-                  </td>
-                  <td className="py-4 px-6 text-right font-mono text-on-surface">
-                    {row.conductivity}
-                  </td>
-                  <td className="py-4 px-6">
-                    {row.statusType === "success" && (
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary neon-glow relative">
-                          <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-75"></div>
-                        </div>
-                        {row.status}
-                      </div>
-                    )}
-                    {row.statusType === "pending" && (
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant text-xs font-medium">
-                        <span className="material-symbols-outlined text-[14px]">
-                          schedule
-                        </span>
-                        {row.status}
-                      </div>
-                    )}
-                    {row.statusType === "error" && (
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-error-container/20 border border-error-container/50 text-error text-xs font-medium">
-                        <span className="material-symbols-outlined text-[14px]">
-                          error
-                        </span>
-                        {row.status}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-4 px-6 text-right">
-                    <button className="text-neutral-500 hover:text-primary molecular-transition p-1">
-                      <span className="material-symbols-outlined text-[20px]">
-                        more_vert
-                      </span>
-                    </button>
-                  </td>
+                  </th>
+                  <th className="py-4 px-6 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400">
+                    Material Formula
+                  </th>
+                  <th className="py-4 px-6 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400">
+                    Date Saved
+                  </th>
+                  <th className="py-4 px-6 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400">
+                    Pred. Conductivity (S/cm)
+                  </th>
+                  <th className="py-4 px-6 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400">
+                    Status
+                  </th>
+                  <th className="py-4 px-6 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-neutral-400">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {/* Pagination Footer */}
-        <div className="py-4 px-6 border-t border-outline-variant/20 flex items-center justify-between bg-surface-container-lowest shrink-0">
-          <span className="text-xs text-on-surface-variant font-body">
-            Showing 1-4 of 124 saved structures
-          </span>
-          <div className="flex gap-1">
-            <button
-              className="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high disabled:opacity-50 molecular-transition"
-              disabled
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                chevron_left
-              </span>
-            </button>
-            <button className="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high molecular-transition">
-              <span className="material-symbols-outlined text-[18px]">
-                chevron_right
-              </span>
-            </button>
+              </thead>
+              <tbody className="divide-y divide-gray-200 text-sm dark:divide-neutral-800">
+                {tableData.map((row, idx) => (
+                  <tr
+                    key={idx}
+                    className="group transition-colors hover:bg-gray-50 dark:hover:bg-neutral-800/60"
+                  >
+                    <td className="py-4 px-6">
+                      <input
+                        className="rounded border-gray-300 text-gray-900 opacity-0 transition-opacity focus:ring-gray-300 group-hover:opacity-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                        type="checkbox"
+                      />
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-gray-100 text-xs font-medium text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                          {row.element}
+                        </div>
+                        <div>
+                          <div className="font-headline font-medium tracking-wide text-gray-900 dark:text-neutral-100">
+                            {row.formula}
+                          </div>
+                          <div className="mt-0.5 font-mono text-xs text-gray-500 dark:text-neutral-400">
+                            ID: {row.id}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-gray-600 dark:text-neutral-400">
+                      {row.date}
+                    </td>
+                    <td className="py-4 px-6 text-right font-mono text-gray-900 dark:text-neutral-100">
+                      {row.conductivity}
+                    </td>
+                    <td className="py-4 px-6">
+                      {row.statusType === "success" && (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          <div className="relative h-1.5 w-1.5 rounded-full bg-emerald-500">
+                            <div className="absolute inset-0 rounded-full bg-emerald-500 opacity-60"></div>
+                          </div>
+                          {row.status}
+                        </div>
+                      )}
+                      {row.statusType === "pending" && (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                          <span className="material-symbols-outlined text-[14px]">
+                            schedule
+                          </span>
+                          {row.status}
+                        </div>
+                      )}
+                      {row.statusType === "error" && (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300">
+                          <span className="material-symbols-outlined text-[14px]">
+                            error
+                          </span>
+                          {row.status}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-4 px-6 text-right">
+                      <button className="p-1 text-gray-500 transition-colors hover:text-gray-900 dark:text-neutral-400 dark:hover:text-neutral-100">
+                        <span className="material-symbols-outlined text-[20px]">
+                          more_vert
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
+          <div className="flex shrink-0 items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-neutral-800 dark:bg-neutral-950">
+            <span className="text-xs text-gray-500 dark:text-neutral-400">
+              Showing 1-4 of 124 saved structures
+            </span>
+            <div className="flex gap-1">
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                disabled
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  chevron_left
+                </span>
+              </button>
+              <button className="flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+                <span className="material-symbols-outlined text-[18px]">
+                  chevron_right
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

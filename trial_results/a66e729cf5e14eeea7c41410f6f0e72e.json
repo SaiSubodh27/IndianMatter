@@ -1,0 +1,165 @@
+{
+  "id": "a66e729cf5e14eeea7c41410f6f0e72e",
+  "status": "success",
+  "message": "Prediction completed",
+  "prediction_timestamp": "2026-07-02T06:02:59.291844Z",
+  "model_version": "v5_stacking_Ea + v2_model_A",
+  "cif_name": "0fh.cif",
+  "input_parameters": {
+    "temperature_k": 298.0,
+    "material_id": "auto",
+    "material_name": "0fh"
+  },
+  "conductivity_prediction": {
+    "value_s_cm": 8.7287e-60,
+    "log10_value": -59.0591,
+    "unit": "S/cm",
+    "temperature_k": 298.0
+  },
+  "arrhenius_parameters": {
+    "Ea_ev": 3.7878,
+    "logA": 5.0,
+    "temperature_series": [
+      {
+        "temperature_k": 250,
+        "conductivity_s_cm": 4.3814e-72
+      },
+      {
+        "temperature_k": 300,
+        "conductivity_s_cm": 2.3335e-59
+      },
+      {
+        "temperature_k": 350,
+        "conductivity_s_cm": 2.8727e-50
+      },
+      {
+        "temperature_k": 400,
+        "conductivity_s_cm": 1.888e-43
+      },
+      {
+        "temperature_k": 450,
+        "conductivity_s_cm": 3.7903e-38
+      },
+      {
+        "temperature_k": 500,
+        "conductivity_s_cm": 6.6192e-34
+      },
+      {
+        "temperature_k": 550,
+        "conductivity_s_cm": 1.9572e-30
+      },
+      {
+        "temperature_k": 600,
+        "conductivity_s_cm": 1.5276e-27
+      },
+      {
+        "temperature_k": 650,
+        "conductivity_s_cm": 4.2795e-25
+      },
+      {
+        "temperature_k": 700,
+        "conductivity_s_cm": 5.3598e-23
+      },
+      {
+        "temperature_k": 750,
+        "conductivity_s_cm": 3.5254e-21
+      },
+      {
+        "temperature_k": 800,
+        "conductivity_s_cm": 1.3741e-19
+      },
+      {
+        "temperature_k": 850,
+        "conductivity_s_cm": 3.4806e-18
+      },
+      {
+        "temperature_k": 900,
+        "conductivity_s_cm": 6.1565e-17
+      },
+      {
+        "temperature_k": 950,
+        "conductivity_s_cm": 8.048e-16
+      },
+      {
+        "temperature_k": 1000,
+        "conductivity_s_cm": 8.1359e-15
+      }
+    ]
+  },
+  "hes": {
+    "score": 0.0,
+    "normalized": 0.0,
+    "components": {
+      "conductivity": 0,
+      "activation_energy": 0
+    },
+    "validation_status": "low_confidence",
+    "confidence": "Low",
+    "prediction_quality": "Screening Only",
+    "rating": "Low"
+  },
+  "predicted_properties": {
+    "activation_energy": {
+      "value_ev": 3.7878,
+      "unit": "eV"
+    },
+    "pre_exponential_factor": {
+      "log10_value": 5.0,
+      "value": 100000.0,
+      "unit": "S/cm"
+    },
+    "ionic_conductivity": {
+      "value_s_cm": 8.7287e-60,
+      "log10_value": -59.0591,
+      "unit": "S/cm",
+      "temperature_k": 298.0
+    }
+  },
+  "material_properties": {
+    "chemical_composition": {
+      "formula": "Li7.44Al1.452Ge10.548P18O72",
+      "source": "CIF file analysis"
+    },
+    "material_classification": {
+      "crystal_system": "Trigonal",
+      "crystal_type": "Trigonal",
+      "detailed": {
+        "crystal_system": "Trigonal",
+        "material_type": "Lithium-based",
+        "ion_conductor_type": "Lithium Solid Electrolyte"
+      }
+    },
+    "structural_details": {
+      "space_group": "R-3c (#167)",
+      "density": 3.505581632681132,
+      "volume": 1215.7153055674376,
+      "elements": [
+        "Li",
+        "Ge",
+        "Al",
+        "P",
+        "O"
+      ],
+      "lattice": {
+        "a": 8.2619,
+        "b": 8.2619,
+        "c": 20.5656,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0
+      }
+    }
+  },
+  "scoring": {
+    "hes_score": 0.0,
+    "normalized_hes": 0.0,
+    "hes_rating": "Low",
+    "confidence": "Low",
+    "validation_status": "low_confidence",
+    "model_source": "v5_stacking_Ea + v2_model_A"
+  },
+  "warnings": [
+    "Ea validation warning: Ea exceeds typical range (>2.0 eV): 3.7877852142635886"
+  ],
+  "raw_status": "success"
+}
