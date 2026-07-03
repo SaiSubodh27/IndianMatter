@@ -10,7 +10,7 @@ import {
   Layers,
   Loader2,
   X,
-  FlaskConical,
+  FileArchive,
 } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
@@ -86,10 +86,10 @@ export default function Datasets() {
 
   // Step 1 — uploads
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [cifFiles, setCifFiles] = useState<File[]>([]);
+  const [structureFiles, setStructureFiles] = useState<File[]>([]);
   const [totalRows, setTotalRows] = useState<number>(0);
   const csvInputRef = useRef<HTMLInputElement>(null);
-  const cifInputRef = useRef<HTMLInputElement>(null);
+  const structureInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — batching + features
   const [batchSize, setBatchSize] = useState<number>(200);
@@ -127,19 +127,18 @@ export default function Datasets() {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       const lines = text.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
-      // subtract header row
       const rows = Math.max(lines.length - 1, 0);
       setTotalRows(rows);
     };
     reader.readAsText(file);
   };
 
-  const handleCifUpload = (files: FileList) => {
-    setCifFiles((prev) => [...prev, ...Array.from(files)]);
+  const handleStructureUpload = (files: FileList) => {
+    setStructureFiles((prev) => [...prev, ...Array.from(files)]);
   };
 
-  const removeCifFile = (name: string) => {
-    setCifFiles((prev) => prev.filter((f) => f.name !== name));
+  const removeStructureFile = (name: string) => {
+    setStructureFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
   const toggleFeature = (id: string) => {
@@ -164,7 +163,6 @@ export default function Datasets() {
       setBatches((prev) =>
         prev.map((b, idx) => (idx === i ? { ...b, status: "processing" } : b)),
       );
-      // simulated processing delay per batch
       await new Promise((res) => setTimeout(res, 600));
       setBatches((prev) =>
         prev.map((b, idx) => (idx === i ? { ...b, status: "done" } : b)),
@@ -177,7 +175,7 @@ export default function Datasets() {
 
   const resetAll = () => {
     setCsvFile(null);
-    setCifFiles([]);
+    setStructureFiles([]);
     setTotalRows(0);
     setBatchSize(200);
     setSelectedFeatures(new Set());
@@ -194,14 +192,14 @@ export default function Datasets() {
   ];
 
   return (
-    <div className="min-h-full bg-background text-on-surface font-body px-6 md:px-10 py-10">
+    <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-100 font-body px-6 md:px-10 py-10 transition-colors duration-200">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl md:text-4xl font-headline font-bold text-on-surface mb-2">
+          <h1 className="text-3xl md:text-4xl font-headline font-bold text-neutral-900 dark:text-white mb-2">
             Datasets
           </h1>
-          <p className="text-on-surface-variant">
+          <p className="text-neutral-600 dark:text-neutral-400">
             Upload materials data, select the features you need, and run batch
             processing on your dataset.
           </p>
@@ -217,15 +215,17 @@ export default function Datasets() {
                     step === s.n
                       ? "bg-orange-500 text-white shadow-[0_0_12px_rgba(255,102,0,0.5)]"
                       : step > s.n
-                        ? "bg-orange-500/20 text-orange-500 border border-orange-500"
-                        : "bg-surface-container-low dark:bg-neutral-900 text-on-surface-variant border border-outline-variant/30 dark:border-neutral-800"
+                        ? "bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500"
+                        : "bg-white dark:bg-neutral-900 text-neutral-400 dark:text-neutral-500 border border-neutral-200 dark:border-neutral-800"
                   }`}
                 >
                   {step > s.n ? <CheckCircle2 className="w-5 h-5" /> : s.n}
                 </div>
                 <span
                   className={`text-sm font-medium hidden sm:block whitespace-nowrap ${
-                    step === s.n ? "text-on-surface" : "text-on-surface-variant"
+                    step === s.n
+                      ? "text-neutral-900 dark:text-white"
+                      : "text-neutral-500 dark:text-neutral-400"
                   }`}
                 >
                   {s.label}
@@ -236,7 +236,7 @@ export default function Datasets() {
                   className={`h-px flex-1 mx-4 transition-colors duration-300 ${
                     step > s.n
                       ? "bg-orange-500"
-                      : "bg-outline-variant/20 dark:bg-neutral-800"
+                      : "bg-neutral-200 dark:bg-neutral-800"
                   }`}
                 />
               )}
@@ -249,10 +249,10 @@ export default function Datasets() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* CSV upload */}
-              <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+              <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <Database className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-headline font-semibold text-on-surface">
+                  <h3 className="font-headline font-semibold text-neutral-900 dark:text-white">
                     Dataset (CSV)
                   </h3>
                 </div>
@@ -268,25 +268,25 @@ export default function Datasets() {
                 {!csvFile ? (
                   <div
                     onClick={() => csvInputRef.current?.click()}
-                    className="border-2 border-dashed border-outline-variant/30 dark:border-neutral-700 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 transition-colors"
+                    className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 dark:hover:bg-orange-500/5 transition-colors"
                   >
                     <Upload className="w-9 h-9 text-orange-500 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-on-surface">
+                    <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
                       Drop CSV here or click to upload
                     </p>
-                    <p className="text-xs text-on-surface-variant mt-1">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                       Rows will be split into processing batches
                     </p>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between bg-surface-container-low dark:bg-neutral-900 rounded-lg px-4 py-3 border border-outline-variant/20 dark:border-neutral-800">
+                  <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-950 rounded-lg px-4 py-3 border border-neutral-200 dark:border-neutral-800">
                     <div className="flex items-center gap-3 min-w-0">
                       <FileText className="w-5 h-5 text-orange-500 shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-on-surface truncate">
+                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
                           {csvFile.name}
                         </p>
-                        <p className="text-xs text-on-surface-variant">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
                           {totalRows.toLocaleString()} rows detected
                         </p>
                       </div>
@@ -296,7 +296,7 @@ export default function Datasets() {
                         setCsvFile(null);
                         setTotalRows(0);
                       }}
-                      className="text-on-surface-variant hover:text-red-500 transition-colors shrink-0"
+                      className="text-neutral-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400 transition-colors shrink-0"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -304,49 +304,50 @@ export default function Datasets() {
                 )}
               </div>
 
-              {/* CIF upload */}
-              <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+              {/* Structures upload (ZIP/Parquet) */}
+              <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
-                  <FlaskConical className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-headline font-semibold text-on-surface">
-                    Structure Files (CIF)
+                  <FileArchive className="w-5 h-5 text-orange-500" />
+                  <h3 className="font-headline font-semibold text-neutral-900 dark:text-white">
+                    Structures Archive
                   </h3>
                 </div>
                 <input
-                  ref={cifInputRef}
+                  ref={structureInputRef}
                   type="file"
-                  accept=".cif"
+                  accept=".zip,.parquet"
                   multiple
                   className="hidden"
                   onChange={(e) =>
-                    e.target.files && handleCifUpload(e.target.files)
+                    e.target.files && handleStructureUpload(e.target.files)
                   }
                 />
                 <div
-                  onClick={() => cifInputRef.current?.click()}
-                  className="border-2 border-dashed border-outline-variant/30 dark:border-neutral-700 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 transition-colors mb-3"
+                  onClick={() => structureInputRef.current?.click()}
+                  className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 dark:hover:bg-orange-500/5 transition-colors mb-3"
                 >
                   <Upload className="w-9 h-9 text-orange-500 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-on-surface">
-                    Drop CIF file(s) here or click to upload
+                  <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                    Drop ZIP or Parquet here or click to upload
                   </p>
-                  <p className="text-xs text-on-surface-variant mt-1">
-                    Crystal structure data — multiple files allowed
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                    Accepts structure files packaged in .zip or consolidated
+                    .parquet formats
                   </p>
                 </div>
-                {cifFiles.length > 0 && (
+                {structureFiles.length > 0 && (
                   <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {cifFiles.map((f) => (
+                    {structureFiles.map((f) => (
                       <div
                         key={f.name}
-                        className="flex items-center justify-between bg-surface-container-low dark:bg-neutral-900 rounded-md px-3 py-2 border border-outline-variant/20 dark:border-neutral-800"
+                        className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-950 rounded-md px-3 py-2 border border-neutral-200 dark:border-neutral-800"
                       >
-                        <span className="text-xs text-on-surface truncate">
+                        <span className="text-xs text-neutral-800 dark:text-neutral-200 truncate">
                           {f.name}
                         </span>
                         <button
-                          onClick={() => removeCifFile(f.name)}
-                          className="text-on-surface-variant hover:text-red-500 transition-colors shrink-0 ml-2"
+                          onClick={() => removeStructureFile(f.name)}
+                          className="text-neutral-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400 transition-colors shrink-0 ml-2"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -373,14 +374,14 @@ export default function Datasets() {
         {step === 2 && (
           <div className="space-y-6">
             {/* Batch size */}
-            <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+            <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Layers className="w-5 h-5 text-orange-500" />
-                <h3 className="font-headline font-semibold text-on-surface">
+                <h3 className="font-headline font-semibold text-neutral-900 dark:text-white">
                   Batch Size
                 </h3>
               </div>
-              <p className="text-sm text-on-surface-variant mb-4">
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
                 {totalRows.toLocaleString()} total rows will be split into
                 batches for processing.
               </p>
@@ -393,9 +394,9 @@ export default function Datasets() {
                   onChange={(e) =>
                     setBatchSize(Math.max(1, Number(e.target.value) || 1))
                   }
-                  className="w-32 bg-surface-container-low dark:bg-neutral-900 border border-outline-variant/30 dark:border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  className="w-32 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                 />
-                <span className="text-sm text-on-surface-variant">
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
                   rows per batch →{" "}
                   <span className="text-orange-500 font-semibold">
                     {Math.ceil(totalRows / Math.max(batchSize, 1))} batches
@@ -405,15 +406,15 @@ export default function Datasets() {
             </div>
 
             {/* Feature selection */}
-            <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+            <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <FlaskConical className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-headline font-semibold text-on-surface">
+                  <Layers className="w-5 h-5 text-orange-500" />
+                  <h3 className="font-headline font-semibold text-neutral-900 dark:text-white">
                     Select Features to Extract
                   </h3>
                 </div>
-                <span className="text-xs text-on-surface-variant">
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
                   {selectedFeatures.size} selected
                 </span>
               </div>
@@ -426,23 +427,23 @@ export default function Datasets() {
                       onClick={() => toggleFeature(f.id)}
                       className={`flex items-start gap-3 text-left p-4 rounded-lg border transition-all ${
                         active
-                          ? "border-orange-500 bg-orange-500/5"
-                          : "border-outline-variant/20 dark:border-neutral-800 hover:border-orange-500/40"
+                          ? "border-orange-500 bg-orange-500/5 dark:bg-orange-500/10"
+                          : "border-neutral-200 dark:border-neutral-800/60 bg-transparent hover:border-orange-500/40"
                       }`}
                     >
                       {active ? (
                         <CheckCircle2 className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                       ) : (
-                        <Circle className="w-5 h-5 text-on-surface-variant shrink-0 mt-0.5" />
+                        <Circle className="w-5 h-5 text-neutral-400 dark:text-neutral-500 shrink-0 mt-0.5" />
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-on-surface">
+                        <p className="text-sm font-medium text-neutral-900 dark:text-white">
                           {f.name}
                         </p>
-                        <p className="text-xs text-on-surface-variant mt-0.5">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                           {f.description}
                         </p>
-                        <span className="inline-block mt-1.5 text-[10px] uppercase tracking-wider text-orange-500/80">
+                        <span className="inline-block mt-1.5 text-[10px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-semibold">
                           {f.category}
                         </span>
                       </div>
@@ -455,7 +456,7 @@ export default function Datasets() {
             <div className="flex justify-between">
               <button
                 onClick={() => setStep(1)}
-                className="px-6 py-3 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+                className="px-6 py-3 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
               >
                 ← Back
               </button>
@@ -473,16 +474,16 @@ export default function Datasets() {
         {/* STEP 3 — Process */}
         {step === 3 && (
           <div className="space-y-6">
-            <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+            <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-headline font-semibold text-on-surface">
+                <h3 className="font-headline font-semibold text-neutral-900 dark:text-white">
                   Processing Queue
                 </h3>
-                <span className="text-sm text-on-surface-variant">
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
                   {processedCount}/{batches.length} batches
                 </span>
               </div>
-              <div className="w-full bg-surface-container-low dark:bg-neutral-900 rounded-full h-2.5 mb-6 overflow-hidden">
+              <div className="w-full bg-neutral-100 dark:bg-neutral-950 rounded-full h-2.5 mb-6 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(255,102,0,0.5)]"
                   style={{
@@ -495,19 +496,19 @@ export default function Datasets() {
                 {batches.map((b) => (
                   <div
                     key={b.id}
-                    className="flex items-center justify-between bg-surface-container-low dark:bg-neutral-900 rounded-lg px-4 py-3 border border-outline-variant/10 dark:border-neutral-800"
+                    className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-950 rounded-lg px-4 py-3 border border-neutral-100 dark:border-neutral-800/40"
                   >
                     <div>
-                      <p className="text-sm font-medium text-on-surface">
+                      <p className="text-sm font-medium text-neutral-900 dark:text-white">
                         Batch #{b.id}
                       </p>
-                      <p className="text-xs text-on-surface-variant">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
                         Rows {b.rangeStart}–{b.rangeEnd} ({b.rowCount} rows)
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {b.status === "pending" && (
-                        <span className="text-xs text-on-surface-variant">
+                        <span className="text-xs text-neutral-400 dark:text-neutral-500">
                           Queued
                         </span>
                       )}
@@ -522,7 +523,9 @@ export default function Datasets() {
                       {b.status === "done" && (
                         <>
                           <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          <span className="text-xs text-green-500">Done</span>
+                          <span className="text-xs text-green-500 dark:text-green-400">
+                            Done
+                          </span>
                         </>
                       )}
                     </div>
@@ -535,7 +538,7 @@ export default function Datasets() {
               <button
                 disabled={processing}
                 onClick={() => setStep(2)}
-                className="px-6 py-3 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors disabled:opacity-40"
+                className="px-6 py-3 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors disabled:opacity-40"
               >
                 ← Back
               </button>
@@ -561,12 +564,12 @@ export default function Datasets() {
         {/* STEP 4 — Results */}
         {step === 4 && (
           <div className="space-y-6">
-            <div className="glass-card rounded-xl p-8 border border-outline-variant/20 dark:border-neutral-800 text-center">
+            <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-8 border border-neutral-200 dark:border-neutral-800/60 text-center shadow-sm">
               <CheckCircle2 className="w-14 h-14 text-green-500 mx-auto mb-4" />
-              <h3 className="text-2xl font-headline font-bold text-on-surface mb-2">
+              <h3 className="text-2xl font-headline font-bold text-neutral-900 dark:text-white mb-2">
                 Processing Complete
               </h3>
-              <p className="text-on-surface-variant mb-6">
+              <p className="text-neutral-600 dark:text-neutral-400 mb-6">
                 {totalRows.toLocaleString()} rows across {batches.length}{" "}
                 batches processed with {selectedFeatures.size} selected
                 features.
@@ -577,7 +580,7 @@ export default function Datasets() {
                 </button>
                 <button
                   onClick={resetAll}
-                  className="px-6 py-3 rounded-lg text-sm font-medium border border-outline-variant/30 dark:border-neutral-800 text-on-surface hover:bg-surface-container-low dark:hover:bg-neutral-900 transition-colors"
+                  className="px-6 py-3 rounded-lg text-sm font-medium border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 bg-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
                 >
                   Start New Job
                 </button>
@@ -585,44 +588,46 @@ export default function Datasets() {
             </div>
 
             {/* Results summary table */}
-            <div className="glass-card rounded-xl border border-outline-variant/20 dark:border-neutral-800 overflow-hidden">
-              <div className="px-6 py-4 border-b border-outline-variant/10 dark:border-neutral-800">
-                <h4 className="font-headline font-semibold text-on-surface">
+            <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl border border-neutral-200 dark:border-neutral-800/60 overflow-hidden shadow-sm">
+              <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800/40">
+                <h4 className="font-headline font-semibold text-neutral-900 dark:text-white">
                   Extracted Features
                 </h4>
               </div>
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-surface-container-low dark:bg-neutral-900">
-                    <th className="px-6 py-3 text-xs font-medium text-on-surface-variant uppercase">
-                      Feature
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium text-on-surface-variant uppercase">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium text-on-surface-variant uppercase">
-                      Rows Covered
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant/10 dark:divide-neutral-800">
-                  {FEATURE_OPTIONS.filter((f) =>
-                    selectedFeatures.has(f.id),
-                  ).map((f) => (
-                    <tr key={f.id}>
-                      <td className="px-6 py-3 text-sm text-on-surface font-medium">
-                        {f.name}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-on-surface-variant">
-                        {f.category}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-on-surface-variant">
-                        {totalRows.toLocaleString()}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-neutral-50 dark:bg-neutral-950">
+                      <th className="px-6 py-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">
+                        Feature
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">
+                        Rows Covered
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/40">
+                    {FEATURE_OPTIONS.filter((f) =>
+                      selectedFeatures.has(f.id),
+                    ).map((f) => (
+                      <tr key={f.id}>
+                        <td className="px-6 py-3 text-sm text-neutral-900 dark:text-white font-medium">
+                          {f.name}
+                        </td>
+                        <td className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+                          {f.category}
+                        </td>
+                        <td className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+                          {totalRows.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
