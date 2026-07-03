@@ -1,291 +1,630 @@
-import { useState } from "react";
-import { ArrowRight, Database, Zap, Upload } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import {
+  Upload,
+  FileText,
+  Database,
+  CheckCircle2,
+  Circle,
+  ChevronRight,
+  Download,
+  Layers,
+  Loader2,
+  X,
+  FlaskConical,
+} from "lucide-react";
 
-type DatasetView = "hub" | "extraction" | "batch" | "import";
+type Step = 1 | 2 | 3 | 4;
+
+interface FeatureOption {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+}
+
+const FEATURE_OPTIONS: FeatureOption[] = [
+  {
+    id: "band_gap",
+    name: "Band Gap",
+    description: "Electronic band gap energy (eV)",
+    category: "Electronic",
+  },
+  {
+    id: "formation_energy",
+    name: "Formation Energy",
+    description: "Energy per atom (eV/atom)",
+    category: "Thermodynamic",
+  },
+  {
+    id: "elasticity",
+    name: "Elastic Moduli",
+    description: "Bulk & shear modulus (GPa)",
+    category: "Mechanical",
+  },
+  {
+    id: "density",
+    name: "Density",
+    description: "Mass density (g/cm³)",
+    category: "Structural",
+  },
+  {
+    id: "ionic_conductivity",
+    name: "Ionic Conductivity",
+    description: "Diffusion pathway analysis (S/cm)",
+    category: "Transport",
+  },
+  {
+    id: "thermal_expansion",
+    name: "Thermal Expansion",
+    description: "Coefficient across temperature range",
+    category: "Thermodynamic",
+  },
+  {
+    id: "symmetry",
+    name: "Space Group / Symmetry",
+    description: "Crystallographic symmetry classification",
+    category: "Structural",
+  },
+  {
+    id: "dos",
+    name: "Density of States",
+    description: "Electronic DOS profile",
+    category: "Electronic",
+  },
+];
+
+interface BatchInfo {
+  id: number;
+  rangeStart: number;
+  rangeEnd: number;
+  rowCount: number;
+  status: "pending" | "processing" | "done";
+}
 
 export default function Datasets() {
-  const [currentView, setCurrentView] = useState<DatasetView>("hub");
+  const [step, setStep] = useState<Step>(1);
 
-  const TabNavigation = () => (
-    <div className="flex gap-0 mb-8 border-b border-[#2A2A2A]">
-      <button
-        onClick={() => setCurrentView("extraction")}
-        className={`px-6 py-3 font-semibold transition-all border-b-2 ${
-          currentView === "extraction"
-            ? "text-[#FF6600] border-[#FF6600] shadow-lg shadow-[#FF6600]/20"
-            : "text-[#E3BFB1] hover:text-[#FFB596] border-transparent"
-        }`}
-      >
-        Feature Extraction
-      </button>
-      <button
-        onClick={() => setCurrentView("batch")}
-        className={`px-6 py-3 font-semibold transition-all border-b-2 ${
-          currentView === "batch"
-            ? "text-[#FF6600] border-[#FF6600] shadow-lg shadow-[#FF6600]/20"
-            : "text-[#E3BFB1] hover:text-[#FFB596] border-transparent"
-        }`}
-      >
-        Batch Processing
-      </button>
-      <button
-        onClick={() => setCurrentView("import")}
-        className={`px-6 py-3 font-semibold transition-all border-b-2 ${
-          currentView === "import"
-            ? "text-[#FF6600] border-[#FF6600] shadow-lg shadow-[#FF6600]/20"
-            : "text-[#E3BFB1] hover:text-[#FFB596] border-transparent"
-        }`}
-      >
-        Import & Manage
-      </button>
-    </div>
+  // Step 1 — uploads
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [cifFiles, setCifFiles] = useState<File[]>([]);
+  const [totalRows, setTotalRows] = useState<number>(0);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const cifInputRef = useRef<HTMLInputElement>(null);
+
+  // Step 2 — batching + features
+  const [batchSize, setBatchSize] = useState<number>(200);
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
+    new Set(),
   );
 
-  const Hub = () => (
-    <div className="space-y-8">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-[#E2E2E2] mb-2">
-          Datasets & Data Management
-        </h1>
-        <p className="text-[#E3BFB1] text-lg">
-          Manage, process, and extract features from your materials datasets
-        </p>
-      </div>
+  // Step 3 — processing
+  const [batches, setBatches] = useState<BatchInfo[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Feature Extraction Card */}
-        <div className="bg-[#1B1B1B] rounded-lg p-6 hover:bg-[#2A2A2A] transition-all border border-[#353535] group">
-          <div className="flex items-start justify-between mb-4">
-            <Database className="text-[#FF6600] w-8 h-8" />
-            <span className="text-sm bg-[#0E0E0E] text-[#FFB596] px-3 py-1 rounded">
-              Ready
-            </span>
-          </div>
-          <h3 className="text-xl font-semibold text-[#E2E2E2] mb-2">
-            Feature Extraction
-          </h3>
-          <p className="text-[#E3BFB1] text-sm mb-4">
-            Extract and analyze 312 features from crystal structures and
-            compositions
+  const buildBatches = useCallback((rows: number, size: number) => {
+    const list: BatchInfo[] = [];
+    let start = 1;
+    let id = 1;
+    while (start <= rows) {
+      const end = Math.min(start + size - 1, rows);
+      list.push({
+        id,
+        rangeStart: start,
+        rangeEnd: end,
+        rowCount: end - start + 1,
+        status: "pending",
+      });
+      start = end + 1;
+      id++;
+    }
+    return list;
+  }, []);
+
+  const handleCsvUpload = (file: File) => {
+    setCsvFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
+      // subtract header row
+      const rows = Math.max(lines.length - 1, 0);
+      setTotalRows(rows);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCifUpload = (files: FileList) => {
+    setCifFiles((prev) => [...prev, ...Array.from(files)]);
+  };
+
+  const removeCifFile = (name: string) => {
+    setCifFiles((prev) => prev.filter((f) => f.name !== name));
+  };
+
+  const toggleFeature = (id: string) => {
+    setSelectedFeatures((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const goToStep3 = () => {
+    const built = buildBatches(totalRows, batchSize);
+    setBatches(built);
+    setStep(3);
+  };
+
+  const runProcessing = async () => {
+    setProcessing(true);
+    setProcessedCount(0);
+    for (let i = 0; i < batches.length; i++) {
+      setBatches((prev) =>
+        prev.map((b, idx) => (idx === i ? { ...b, status: "processing" } : b)),
+      );
+      // simulated processing delay per batch
+      await new Promise((res) => setTimeout(res, 600));
+      setBatches((prev) =>
+        prev.map((b, idx) => (idx === i ? { ...b, status: "done" } : b)),
+      );
+      setProcessedCount(i + 1);
+    }
+    setProcessing(false);
+    setStep(4);
+  };
+
+  const resetAll = () => {
+    setCsvFile(null);
+    setCifFiles([]);
+    setTotalRows(0);
+    setBatchSize(200);
+    setSelectedFeatures(new Set());
+    setBatches([]);
+    setProcessedCount(0);
+    setStep(1);
+  };
+
+  const stepMeta = [
+    { n: 1, label: "Upload Data" },
+    { n: 2, label: "Configure" },
+    { n: 3, label: "Process" },
+    { n: 4, label: "Results" },
+  ];
+
+  return (
+    <div className="min-h-full bg-background text-on-surface font-body px-6 md:px-10 py-10">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-10">
+          <h1 className="text-3xl md:text-4xl font-headline font-bold text-on-surface mb-2">
+            Datasets
+          </h1>
+          <p className="text-on-surface-variant">
+            Upload materials data, select the features you need, and run batch
+            processing on your dataset.
           </p>
-          <button
-            onClick={() => setCurrentView("extraction")}
-            className="w-full bg-gradient-to-r from-[#FFB596] to-[#FF6600] text-[#581e00] font-semibold py-2 rounded hover:shadow-lg hover:shadow-[#FF6600]/30 transition-all flex items-center justify-center gap-2 group-hover:translate-x-1"
-          >
-            Go to Extraction <ArrowRight className="w-4 h-4" />
-          </button>
         </div>
 
-        {/* Batch Processing Card */}
-        <div className="bg-[#1B1B1B] rounded-lg p-6 hover:bg-[#2A2A2A] transition-all border border-[#353535] group">
-          <div className="flex items-start justify-between mb-4">
-            <Zap className="text-[#FF6600] w-8 h-8" />
-            <span className="text-sm bg-[#0E0E0E] text-[#FFB596] px-3 py-1 rounded">
-              3/10 Active
-            </span>
-          </div>
-          <h3 className="text-xl font-semibold text-[#E2E2E2] mb-2">
-            Batch Processing
-          </h3>
-          <p className="text-[#E3BFB1] text-sm mb-4">
-            Process multiple datasets in queue, monitor progress and status in
-            real-time
-          </p>
-          <button
-            onClick={() => setCurrentView("batch")}
-            className="w-full bg-gradient-to-r from-[#FFB596] to-[#FF6600] text-[#581e00] font-semibold py-2 rounded hover:shadow-lg hover:shadow-[#FF6600]/30 transition-all flex items-center justify-center gap-2 group-hover:translate-x-1"
-          >
-            Go to Batch <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Import & Management Card */}
-        <div className="bg-[#1B1B1B] rounded-lg p-6 hover:bg-[#2A2A2A] transition-all border border-[#353535] group">
-          <div className="flex items-start justify-between mb-4">
-            <Upload className="text-[#FF6600] w-8 h-8" />
-            <span className="text-sm bg-[#0E0E0E] text-[#FFB596] px-3 py-1 rounded">
-              48 Datasets
-            </span>
-          </div>
-          <h3 className="text-xl font-semibold text-[#E2E2E2] mb-2">
-            Import & Management
-          </h3>
-          <p className="text-[#E3BFB1] text-sm mb-4">
-            Upload, organize, and manage your material datasets efficiently
-          </p>
-          <button
-            onClick={() => setCurrentView("import")}
-            className="w-full bg-gradient-to-r from-[#FFB596] to-[#FF6600] text-[#581e00] font-semibold py-2 rounded hover:shadow-lg hover:shadow-[#FF6600]/30 transition-all flex items-center justify-center gap-2 group-hover:translate-x-1"
-          >
-            Go to Import <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4 mt-12 pt-8 border-t border-[#2A2A2A]">
-        <div className="text-center">
-          <div className="text-3xl font-bold text-[#FF6600]">312</div>
-          <div className="text-[#E3BFB1] text-sm">Features Available</div>
-        </div>
-        <div className="text-center">
-          <div className="text-3xl font-bold text-[#FF6600]">48</div>
-          <div className="text-[#E3BFB1] text-sm">Total Datasets</div>
-        </div>
-        <div className="text-center">
-          <div className="text-3xl font-bold text-[#FF6600]">98.4%</div>
-          <div className="text-[#E3BFB1] text-sm">Model Accuracy</div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const FeatureExtraction = () => (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-[#E2E2E2]">Feature Extraction</h2>
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-[#1B1B1B] rounded-lg p-6 border border-[#353535]">
-          <h3 className="text-lg font-semibold text-[#FFB596] mb-4">
-            Input Options
-          </h3>
-          <div className="space-y-3">
-            <button className="w-full bg-[#2A2A2A] hover:bg-[#353535] text-[#E2E2E2] py-2 rounded transition-all">
-              Upload CIF File
-            </button>
-            <button className="w-full bg-[#2A2A2A] hover:bg-[#353535] text-[#E2E2E2] py-2 rounded transition-all">
-              Enter Composition
-            </button>
-          </div>
-        </div>
-        <div className="bg-[#1B1B1B] rounded-lg p-6 border border-[#353535]">
-          <h3 className="text-lg font-semibold text-[#FFB596] mb-4">Results</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-[#E3BFB1]">Features Extracted:</span>
-              <span className="text-[#FF6600] font-bold">312</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#E3BFB1]">Status:</span>
-              <span className="text-[#FFB596]">Ready to Process</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <button className="w-full bg-gradient-to-r from-[#FFB596] to-[#FF6600] text-[#581e00] font-bold py-3 rounded-lg hover:shadow-lg hover:shadow-[#FF6600]/30 transition-all">
-        Extract Features
-      </button>
-    </div>
-  );
-
-  const BatchProcessing = () => (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-[#E2E2E2]">Batch Processing</h2>
-      <div className="bg-[#1B1B1B] rounded-lg p-6 border border-[#353535]">
-        <h3 className="text-lg font-semibold text-[#FFB596] mb-4">
-          Processing Status: 3/10 Jobs Completed
-        </h3>
-        <div className="w-full bg-[#0E0E0E] rounded-full h-3 mb-4">
-          <div className="bg-gradient-to-r from-[#FFB596] to-[#FF6600] h-3 rounded-full w-3/10 shadow-lg shadow-[#FF6600]/50"></div>
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map((job) => (
-            <div key={job} className="bg-[#0E0E0E] p-4 rounded">
-              <div className="flex justify-between items-center">
-                <span className="text-[#E2E2E2]">Job #{job}</span>
-                <span className="text-[#FFB596]">
-                  {job === 1
-                    ? "Processing"
-                    : job === 2
-                      ? "Queued"
-                      : "Completed"}
+        {/* Stepper */}
+        <div className="flex items-center mb-12">
+          {stepMeta.map((s, i) => (
+            <div key={s.n} className="flex items-center flex-1 last:flex-none">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold transition-colors duration-300 ${
+                    step === s.n
+                      ? "bg-orange-500 text-white shadow-[0_0_12px_rgba(255,102,0,0.5)]"
+                      : step > s.n
+                        ? "bg-orange-500/20 text-orange-500 border border-orange-500"
+                        : "bg-surface-container-low dark:bg-neutral-900 text-on-surface-variant border border-outline-variant/30 dark:border-neutral-800"
+                  }`}
+                >
+                  {step > s.n ? <CheckCircle2 className="w-5 h-5" /> : s.n}
+                </div>
+                <span
+                  className={`text-sm font-medium hidden sm:block whitespace-nowrap ${
+                    step === s.n ? "text-on-surface" : "text-on-surface-variant"
+                  }`}
+                >
+                  {s.label}
                 </span>
               </div>
+              {i < stepMeta.length - 1 && (
+                <div
+                  className={`h-px flex-1 mx-4 transition-colors duration-300 ${
+                    step > s.n
+                      ? "bg-orange-500"
+                      : "bg-outline-variant/20 dark:bg-neutral-800"
+                  }`}
+                />
+              )}
             </div>
           ))}
         </div>
-      </div>
-      <div className="flex gap-3">
-        <button className="flex-1 bg-[#FF6600] hover:bg-[#FF7722] text-[#581e00] font-bold py-2 rounded-lg transition-all">
-          Start Processing
-        </button>
-        <button className="flex-1 bg-[#2A2A2A] hover:bg-[#353535] text-[#FFB596] font-bold py-2 rounded-lg transition-all">
-          Pause
-        </button>
-      </div>
-    </div>
-  );
 
-  const ImportManagement = () => (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-[#E2E2E2]">Import & Management</h2>
-      <div className="bg-[#1B1B1B] rounded-lg p-8 border-2 border-dashed border-[#FF6600] text-center hover:bg-[#2A2A2A] transition-all cursor-pointer">
-        <Upload className="w-12 h-12 text-[#FF6600] mx-auto mb-3" />
-        <p className="text-[#E2E2E2] font-semibold">
-          Drop files here or click to upload
-        </p>
-        <p className="text-[#E3BFB1] text-sm">Supported: CIF, POSCAR, JSON</p>
-      </div>
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-[#FFB596]">
-          Recent Datasets (48 Total)
-        </h3>
-        {[
-          "SrTiO3 (Perovskite)",
-          "MoS2 (2D Monolayer)",
-          "GaN (Semiconductor)",
-        ].map((dataset, i) => (
-          <div
-            key={i}
-            className="bg-[#1B1B1B] p-4 rounded border border-[#353535] flex justify-between items-center"
-          >
-            <span className="text-[#E2E2E2]">{dataset}</span>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 bg-[#2A2A2A] hover:bg-[#353535] text-[#E3BFB1] rounded text-sm transition-all">
-                View
-              </button>
-              <button className="px-3 py-1 bg-[#2A2A2A] hover:bg-[#353535] text-[#E3BFB1] rounded text-sm transition-all">
-                Export
+        {/* STEP 1 — Upload */}
+        {step === 1 && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* CSV upload */}
+              <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+                <div className="flex items-center gap-2 mb-4">
+                  <Database className="w-5 h-5 text-orange-500" />
+                  <h3 className="font-headline font-semibold text-on-surface">
+                    Dataset (CSV)
+                  </h3>
+                </div>
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) =>
+                    e.target.files?.[0] && handleCsvUpload(e.target.files[0])
+                  }
+                />
+                {!csvFile ? (
+                  <div
+                    onClick={() => csvInputRef.current?.click()}
+                    className="border-2 border-dashed border-outline-variant/30 dark:border-neutral-700 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 transition-colors"
+                  >
+                    <Upload className="w-9 h-9 text-orange-500 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-on-surface">
+                      Drop CSV here or click to upload
+                    </p>
+                    <p className="text-xs text-on-surface-variant mt-1">
+                      Rows will be split into processing batches
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between bg-surface-container-low dark:bg-neutral-900 rounded-lg px-4 py-3 border border-outline-variant/20 dark:border-neutral-800">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FileText className="w-5 h-5 text-orange-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-on-surface truncate">
+                          {csvFile.name}
+                        </p>
+                        <p className="text-xs text-on-surface-variant">
+                          {totalRows.toLocaleString()} rows detected
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setCsvFile(null);
+                        setTotalRows(0);
+                      }}
+                      className="text-on-surface-variant hover:text-red-500 transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* CIF upload */}
+              <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+                <div className="flex items-center gap-2 mb-4">
+                  <FlaskConical className="w-5 h-5 text-orange-500" />
+                  <h3 className="font-headline font-semibold text-on-surface">
+                    Structure Files (CIF)
+                  </h3>
+                </div>
+                <input
+                  ref={cifInputRef}
+                  type="file"
+                  accept=".cif"
+                  multiple
+                  className="hidden"
+                  onChange={(e) =>
+                    e.target.files && handleCifUpload(e.target.files)
+                  }
+                />
+                <div
+                  onClick={() => cifInputRef.current?.click()}
+                  className="border-2 border-dashed border-outline-variant/30 dark:border-neutral-700 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 transition-colors mb-3"
+                >
+                  <Upload className="w-9 h-9 text-orange-500 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-on-surface">
+                    Drop CIF file(s) here or click to upload
+                  </p>
+                  <p className="text-xs text-on-surface-variant mt-1">
+                    Crystal structure data — multiple files allowed
+                  </p>
+                </div>
+                {cifFiles.length > 0 && (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {cifFiles.map((f) => (
+                      <div
+                        key={f.name}
+                        className="flex items-center justify-between bg-surface-container-low dark:bg-neutral-900 rounded-md px-3 py-2 border border-outline-variant/20 dark:border-neutral-800"
+                      >
+                        <span className="text-xs text-on-surface truncate">
+                          {f.name}
+                        </span>
+                        <button
+                          onClick={() => removeCifFile(f.name)}
+                          className="text-on-surface-variant hover:text-red-500 transition-colors shrink-0 ml-2"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                disabled={!csvFile || totalRows === 0}
+                onClick={() => setStep(2)}
+                className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-headline font-semibold px-6 py-3 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_16px_rgba(255,102,0,0.25)]"
+              >
+                Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-  );
+        )}
 
-  return (
-    <div className="min-h-screen bg-[#131313]">
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        {currentView !== "hub" && (
-          <div className="mb-8">
-            <button
-              onClick={() => setCurrentView("hub")}
-              className="text-[#FF6600] hover:text-[#FFB596] font-semibold mb-4"
-            >
-              ← Back to Hub
-            </button>
-            <TabNavigation />
+        {/* STEP 2 — Configure batches + features */}
+        {step === 2 && (
+          <div className="space-y-6">
+            {/* Batch size */}
+            <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+              <div className="flex items-center gap-2 mb-4">
+                <Layers className="w-5 h-5 text-orange-500" />
+                <h3 className="font-headline font-semibold text-on-surface">
+                  Batch Size
+                </h3>
+              </div>
+              <p className="text-sm text-on-surface-variant mb-4">
+                {totalRows.toLocaleString()} total rows will be split into
+                batches for processing.
+              </p>
+              <div className="flex items-center gap-4 max-w-xs">
+                <input
+                  type="number"
+                  min={1}
+                  max={totalRows || 1}
+                  value={batchSize}
+                  onChange={(e) =>
+                    setBatchSize(Math.max(1, Number(e.target.value) || 1))
+                  }
+                  className="w-32 bg-surface-container-low dark:bg-neutral-900 border border-outline-variant/30 dark:border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                />
+                <span className="text-sm text-on-surface-variant">
+                  rows per batch →{" "}
+                  <span className="text-orange-500 font-semibold">
+                    {Math.ceil(totalRows / Math.max(batchSize, 1))} batches
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Feature selection */}
+            <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="w-5 h-5 text-orange-500" />
+                  <h3 className="font-headline font-semibold text-on-surface">
+                    Select Features to Extract
+                  </h3>
+                </div>
+                <span className="text-xs text-on-surface-variant">
+                  {selectedFeatures.size} selected
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {FEATURE_OPTIONS.map((f) => {
+                  const active = selectedFeatures.has(f.id);
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => toggleFeature(f.id)}
+                      className={`flex items-start gap-3 text-left p-4 rounded-lg border transition-all ${
+                        active
+                          ? "border-orange-500 bg-orange-500/5"
+                          : "border-outline-variant/20 dark:border-neutral-800 hover:border-orange-500/40"
+                      }`}
+                    >
+                      {active ? (
+                        <CheckCircle2 className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-on-surface-variant shrink-0 mt-0.5" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-on-surface">
+                          {f.name}
+                        </p>
+                        <p className="text-xs text-on-surface-variant mt-0.5">
+                          {f.description}
+                        </p>
+                        <span className="inline-block mt-1.5 text-[10px] uppercase tracking-wider text-orange-500/80">
+                          {f.category}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-between">
+              <button
+                onClick={() => setStep(1)}
+                className="px-6 py-3 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                disabled={selectedFeatures.size === 0}
+                onClick={goToStep3}
+                className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-headline font-semibold px-6 py-3 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_16px_rgba(255,102,0,0.25)]"
+              >
+                Continue <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 
-        {currentView === "hub" && <Hub />}
-        {currentView === "extraction" && (
-          <>
-            <TabNavigation />
-            <FeatureExtraction />
-          </>
+        {/* STEP 3 — Process */}
+        {step === 3 && (
+          <div className="space-y-6">
+            <div className="glass-card rounded-xl p-6 border border-outline-variant/20 dark:border-neutral-800">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-headline font-semibold text-on-surface">
+                  Processing Queue
+                </h3>
+                <span className="text-sm text-on-surface-variant">
+                  {processedCount}/{batches.length} batches
+                </span>
+              </div>
+              <div className="w-full bg-surface-container-low dark:bg-neutral-900 rounded-full h-2.5 mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(255,102,0,0.5)]"
+                  style={{
+                    width: `${batches.length ? (processedCount / batches.length) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {batches.map((b) => (
+                  <div
+                    key={b.id}
+                    className="flex items-center justify-between bg-surface-container-low dark:bg-neutral-900 rounded-lg px-4 py-3 border border-outline-variant/10 dark:border-neutral-800"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-on-surface">
+                        Batch #{b.id}
+                      </p>
+                      <p className="text-xs text-on-surface-variant">
+                        Rows {b.rangeStart}–{b.rangeEnd} ({b.rowCount} rows)
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {b.status === "pending" && (
+                        <span className="text-xs text-on-surface-variant">
+                          Queued
+                        </span>
+                      )}
+                      {b.status === "processing" && (
+                        <>
+                          <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
+                          <span className="text-xs text-orange-500">
+                            Processing
+                          </span>
+                        </>
+                      )}
+                      {b.status === "done" && (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          <span className="text-xs text-green-500">Done</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between">
+              <button
+                disabled={processing}
+                onClick={() => setStep(2)}
+                className="px-6 py-3 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors disabled:opacity-40"
+              >
+                ← Back
+              </button>
+              <button
+                disabled={processing}
+                onClick={runProcessing}
+                className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-headline font-semibold px-6 py-3 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 shadow-[0_0_16px_rgba(255,102,0,0.25)]"
+              >
+                {processing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    Run Batch Processing <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         )}
-        {currentView === "batch" && (
-          <>
-            <TabNavigation />
-            <BatchProcessing />
-          </>
-        )}
-        {currentView === "import" && (
-          <>
-            <TabNavigation />
-            <ImportManagement />
-          </>
+
+        {/* STEP 4 — Results */}
+        {step === 4 && (
+          <div className="space-y-6">
+            <div className="glass-card rounded-xl p-8 border border-outline-variant/20 dark:border-neutral-800 text-center">
+              <CheckCircle2 className="w-14 h-14 text-green-500 mx-auto mb-4" />
+              <h3 className="text-2xl font-headline font-bold text-on-surface mb-2">
+                Processing Complete
+              </h3>
+              <p className="text-on-surface-variant mb-6">
+                {totalRows.toLocaleString()} rows across {batches.length}{" "}
+                batches processed with {selectedFeatures.size} selected
+                features.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <button className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-headline font-semibold px-6 py-3 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_0_16px_rgba(255,102,0,0.25)]">
+                  <Download className="w-4 h-4" /> Download Report
+                </button>
+                <button
+                  onClick={resetAll}
+                  className="px-6 py-3 rounded-lg text-sm font-medium border border-outline-variant/30 dark:border-neutral-800 text-on-surface hover:bg-surface-container-low dark:hover:bg-neutral-900 transition-colors"
+                >
+                  Start New Job
+                </button>
+              </div>
+            </div>
+
+            {/* Results summary table */}
+            <div className="glass-card rounded-xl border border-outline-variant/20 dark:border-neutral-800 overflow-hidden">
+              <div className="px-6 py-4 border-b border-outline-variant/10 dark:border-neutral-800">
+                <h4 className="font-headline font-semibold text-on-surface">
+                  Extracted Features
+                </h4>
+              </div>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-surface-container-low dark:bg-neutral-900">
+                    <th className="px-6 py-3 text-xs font-medium text-on-surface-variant uppercase">
+                      Feature
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium text-on-surface-variant uppercase">
+                      Category
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium text-on-surface-variant uppercase">
+                      Rows Covered
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/10 dark:divide-neutral-800">
+                  {FEATURE_OPTIONS.filter((f) =>
+                    selectedFeatures.has(f.id),
+                  ).map((f) => (
+                    <tr key={f.id}>
+                      <td className="px-6 py-3 text-sm text-on-surface font-medium">
+                        {f.name}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-on-surface-variant">
+                        {f.category}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-on-surface-variant">
+                        {totalRows.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
     </div>

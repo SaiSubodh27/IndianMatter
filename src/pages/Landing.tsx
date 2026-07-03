@@ -1,48 +1,141 @@
 ﻿import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { useTheme } from "../contexts/ThemeProvider";
+
+function LandingNav() {
+  const { theme, setTheme } = useTheme();
+  const [userProfile, setUserProfile] = useState<{
+    name?: string;
+    picture?: string;
+    email?: string;
+  } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const profileObj = localStorage.getItem("userProfile");
+    if (profileObj) {
+      try {
+        setUserProfile(JSON.parse(profileObj));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const links = [
+    { name: "Discover", href: "#" },
+    { name: "Datasets", href: "#" },
+    { name: "API", href: "#" },
+    { name: "Documentation", href: "#" },
+  ];
+
+  return (
+    <nav className="fixed top-0 w-full z-50 bg-background/70 dark:bg-neutral-950/60 backdrop-blur-xl flex items-center px-8 h-20 shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] border-b border-outline-variant/10 dark:border-neutral-900">
+      {/* Logo */}
+      <div className="w-64 shrink-0 text-2xl font-bold tracking-tighter text-orange-500 font-headline">
+        IndianMatter
+      </div>
+
+      {/* Centered links */}
+      <div className="hidden md:flex items-center justify-center gap-10 flex-1 font-headline tracking-tight">
+        {links.map((link) => (
+          <a
+            key={link.name}
+            href={link.href}
+            className="group relative py-2 text-on-surface-variant hover:text-on-surface dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors duration-200"
+          >
+            {link.name}
+            <span className="absolute left-1/2 -bottom-[1px] h-[2px] bg-orange-500 rounded-full transition-all duration-300 ease-in-out -translate-x-1/2 w-0 group-hover:w-full" />
+          </a>
+        ))}
+      </div>
+
+      {/* Right actions */}
+      <div className="flex items-center justify-end gap-4 w-64 shrink-0">
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="text-on-surface-variant dark:text-neutral-400 hover:text-orange-500 transition-colors duration-200"
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        >
+          <span className="material-symbols-outlined text-[20px]">
+            {theme === "dark" ? "light_mode" : "dark_mode"}
+          </span>
+        </button>
+
+        {userProfile ? (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex items-center"
+            >
+              <div className="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-orange-400 transition-colors duration-200">
+                <img
+                  className="w-full h-full object-cover"
+                  alt="User avatar"
+                  src={
+                    userProfile.picture ||
+                    "https://ui-avatars.com/api/?name=" +
+                      (userProfile.name || "User")
+                  }
+                />
+              </div>
+            </button>
+            <div
+              className={`absolute right-0 mt-3 w-56 bg-surface-container dark:bg-neutral-900 border border-outline-variant/20 dark:border-neutral-800 rounded-xl shadow-lg overflow-hidden origin-top-right transition-all duration-200 ${
+                menuOpen
+                  ? "opacity-100 scale-100 translate-y-0"
+                  : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+              }`}
+            >
+              <div className="px-4 py-3 border-b border-outline-variant/10 dark:border-neutral-800">
+                <p className="text-sm font-semibold text-on-surface dark:text-white truncate">
+                  {userProfile.name || "User"}
+                </p>
+                <p className="text-xs text-on-surface-variant dark:text-neutral-500 truncate">
+                  {userProfile.email || "Researcher"}
+                </p>
+              </div>
+              <Link
+                to="/dashboard"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface-variant dark:text-neutral-300 hover:bg-surface-container-high dark:hover:bg-neutral-800 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">
+                  dashboard
+                </span>
+                Go to Dashboard
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <Link
+            to="/signin"
+            className="px-6 py-2 rounded-full font-headline text-sm font-semibold bg-gradient-to-br from-primary to-primary-container text-on-primary neon-glow-primary hover:scale-105 active:scale-95 transition-transform whitespace-nowrap"
+          >
+            Sign In
+          </Link>
+        )}
+      </div>
+    </nav>
+  );
+}
 
 export default function Landing() {
   return (
     <div className="bg-background text-on-surface min-h-[200vh] overflow-x-hidden font-body selection:bg-primary/30 selection:text-white">
-      <nav className="fixed top-0 w-full z-50 bg-neutral-950/60 backdrop-blur-xl flex justify-between items-center px-8 h-20 w-full shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
-        <div className="text-2xl font-bold tracking-tighter text-orange-500 font-headline">
-          IndianMatter
-        </div>
-        <div className="hidden md:flex items-center gap-8 font-headline tracking-tight">
-          <a
-            className="text-orange-400 border-b-2 border-orange-500 pb-1"
-            href="#"
-          >
-            Discover
-          </a>
-          <a
-            className="text-neutral-400 hover:text-neutral-200 transition-all duration-300"
-            href="#"
-          >
-            Datasets
-          </a>
-          <a
-            className="text-neutral-400 hover:text-neutral-200 transition-all duration-300"
-            href="#"
-          >
-            API
-          </a>
-          <a
-            className="text-neutral-400 hover:text-neutral-200 transition-all duration-300"
-            href="#"
-          >
-            Documentation
-          </a>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            to="/signin"
-            className="px-6 py-2 rounded-md font-headline text-sm font-semibold bg-gradient-to-br from-primary to-primary-container text-on-primary neon-glow-primary hover:scale-98 active:scale-95 transition-transform"
-          >
-            Sign In
-          </Link>
-        </div>
-      </nav>
+      <LandingNav />
 
       <header className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden lattice-bg">
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -222,9 +315,7 @@ export default function Landing() {
                 <span className="text-[0.6875rem] text-on-surface-variant font-headline">
                   Conductivity (S/cm)
                 </span>
-                <span className="text-primary font-mono text-xs">
-                  10Ã¢Â»Ã‚Â³
-                </span>
+                <span className="text-primary font-mono text-xs">10⁻³</span>
               </div>
               <div className="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
                 <div className="h-full bg-primary w-4/5 shadow-[0_0_8px_#ff6600]"></div>
@@ -587,7 +678,7 @@ export default function Landing() {
           </a>
         </div>
         <div className="text-neutral-600 font-headline text-[10px] uppercase tracking-widest text-center">
-          Ã‚Â© 2024 IndianMatter. Engineered for Scientific Discovery.
+          © 2024 IndianMatter. Engineered for Scientific Discovery.
         </div>
       </footer>
     </div>

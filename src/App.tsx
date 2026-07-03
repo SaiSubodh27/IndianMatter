@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+
 import {
   BrowserRouter,
   Routes,
@@ -19,95 +20,8 @@ import Datasets from "./pages/Datasets";
 import Structures from "./pages/Structures";
 import Settings from "./pages/Settings";
 
-function Sidebar() {
+function Navbar() {
   const location = useLocation();
-  const [isMinimized, setIsMinimized] = useState(false);
-
-  const links = [
-    { name: "Dashboard", path: "/dashboard", icon: "dashboard" },
-    { name: "Explorer", path: "/dashboard/explorer", icon: "science" },
-    {
-      name: "Calculations",
-      path: "/dashboard/calculations",
-      icon: "calculate",
-    },
-    { name: "Saved", path: "/dashboard/saved", icon: "bookmark" },
-    { name: "Datasets", path: "/dashboard/datasets", icon: "database" },
-    { name: "Structures", path: "/dashboard/structures", icon: "layers" },
-    { name: "Settings", path: "/dashboard/settings", icon: "settings" },
-  ];
-
-  return (
-    <aside
-      className={`h-screen bg-gray-50 dark:bg-neutral-950 border-r border-gray-200 dark:border-neutral-800 flex flex-col py-6 sticky top-0 shrink-0 font-body text-sm transition-all duration-300 z-50 ${
-        isMinimized ? "w-20" : "w-64"
-      }`}
-    >
-      <div
-        className={`px-6 mb-8 flex items-center ${isMinimized ? "justify-center" : "gap-3"}`}
-      >
-        <div
-          onClick={() => setIsMinimized(!isMinimized)}
-          className="w-8 h-8 shrink-0 bg-orange-500 rounded flex items-center justify-center cursor-pointer hover:bg-orange-600 transition-colors"
-          title="Toggle Sidebar"
-        >
-          <span className="material-symbols-outlined text-white text-lg">
-            {isMinimized ? "menu" : "science"}
-          </span>
-        </div>
-        {!isMinimized && (
-          <span className="text-gray-900 dark:text-white font-bold text-lg tracking-tight whitespace-nowrap overflow-hidden">
-            IndianMatter
-          </span>
-        )}
-      </div>
-
-      <nav className="flex-1 px-3 space-y-1">
-        {links.map((link) => {
-          const isActive = location.pathname === link.path;
-          return (
-            <Link
-              key={link.name}
-              to={link.path}
-              title={isMinimized ? link.name : undefined}
-              className={`flex items-center gap-3 py-2.5 px-3 transition-colors rounded-md overflow-hidden ${
-                isActive
-                  ? "bg-gray-200 dark:bg-neutral-900 text-gray-900 dark:text-white font-semibold"
-                  : "text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-900 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <span
-                className={`material-symbols-outlined ${isMinimized ? "mx-auto text-xl" : "text-lg"}`}
-              >
-                {link.icon}
-              </span>
-              {!isMinimized && (
-                <span className="whitespace-nowrap">{link.name}</span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="mt-auto px-3">
-        {!isMinimized ? (
-          <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-black py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap">
-            New Job
-          </button>
-        ) : (
-          <button
-            className="w-full bg-gray-900 dark:bg-white text-white dark:text-black py-2.5 rounded-md flex justify-center hover:opacity-90 transition-opacity"
-            title="New Job"
-          >
-            <span className="material-symbols-outlined text-xl">add</span>
-          </button>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function MainHeader() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const [userProfile, setUserProfile] = useState<{
@@ -115,6 +29,8 @@ function MainHeader() {
     picture?: string;
     email?: string;
   } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const profileObj = localStorage.getItem("userProfile");
@@ -127,23 +43,80 @@ function MainHeader() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem("userProfile");
     setUserProfile(null);
+    setMenuOpen(false);
     navigate("/");
   };
 
+  const links = [
+    { name: "Dashboard", path: "/dashboard", icon: "dashboard" },
+    { name: "Explorer", path: "/dashboard/explorer", icon: "science" },
+    {
+      name: "Calculations",
+      path: "/dashboard/calculations",
+      icon: "calculate",
+    },
+    { name: "Saved", path: "/dashboard/saved", icon: "bookmark" },
+    { name: "Datasets", path: "/dashboard/datasets", icon: "database" },
+    { name: "Structures", path: "/dashboard/structures", icon: "layers" },
+  ];
+
   return (
-    <header className="h-16 px-8 flex items-center justify-between sticky top-0 z-40 bg-white dark:bg-neutral-950 border-b border-gray-200 dark:border-neutral-800">
-      <div className="flex items-center gap-6">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white hidden md:block">
-          Workspace
-        </h2>
+    <header className="h-20 px-8 flex items-center sticky top-0 z-50 bg-[#FBFAF8] dark:bg-neutral-950 border-b border-gray-200/70 dark:border-neutral-800 font-body text-sm shrink-0">
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 w-64 shrink-0">
+        <div className="w-8 h-8 shrink-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center">
+          <span className="material-symbols-outlined text-white text-lg">
+            science
+          </span>
+        </div>
+        <span className="text-gray-900 dark:text-white font-serif text-xl tracking-tight whitespace-nowrap hidden sm:block">
+          IndianMatter
+        </span>
       </div>
-      <div className="flex items-center gap-6">
+
+      {/* Nav links — centered, understated, generous tracking like Function's nav */}
+      <nav className="hide-scrollbar flex items-center justify-center gap-10 flex-1 overflow-x-auto">
+        {links.map((link) => {
+          const isActive = location.pathname === link.path;
+          return (
+            <Link
+              key={link.name}
+              to={link.path}
+              className={`group relative py-2 transition-colors duration-200 whitespace-nowrap tracking-wide ${
+                isActive
+                  ? "text-gray-900 dark:text-white font-semibold"
+                  : "text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white font-medium"
+              }`}
+            >
+              {link.name}
+              <span
+                className={`absolute left-1/2 -bottom-[1px] h-[2px] bg-orange-500 rounded-full transition-all duration-300 ease-in-out -translate-x-1/2 ${
+                  isActive ? "w-full" : "w-0 group-hover:w-full"
+                }`}
+              />
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Right actions */}
+      <div className="flex items-center justify-end gap-5 w-64 shrink-0">
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-200 dark:border-neutral-800 text-gray-600 dark:text-neutral-400 hover:bg-gray-50 dark:hover:bg-neutral-900 transition-colors"
+          className="text-gray-500 dark:text-neutral-400 hover:text-orange-500 transition-colors duration-200"
           title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         >
           <span className="material-symbols-outlined text-[20px]">
@@ -152,37 +125,67 @@ function MainHeader() {
         </button>
 
         {userProfile ? (
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col text-right hidden sm:flex">
-              <span className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
-                {userProfile.name || "User"}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-neutral-500">
-                {userProfile.email || "Researcher"}
-              </span>
+          <>
+            <span className="w-px h-5 bg-gray-300 dark:bg-neutral-700" />
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="flex items-center"
+              >
+                <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-neutral-800 flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-orange-400 transition-colors duration-200">
+                  <img
+                    className="w-full h-full object-cover"
+                    alt="User avatar"
+                    src={
+                      userProfile.picture ||
+                      "https://ui-avatars.com/api/?name=" +
+                        (userProfile.name || "User")
+                    }
+                  />
+                </div>
+              </button>
+
+              <div
+                className={`absolute right-0 mt-3 w-56 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl shadow-lg overflow-hidden origin-top-right transition-all duration-200 ${
+                  menuOpen
+                    ? "opacity-100 scale-100 translate-y-0"
+                    : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+                }`}
+              >
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-neutral-800">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                    {userProfile.name || "User"}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-neutral-500 truncate">
+                    {userProfile.email || "Researcher"}
+                  </p>
+                </div>
+                <Link
+                  to="/dashboard/settings"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    settings
+                  </span>
+                  Settings
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    logout
+                  </span>
+                  Logout
+                </button>
+              </div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-neutral-800 flex items-center justify-center overflow-hidden border border-gray-300 dark:border-neutral-700">
-              <img
-                className="w-full h-full object-cover"
-                alt="User avatar"
-                src={
-                  userProfile.picture ||
-                  "https://ui-avatars.com/api/?name=" +
-                    (userProfile.name || "User")
-                }
-              />
-            </div>
-            <button
-              onClick={handleLogout}
-              className="ml-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            >
-              Logout
-            </button>
-          </div>
+          </>
         ) : (
           <Link
             to="/signin"
-            className="px-4 py-1.5 rounded-md bg-gray-900 dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90 transition-opacity"
+            className="px-5 py-2 rounded-full bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 transition-colors whitespace-nowrap"
           >
             Sign In
           </Link>
@@ -191,7 +194,6 @@ function MainHeader() {
     </header>
   );
 }
-
 function Dashboard() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -311,10 +313,9 @@ function Dashboard() {
 
 function AppLayout() {
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 font-body overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 relative overflow-x-hidden flex flex-col h-full overflow-y-auto">
-        <MainHeader />
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 font-body overflow-hidden">
+      <Navbar />
+      <main className="flex-1 relative overflow-x-hidden overflow-y-auto">
         <Outlet />
       </main>
     </div>
