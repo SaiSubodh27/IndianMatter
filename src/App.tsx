@@ -76,14 +76,17 @@ function Navbar() {
   return (
     <header className="h-20 px-8 flex items-center sticky top-0 z-50 bg-[#FBFAF8] dark:bg-neutral-950 border-b border-gray-200/70 dark:border-neutral-800 font-body text-sm shrink-0">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 w-64 shrink-0">
-        <div className="w-8 h-8 shrink-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center">
-          <span className="material-symbols-outlined text-white text-lg">
-            science
+      <div className="flex items-end gap-2.5 w-64 shrink-0">
+        <img
+          src="/mi-icon-mark.png"
+          alt="IndianMatter"
+          className="w-12 h-12 shrink-0 object-contain"
+        />
+        <span className="text-xl tracking-tight whitespace-nowrap hidden sm:block leading-none pb-0.5">
+          <span className="text-orange-500 font-bold">Indian</span>
+          <span className="text-gray-900 dark:text-white font-bold">
+            Matter
           </span>
-        </div>
-        <span className="text-gray-900 dark:text-white font-serif text-xl tracking-tight whitespace-nowrap hidden sm:block">
-          IndianMatter
         </span>
       </div>
 

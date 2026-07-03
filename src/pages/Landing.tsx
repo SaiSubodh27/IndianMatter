@@ -44,8 +44,17 @@ function LandingNav() {
   return (
     <nav className="fixed top-0 w-full z-50 bg-background/70 dark:bg-neutral-950/60 backdrop-blur-xl flex items-center px-8 h-20 shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] border-b border-outline-variant/10 dark:border-neutral-900">
       {/* Logo */}
-      <div className="w-64 shrink-0 text-2xl font-bold tracking-tighter text-orange-500 font-headline">
-        IndianMatter
+      {/* Logo */}
+      <div className="w-64 shrink-0 flex items-end gap-2.5 font-headline">
+        <img
+          src="/mi-icon-mark.png"
+          alt="IndianMatter"
+          className="w-10 h-10 shrink-0 object-contain"
+        />
+        <span className="text-xl tracking-tight whitespace-nowrap leading-none pb-0.5">
+          <span className="text-orange-500 font-bold">Indian</span>
+          <span className="text-on-surface font-bold">Matter</span>
+        </span>
       </div>
 
       {/* Centered links */}
