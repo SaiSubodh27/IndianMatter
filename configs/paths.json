@@ -1,0 +1,8 @@
+{
+  "cif_directory": "cif_files",
+  "dataset_path": "datasets/lithium_dataset_full_cleaned.csv",
+  "output_csv": "datasets/v5_300plus_features_cache.csv",
+  "output_merged": "datasets/v5_merged_training_dataset.csv",
+  "models_dir": "final_models/pretrained_models",
+  "target_cif": "cif_files/mp-1001069.cif"
+}

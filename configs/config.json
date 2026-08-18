@@ -1,0 +1,27 @@
+{
+  "api": {
+    "host": "localhost",
+    "port": 5000,
+    "debug": false,
+    "cors_enabled": true
+  },
+  "ui": {
+    "title": "Synthetic Observer - Ionic Conductivity Predictor",
+    "theme": "dark",
+    "color_scheme": "cyan",
+    "port": 8080
+  },
+  "models": {
+    "base_models": "final_models/pretrained_models/v5_base_models.pkl",
+    "model_A": "final_models/pretrained_models/v5_model2_A.pkl",
+    "meta_model": "final_models/pretrained_models/v5_meta_model.pkl",
+    "mlp_models": "final_models/pretrained_models/v5_mlp_models.pkl",
+    "quantile_transformer": "final_models/pretrained_models/v5_quantile_transformer.pkl"
+  },
+  "prediction": {
+    "temperature_range": [200, 600],
+    "temperature_default": 298.15,
+    "ea_range": [0.005, 5.0],
+    "max_file_size_mb": 10
+  }
+}

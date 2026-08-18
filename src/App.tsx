@@ -16,9 +16,11 @@ import Calculations from "./pages/Calculations";
 import SavedMaterials from "./pages/SavedMaterials";
 import Trial from "./pages/Trial";
 import SignIn from "./pages/SignIn";
+import ContactUs from "./pages/ContactUs";
 import Datasets from "./pages/Datasets";
 import Structures from "./pages/Structures";
 import Settings from "./pages/Settings";
+import AboutUs from "./pages/AboutUs";
 
 function Navbar() {
   const location = useLocation();
@@ -71,6 +73,7 @@ function Navbar() {
     { name: "Saved", path: "/dashboard/saved", icon: "bookmark" },
     { name: "Datasets", path: "/dashboard/datasets", icon: "database" },
     { name: "Structures", path: "/dashboard/structures", icon: "layers" },
+    { name: "About Us", path: "/dashboard/aboutus", icon: "info" },
   ];
 
   return (
@@ -340,6 +343,8 @@ function App() {
           <Route path="datasets" element={<Datasets />} />
           <Route path="structures" element={<Structures />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="contactus" element={<ContactUs />} />
+          <Route path="aboutus" element={<AboutUs />} />
         </Route>
       </Routes>
     </BrowserRouter>

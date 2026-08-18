@@ -1,59 +1,20 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import PeriodicTable from "../components/PeriodicTable";
+import StructureViewer, {
+  type ViewerControls,
+  type ViewerStyle,
+} from "../components/StructureViewer";
 
-interface Material {
+interface ExploreMaterialRow {
+  material_id: string;
   formula: string;
-  crystalSystem: string;
-  imageUrl: string;
-  symmetryGroup: string;
-  bandGap: string;
-  formationEnergy: string;
+  space_group: string;
+  crystal_system: string;
+  band_gap: number;
+  formation_energy: number;
+  density: number;
+  is_stable: boolean;
 }
-
-const materials: Material[] = [
-  {
-    formula: "Li7La3Zr2O12",
-    crystalSystem: "CUBIC",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCmxsTzGYilufLvFdZuGfTyIHf4A52tLscUEJqMMC2aWZVks5pSUS5oOAGLGx7DCwtHPE7sykdgksyYSN1AvyMVpr_kyQwYHVEnwUh9f7O5-4FCip-Keo1ZxcHIRPYneE6tWDuGmHXuRr8aoH3j_4WLc8QZSf4d5rxgQcHcAk_ELL_2tfdTSGyqYx4pyEa8jr-SHjAoUfqvvUDiEivIifKp82dIviJD1Vk49IlzdGOlPt0jE5iInMl5rFczdxVBwIvkqNOIPXKvkcU",
-    symmetryGroup: "Ia-3d",
-    bandGap: "4.82 eV",
-    formationEnergy: "-3.12 eV/atom",
-  },
-  {
-    formula: "CsPbI3",
-    crystalSystem: "ORTHO",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBELT8GpyWUgh6xr6_wyiC0jlyUzBOFH04wurT4QqQhC-wFZrLnMtfP1UfEHUrmCLvzraTlTxqP996ETFLLGm0yOGiVrTVcdpuSsjRUEIRzQm2pJ2q0NiiHFlhK7HnCm33DUsPDgauNyhYswbCte0AAEWLdYur9pYmwam5cuY76Sa3nFB6wqST5jJCEMeJWKZcxO1XTPnYC1FZrE1eS-_uXJWIhd9tuc0OCnH4GiaTS13FFBPeoG5NrDxezWuk8SRcGrtz-D1kUiA0",
-    symmetryGroup: "Pnma",
-    bandGap: "1.73 eV",
-    formationEnergy: "-1.45 eV/atom",
-  },
-  {
-    formula: "MoS2",
-    crystalSystem: "HEX",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDgAPfPh1LivdB_tWmf6kMFJIVV-pHDrCyEWndqtzRn3-xCCwcSX-tU8n80B_LjYWRcjK0OHxsHLz60G3lgaSN2EMQm0edcF0kdTwH31sDWiYzl38YdDEynccI4l432EYrko8cAFDMgzcvMDwQSBYJ_sJf4ZFgL8GL8UU31gzxE9j8o_7VlxM4FGCt4KBJKCXZmn1Am9yxZHOqbxudvyrmV5zTBEp1MODcNads4yhhxTDj7-O6ngMUBl2wW_CsCUYx6MuxUs6eh588",
-    symmetryGroup: "P6_3/mmc",
-    bandGap: "1.80 eV",
-    formationEnergy: "-0.92 eV/atom",
-  },
-  {
-    formula: "BaTiO3",
-    crystalSystem: "TETRA",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuB0vBS8M2NbNy8elvFWc94HqoSPJjRGI4z03mQsoxY1hVsCcEkLOaBihbE7wNSnC_iaFwU1RBFiCY3ZYfF27JJY9H89rJvdQXKJUE0bcaHfFZ8hDknfpaPBStbVwE9crSZ4_-l_r6WfVLBDUY1kPKAlan-O-En1Od6HKpID4viMtXxztmVle3raQni58YB_rGdqU032174yOCHi0ls22q--Gg1paMjs5qxT2FOIe9EiwyPiTFz6xq2m-bOj77fiU04xKShBOc-gByo",
-    symmetryGroup: "P4mm",
-    bandGap: "3.20 eV",
-    formationEnergy: "-3.48 eV/atom",
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Property schema: everything a category can expose. "range" properties get
-// a dual min/max input + slider; "categorical" properties get chip toggles.
-// Every checked property (either type) also gets a free-text notes area.
-// ---------------------------------------------------------------------------
 
 type RangeProperty = {
   id: string;
@@ -63,6 +24,10 @@ type RangeProperty = {
   min: number;
   max: number;
   step: number;
+  /** true if this property is actually wired to a live backend filter.
+   *  Properties without this flag are shown for reference/selection but
+   *  don't yet affect the search results — see README note in Explorer(). */
+  wired?: boolean;
 };
 
 type CategoricalProperty = {
@@ -81,6 +46,77 @@ interface PropertyCategory {
   properties: Property[];
 }
 
+type Step = "composition" | "properties" | "results";
+type StabilityFilter = "all" | "stable" | "unstable";
+type DataSource = "materials_project" | "oqmd" | "aflow" | "jarvis";
+
+const sourceEndpoints: Record<DataSource, string> = {
+  materials_project: "http://localhost:8000/api/materials/explore",
+  oqmd: "http://localhost:8000/api/oqmd/explore",
+  aflow: "http://localhost:8000/api/aflow/explore",
+  jarvis: "http://localhost:8000/api/jarvis/explore",
+};
+
+const structureEndpoints: Record<DataSource, (id: string) => string> = {
+  materials_project: (id) =>
+    `http://localhost:8000/api/materials/structure/${id}`,
+  oqmd: (id) =>
+    `http://localhost:8000/api/oqmd/structure/${id.replace(/^oqmd-/, "")}`,
+  aflow: (id) =>
+    `http://localhost:8000/api/aflow/structure/${id.replace(/^aflow-/, "")}`,
+  jarvis: (id) =>
+    `http://localhost:8000/api/jarvis/structure/${id.replace(/^jarvis-/, "")}`,
+};
+
+const csvDownloadEndpoints: Record<DataSource, string> = {
+  materials_project: "http://localhost:8000/api/materials/download/csv",
+  oqmd: "http://localhost:8000/api/oqmd/download/csv",
+  aflow: "http://localhost:8000/api/aflow/download/csv",
+  jarvis: "http://localhost:8000/api/jarvis/download/csv",
+};
+
+const cifDownloadEndpoints: Record<DataSource, (id: string) => string> = {
+  materials_project: (id) =>
+    `http://localhost:8000/api/materials/download/cif/${id}`,
+  oqmd: (id) =>
+    `http://localhost:8000/api/oqmd/download/cif/${id.replace(/^oqmd-/, "")}`,
+  aflow: (id) =>
+    `http://localhost:8000/api/aflow/download/cif/${id.replace(/^aflow-/, "")}`,
+  jarvis: (id) =>
+    `http://localhost:8000/api/jarvis/download/cif/${id.replace(/^jarvis-/, "")}`,
+};
+
+const sourceLabels: Record<DataSource, string> = {
+  materials_project: "Materials Project",
+  oqmd: "OQMD",
+  aflow: "AFLOW",
+  jarvis: "JARVIS",
+};
+
+// Small distinct accent per source so a mixed results list stays scannable —
+// deliberately different hues from the stable/unstable pill colors below so
+// the two kinds of badges are never confused for each other.
+const sourceBadgeStyles: Record<DataSource, string> = {
+  materials_project:
+    "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/50",
+  oqmd: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900/50",
+  aflow:
+    "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-900/50",
+  jarvis:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50",
+};
+
+// Only Materials Project's /structure endpoint returns an actual CIF string
+// today — OQMD/AFLOW/JARVIS's equivalents return their own native payload
+// shapes (sites+unit_cell, CONTCAR-style geometry, raw OPTIMADE resource)
+// pending real CIF conversion on the backend (see the 501 stubs in those
+// routers). Feeding non-CIF text into the 3D viewer would just render a
+// confusing "0 atoms" error, so detect it up front and show a clear,
+// source-specific message instead of pretending it's supported.
+function looksLikeCif(text: string): boolean {
+  return text.trim().toLowerCase().startsWith("data_");
+}
+
 const propertyCategories: PropertyCategory[] = [
   {
     id: "structural",
@@ -91,7 +127,15 @@ const propertyCategories: PropertyCategory[] = [
         id: "crystal-system",
         label: "Crystal System",
         type: "categorical",
-        options: ["Cubic", "Hexagonal", "Tetragonal", "Orthorhombic"],
+        options: [
+          "Cubic",
+          "Hexagonal",
+          "Tetragonal",
+          "Orthorhombic",
+          "Trigonal",
+          "Monoclinic",
+          "Triclinic",
+        ],
       },
       {
         id: "symmetry-group",
@@ -104,6 +148,41 @@ const propertyCategories: PropertyCategory[] = [
         label: "Lattice Parameters",
         type: "categorical",
         options: ["a = b = c", "a = b ≠ c", "a ≠ b ≠ c", "α = β = γ = 90°"],
+      },
+      {
+        id: "volume-per-atom",
+        label: "Volume per Atom",
+        type: "range",
+        unit: "Å³/atom",
+        min: 5,
+        max: 100,
+        step: 1,
+      },
+      {
+        id: "num-atoms",
+        label: "Number of Atoms",
+        type: "range",
+        unit: "atoms",
+        min: 1,
+        max: 200,
+        step: 1,
+      },
+      {
+        id: "num-sites",
+        label: "Number of Sites",
+        type: "range",
+        unit: "sites",
+        min: 1,
+        max: 100,
+        step: 1,
+      },
+      {
+        id: "packing-fraction",
+        label: "Packing Fraction",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.01,
       },
     ],
   },
@@ -120,6 +199,7 @@ const propertyCategories: PropertyCategory[] = [
         min: 0,
         max: 5.2,
         step: 0.1,
+        wired: true,
       },
       {
         id: "dos",
@@ -136,6 +216,39 @@ const propertyCategories: PropertyCategory[] = [
         type: "categorical",
         options: ["Metal", "Semiconductor", "Insulator"],
       },
+      {
+        id: "gap-type",
+        label: "Gap Type",
+        type: "categorical",
+        options: ["Direct", "Indirect"],
+      },
+      {
+        id: "fermi-energy",
+        label: "Fermi Energy",
+        type: "range",
+        unit: "eV",
+        min: -10,
+        max: 10,
+        step: 0.1,
+      },
+      {
+        id: "work-function",
+        label: "Work Function",
+        type: "range",
+        unit: "eV",
+        min: 2,
+        max: 7,
+        step: 0.1,
+      },
+      {
+        id: "effective-mass",
+        label: "Effective Mass",
+        type: "range",
+        unit: "mₑ",
+        min: 0,
+        max: 5,
+        step: 0.05,
+      },
     ],
   },
   {
@@ -148,9 +261,10 @@ const propertyCategories: PropertyCategory[] = [
         label: "Formation Energy",
         type: "range",
         unit: "eV/atom",
-        min: -4.0,
+        min: -4,
         max: 0,
         step: 0.1,
+        wired: true,
       },
       {
         id: "phase-transition-temp",
@@ -165,10 +279,37 @@ const propertyCategories: PropertyCategory[] = [
         id: "thermal-expansion",
         label: "Thermal Expansion",
         type: "range",
-        unit: "10^-6/K",
+        unit: "10⁻⁶/K",
         min: 0,
         max: 50,
         step: 1,
+      },
+      {
+        id: "debye-temperature",
+        label: "Debye Temperature",
+        type: "range",
+        unit: "K",
+        min: 0,
+        max: 1200,
+        step: 10,
+      },
+      {
+        id: "specific-heat",
+        label: "Specific Heat",
+        type: "range",
+        unit: "J/mol·K",
+        min: 0,
+        max: 200,
+        step: 1,
+      },
+      {
+        id: "melting-point",
+        label: "Melting Point",
+        type: "range",
+        unit: "K",
+        min: 200,
+        max: 4000,
+        step: 50,
       },
     ],
   },
@@ -203,6 +344,24 @@ const propertyCategories: PropertyCategory[] = [
         max: 1.0,
         step: 0.05,
       },
+      {
+        id: "diffusion-barrier",
+        label: "Li Diffusion Barrier",
+        type: "range",
+        unit: "eV",
+        min: 0,
+        max: 2,
+        step: 0.05,
+      },
+      {
+        id: "max-voltage",
+        label: "Max Voltage",
+        type: "range",
+        unit: "V",
+        min: 0,
+        max: 6,
+        step: 0.1,
+      },
     ],
   },
   {
@@ -236,34 +395,126 @@ const propertyCategories: PropertyCategory[] = [
         max: 10,
         step: 0.1,
       },
+      {
+        id: "poisson-ratio",
+        label: "Poisson's Ratio",
+        type: "range",
+        min: 0,
+        max: 0.5,
+        step: 0.01,
+      },
+      {
+        id: "young-modulus",
+        label: "Young's Modulus",
+        type: "range",
+        unit: "GPa",
+        min: 0,
+        max: 500,
+        step: 5,
+      },
+      {
+        id: "hardness",
+        label: "Vickers Hardness",
+        type: "range",
+        unit: "GPa",
+        min: 0,
+        max: 50,
+        step: 0.5,
+      },
+    ],
+  },
+  {
+    id: "magnetic",
+    label: "Magnetic",
+    icon: "explore",
+    properties: [
+      {
+        id: "total-magnetization",
+        label: "Total Magnetization",
+        type: "range",
+        unit: "μB",
+        min: 0,
+        max: 10,
+        step: 0.1,
+      },
+      {
+        id: "magnetic-ordering",
+        label: "Magnetic Ordering",
+        type: "categorical",
+        options: ["FM", "AFM", "NM", "FiM"],
+      },
+    ],
+  },
+  {
+    id: "optical",
+    label: "Optical",
+    icon: "visibility",
+    properties: [
+      {
+        id: "refractive-index",
+        label: "Refractive Index",
+        type: "range",
+        min: 1,
+        max: 4,
+        step: 0.05,
+      },
+      {
+        id: "dielectric-constant",
+        label: "Dielectric Constant",
+        type: "range",
+        min: 1,
+        max: 50,
+        step: 0.5,
+      },
+      {
+        id: "absorption-coefficient",
+        label: "Absorption Coefficient",
+        type: "range",
+        unit: "cm⁻¹",
+        min: 0,
+        max: 100000,
+        step: 1000,
+      },
     ],
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Range dual-input + slider, used inside an expanded, checked property row.
-// ---------------------------------------------------------------------------
+/** Lifted range-filter state shape, keyed by property id. Only entries
+ *  for properties flagged `wired: true` above actually affect the
+ *  backend query right now (band-gap, formation-energy). Everything
+ *  else is captured here for future backend wiring but currently just
+ *  informational. */
+interface RangeFilterValue {
+  checked: boolean;
+  lo: number;
+  hi: number;
+}
 
-const RangeInput = ({ prop }: { prop: RangeProperty }) => {
-  const [lo, setLo] = useState(prop.min);
-  const [hi, setHi] = useState(prop.max);
-
+const RangeInput = ({
+  prop,
+  value,
+  onChange,
+}: {
+  prop: RangeProperty;
+  value: RangeFilterValue;
+  onChange: (next: RangeFilterValue) => void;
+}) => {
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
         <input
           type="number"
-          value={lo}
+          value={value.lo}
           step={prop.step}
-          onChange={(e) => setLo(Number(e.target.value))}
+          onChange={(e) => onChange({ ...value, lo: Number(e.target.value) })}
           className="w-full rounded-sm border border-gray-300 bg-white px-2 py-1.5 text-center font-mono text-xs text-orange-600 focus:border-orange-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-orange-400"
         />
         <span className="text-xs text-gray-400 dark:text-neutral-500">to</span>
         <input
           type="number"
-          value={hi}
+          value={value.hi}
           step={prop.step}
-          onChange={(e) => setHi(Number(e.target.value))}
+          onChange={(e) => onChange({ ...value, hi: Number(e.target.value) })}
           className="w-full rounded-sm border border-gray-300 bg-white px-2 py-1.5 text-center font-mono text-xs text-orange-600 focus:border-orange-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-orange-400"
         />
       </div>
@@ -272,37 +523,39 @@ const RangeInput = ({ prop }: { prop: RangeProperty }) => {
         min={prop.min}
         max={prop.max}
         step={prop.step}
-        value={hi}
-        onChange={(e) => setHi(Number(e.target.value))}
+        value={value.hi}
+        onChange={(e) => onChange({ ...value, hi: Number(e.target.value) })}
         className="h-1 w-full cursor-pointer appearance-none rounded-sm bg-gray-200 accent-orange-500 dark:bg-neutral-800"
       />
-      <div className="mt-1 flex justify-between text-[10px] text-gray-400 dark:text-neutral-500">
-        <span>
-          {prop.min}
-          {prop.unit ? ` ${prop.unit}` : ""}
-        </span>
-        <span>
-          {prop.max}
-          {prop.unit ? ` ${prop.unit}` : ""}
-        </span>
-      </div>
     </div>
   );
 };
 
-// ---------------------------------------------------------------------------
-// A single property row: checkbox to enable, expands into notes + control.
-// ---------------------------------------------------------------------------
-
-const PropertyRow = ({ prop }: { prop: Property }) => {
-  const [checked, setChecked] = useState(false);
+const PropertyRow = ({
+  prop,
+  rangeValue,
+  onRangeChange,
+}: {
+  prop: Property;
+  rangeValue?: RangeFilterValue;
+  onRangeChange?: (next: RangeFilterValue) => void;
+}) => {
   const [notes, setNotes] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [localChecked, setLocalChecked] = useState(false);
 
-  const toggleOption = (opt: string) => {
-    setSelectedOptions((prev) =>
-      prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt],
-    );
+  // Range properties use lifted state (passed from parent) so wired
+  // ones (band gap, formation energy) can feed the actual search.
+  // Categorical properties stay local since none are backend-wired yet.
+  const checked =
+    prop.type === "range" && rangeValue ? rangeValue.checked : localChecked;
+
+  const setChecked = (next: boolean) => {
+    if (prop.type === "range" && rangeValue && onRangeChange) {
+      onRangeChange({ ...rangeValue, checked: next });
+    } else {
+      setLocalChecked(next);
+    }
   };
 
   return (
@@ -321,7 +574,7 @@ const PropertyRow = ({ prop }: { prop: Property }) => {
             checked={checked}
             onChange={(e) => setChecked(e.target.checked)}
           />
-          <div className="h-4 w-4 rounded-sm border border-gray-300 bg-white transition-colors peer-checked:border-gray-900 peer-checked:bg-gray-900 dark:border-neutral-700 dark:bg-neutral-950 dark:peer-checked:border-neutral-100 dark:peer-checked:bg-neutral-100"></div>
+          <div className="h-4 w-4 rounded-sm border border-gray-300 bg-white transition-colors peer-checked:border-gray-900 peer-checked:bg-gray-900 dark:border-neutral-700 dark:bg-neutral-950 dark:peer-checked:border-neutral-100 dark:peer-checked:bg-neutral-100" />
           <span className="material-symbols-outlined absolute inset-0 flex items-center justify-center text-[12px] font-bold text-white opacity-0 peer-checked:opacity-100 dark:text-gray-900">
             check
           </span>
@@ -334,19 +587,36 @@ const PropertyRow = ({ prop }: { prop: Property }) => {
             {prop.unit}
           </span>
         )}
+        {prop.type === "range" && prop.wired && (
+          <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-orange-500">
+            Live filter
+          </span>
+        )}
       </label>
 
       {checked && (
         <div className="mt-3 space-y-3 pl-7">
           {prop.type === "range" ? (
-            <RangeInput prop={prop} />
+            rangeValue && onRangeChange ? (
+              <RangeInput
+                prop={prop}
+                value={rangeValue}
+                onChange={onRangeChange}
+              />
+            ) : null
           ) : (
             <div className="flex flex-wrap gap-2">
               {prop.options.map((opt) => (
                 <button
                   key={opt}
                   type="button"
-                  onClick={() => toggleOption(opt)}
+                  onClick={() =>
+                    setSelectedOptions((prev) =>
+                      prev.includes(opt)
+                        ? prev.filter((o) => o !== opt)
+                        : [...prev, opt],
+                    )
+                  }
                   className={`rounded-sm border px-2 py-1 text-xs font-medium transition-colors ${
                     selectedOptions.includes(opt)
                       ? "border-gray-900 bg-gray-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-gray-900"
@@ -358,6 +628,14 @@ const PropertyRow = ({ prop }: { prop: Property }) => {
               ))}
             </div>
           )}
+
+          {prop.type === "range" && !prop.wired && (
+            <p className="text-[10px] text-gray-400 dark:text-neutral-600">
+              Not yet connected to a live filter for the selected data source —
+              reserved for display/future backend support.
+            </p>
+          )}
+
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -371,12 +649,15 @@ const PropertyRow = ({ prop }: { prop: Property }) => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// Accordion category: header with icon, label, selected count, and a chevron
-// that expands/collapses the property list.
-// ---------------------------------------------------------------------------
-
-const PropertyAccordion = ({ category }: { category: PropertyCategory }) => {
+const PropertyAccordion = ({
+  category,
+  rangeFilters,
+  onRangeChange,
+}: {
+  category: PropertyCategory;
+  rangeFilters: Record<string, RangeFilterValue>;
+  onRangeChange: (id: string, next: RangeFilterValue) => void;
+}) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -412,7 +693,18 @@ const PropertyAccordion = ({ category }: { category: PropertyCategory }) => {
       {open && (
         <div className="space-y-1.5 border-t border-gray-200 px-4 py-4 dark:border-neutral-800">
           {category.properties.map((prop) => (
-            <PropertyRow key={prop.id} prop={prop} />
+            <PropertyRow
+              key={prop.id}
+              prop={prop}
+              rangeValue={
+                prop.type === "range" ? rangeFilters[prop.id] : undefined
+              }
+              onRangeChange={
+                prop.type === "range"
+                  ? (next) => onRangeChange(prop.id, next)
+                  : undefined
+              }
+            />
           ))}
         </div>
       )}
@@ -420,16 +712,91 @@ const PropertyAccordion = ({ category }: { category: PropertyCategory }) => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// Main page
-// ---------------------------------------------------------------------------
+/** Builds the initial lifted range-filter state for every range property
+ *  across all categories, so RangeInput always has a defined value. */
+function buildInitialRangeFilters(): Record<string, RangeFilterValue> {
+  const initial: Record<string, RangeFilterValue> = {};
+  propertyCategories.forEach((cat) => {
+    cat.properties.forEach((prop) => {
+      if (prop.type === "range") {
+        initial[prop.id] = { checked: false, lo: prop.min, hi: prop.max };
+      }
+    });
+  });
+  return initial;
+}
 
-type Step = "composition" | "properties" | "results";
+// Small reusable stability pill — same visual language as the Analyzed /
+// Pending / Failed badges on the Structures page, so "stable" reads as a
+// status at a glance rather than a plain boolean column.
+const StabilityPill = ({ stable }: { stable: boolean }) => (
+  <span
+    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
+      stable
+        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+        : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+    }`}
+  >
+    <span
+      className={`h-1.5 w-1.5 rounded-full ${
+        stable ? "bg-emerald-500" : "bg-rose-500"
+      }`}
+    />
+    {stable ? "Stable" : "Unstable"}
+  </span>
+);
+
+const SourceBadge = ({ source }: { source: DataSource }) => (
+  <span
+    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${sourceBadgeStyles[source]}`}
+  >
+    {sourceLabels[source]}
+  </span>
+);
+
+// Small stat block for the detail panel spec sheet — label above, value
+// below, matching the visual language of the Dashboard's stat cards
+// instead of a plain label/value form row.
+const StatBlock = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-neutral-800 dark:bg-neutral-950">
+    <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-neutral-600">
+      {label}
+    </p>
+    <div className="font-mono text-sm font-bold text-gray-900 dark:text-neutral-100">
+      {children}
+    </div>
+  </div>
+);
 
 export default function Explorer() {
   const [step, setStep] = useState<Step>("composition");
   const [includeElements, setIncludeElements] = useState<string[]>([]);
   const [excludeElements, setExcludeElements] = useState<string[]>([]);
+  const [materialsList, setMaterialsList] = useState<ExploreMaterialRow[]>([]);
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
+  const [selectedMaterial, setSelectedMaterial] =
+    useState<ExploreMaterialRow | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [stabilityFilter, setStabilityFilter] =
+    useState<StabilityFilter>("all");
+  const [cifData, setCifData] = useState<string>("");
+  const [structureLoading, setStructureLoading] = useState(false);
+  const [structureError, setStructureError] = useState<string | null>(null);
+  const [showRawStructure, setShowRawStructure] = useState(false);
+  const [viewerStyle, setViewerStyle] = useState<ViewerStyle>("sphere");
+  const [unitCellOn, setUnitCellOn] = useState(true);
+  const [dataSource, setDataSource] = useState<DataSource>("materials_project");
+  const [rangeFilters, setRangeFilters] = useState<
+    Record<string, RangeFilterValue>
+  >(buildInitialRangeFilters());
+
+  const controlsRef = useRef<ViewerControls | null>(null);
 
   const compositionString = includeElements.join("-");
   const hasComposition = includeElements.length > 0;
@@ -441,13 +808,158 @@ export default function Explorer() {
   ];
   const stepIndex = steps.findIndex((s) => s.id === step);
 
+  const handleRangeChange = (id: string, next: RangeFilterValue) => {
+    setRangeFilters((prev) => ({ ...prev, [id]: next }));
+  };
+
+  const downloadCSV = () => {
+    // Route through the backend's per-source CSV endpoint so exports stay
+    // consistent with whatever filters actually produced this result set,
+    // rather than re-serializing the in-memory rows client-side.
+    const url = new URL(csvDownloadEndpoints[dataSource]);
+    if (includeElements.length > 0)
+      url.searchParams.append("elements", includeElements.join(","));
+    if (excludeElements.length > 0)
+      url.searchParams.append("exclude_elements", excludeElements.join(","));
+
+    const bandGap = rangeFilters["band-gap"];
+    if (bandGap?.checked) {
+      url.searchParams.append("min_band_gap", String(bandGap.lo));
+      url.searchParams.append("max_band_gap", String(bandGap.hi));
+    }
+    const formationEnergy = rangeFilters["formation-energy"];
+    if (formationEnergy?.checked) {
+      url.searchParams.append(
+        "min_formation_energy",
+        String(formationEnergy.lo),
+      );
+      url.searchParams.append(
+        "max_formation_energy",
+        String(formationEnergy.hi),
+      );
+    }
+    if (stabilityFilter !== "all") {
+      url.searchParams.append(
+        "is_stable",
+        String(stabilityFilter === "stable"),
+      );
+    }
+    url.searchParams.append("limit", "100");
+
+    window.open(url.toString(), "_blank");
+  };
+
+  const exportCIF = () => {
+    if (!selectedMaterialId) return;
+    const url = cifDownloadEndpoints[dataSource](selectedMaterialId);
+    window.open(url, "_blank");
+  };
+
+  const handleFilterSearch = async () => {
+    setLoading(true);
+    // Clear any previously selected material/structure from a prior
+    // search so stale 3D data doesn't linger under a new result set.
+    setSelectedMaterialId("");
+    setSelectedMaterial(null);
+    setCifData("");
+    setStructureError(null);
+
+    try {
+      const baseUrl = new URL(sourceEndpoints[dataSource]);
+
+      if (includeElements.length > 0) {
+        baseUrl.searchParams.append("elements", includeElements.join(","));
+      }
+      if (excludeElements.length > 0) {
+        baseUrl.searchParams.append(
+          "exclude_elements",
+          excludeElements.join(","),
+        );
+      }
+
+      const bandGap = rangeFilters["band-gap"];
+      if (bandGap?.checked) {
+        baseUrl.searchParams.append("min_band_gap", String(bandGap.lo));
+        baseUrl.searchParams.append("max_band_gap", String(bandGap.hi));
+      }
+
+      const formationEnergy = rangeFilters["formation-energy"];
+      if (formationEnergy?.checked) {
+        baseUrl.searchParams.append(
+          "min_formation_energy",
+          String(formationEnergy.lo),
+        );
+        baseUrl.searchParams.append(
+          "max_formation_energy",
+          String(formationEnergy.hi),
+        );
+      }
+
+      if (stabilityFilter !== "all") {
+        baseUrl.searchParams.append(
+          "is_stable",
+          String(stabilityFilter === "stable"),
+        );
+      }
+
+      const response = await fetch(baseUrl.toString());
+      if (!response.ok) throw new Error("Database pipeline query failed.");
+
+      const data: ExploreMaterialRow[] = await response.json();
+      setMaterialsList(data);
+      setStep("results");
+    } catch (err) {
+      console.error("Filtering execution error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRowClick = async (row: ExploreMaterialRow) => {
+    setSelectedMaterialId(row.material_id);
+    setSelectedMaterial(row);
+    setCifData("");
+    setStructureError(null);
+    setShowRawStructure(false);
+    setStructureLoading(true);
+    try {
+      const response = await fetch(
+        structureEndpoints[dataSource](row.material_id),
+      );
+      if (!response.ok)
+        throw new Error("Failed to download cell geometry file.");
+      const data = await response.json();
+      const text = data.cif_string || JSON.stringify(data, null, 2);
+      setCifData(text);
+      if (!data.cif_string) {
+        setStructureError(
+          `${sourceLabels[dataSource]} doesn't export a ready-to-view CIF yet — showing raw structure data instead.`,
+        );
+      }
+    } catch (err) {
+      console.error("Failed loading crystal structure mapping:", err);
+      setStructureError("Couldn't load structure data for this material.");
+      setCifData("");
+    } finally {
+      setStructureLoading(false);
+    }
+  };
+
+  const selectedMaterialsText = useMemo(() => {
+    return selectedMaterial
+      ? selectedMaterial.formula
+      : "Click a row to view structure";
+  }, [selectedMaterial]);
+
+  const cifIsRenderable = cifData.length > 0 && looksLikeCif(cifData);
+
   return (
     <div className="enterprise-page relative flex w-full flex-1 flex-col overflow-hidden">
-      <div className="pointer-events-none absolute top-0 right-0 h-[800px] w-[800px] rounded-full bg-gray-200/70 blur-[150px] dark:bg-neutral-800/40"></div>
-      <div className="pointer-events-none absolute bottom-0 left-0 h-[600px] w-[600px] rounded-full bg-gray-300/40 blur-[120px] dark:bg-neutral-700/30"></div>
+      <div className="pointer-events-none absolute top-0 right-0 h-[800px] w-[800px] rounded-full bg-gray-200/70 blur-[150px] dark:bg-neutral-800/40" />
+      <div className="pointer-events-none absolute bottom-0 left-0 h-[600px] w-[600px] rounded-full bg-gray-300/40 blur-[120px] dark:bg-neutral-700/30" />
 
-      <main className="relative z-10 mx-auto w-full max-w-5xl flex-1 overflow-y-auto p-8 lg:p-12">
-        <header className="mb-10">
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 overflow-y-auto p-6 lg:p-10">
+        <header className="mb-8">
           <h1 className="font-headline mb-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-neutral-100 lg:text-5xl">
             Materials{" "}
             <span className="text-gray-500 dark:text-neutral-400">
@@ -455,13 +967,12 @@ export default function Explorer() {
             </span>
           </h1>
           <p className="max-w-2xl text-base leading-relaxed text-gray-600 dark:text-neutral-400">
-            Querying high-fidelity global databases (Materials Project, AFLOW,
-            OQMD) using our advanced ML surrogate models.
+            Query materials across multiple databases, inspect rows, open the 3D
+            structure, and export CSV or CIF.
           </p>
         </header>
 
-        {/* Step indicator */}
-        <div className="mb-10 flex items-center gap-3">
+        <div className="mb-8 flex items-center gap-3">
           {steps.map((s, i) => (
             <div key={s.id} className="flex flex-1 items-center gap-3">
               <div className="flex items-center gap-2.5">
@@ -491,13 +1002,12 @@ export default function Explorer() {
                       ? "bg-gray-900 dark:bg-neutral-100"
                       : "bg-gray-200 dark:bg-neutral-800"
                   }`}
-                ></div>
+                />
               )}
             </div>
           ))}
         </div>
 
-        {/* Step 1: Composition */}
         {step === "composition" && (
           <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PeriodicTable
@@ -530,7 +1040,6 @@ export default function Explorer() {
           </section>
         )}
 
-        {/* Step 2: Properties */}
         {step === "properties" && (
           <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="mb-6 flex items-center justify-between">
@@ -549,125 +1058,381 @@ export default function Explorer() {
               </span>
             </div>
 
-            <p className="mb-6 text-sm text-gray-500 dark:text-neutral-400">
-              Expand a category, tick the properties you care about, then set a
-              target range or note for each.
-            </p>
+            {/* Data Source — standalone block, NOT nested inside the filters grid */}
+            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-neutral-500">
+                Data Source
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(sourceEndpoints) as DataSource[]).map((src) => (
+                  <button
+                    key={src}
+                    type="button"
+                    onClick={() => setDataSource(src)}
+                    className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                      dataSource === src
+                        ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-400"
+                    }`}
+                  >
+                    {sourceLabels[src]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Stability — button group instead of a plain <select> */}
+            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-neutral-500">
+                Stability
+              </p>
+              <div className="flex gap-2">
+                {(
+                  [
+                    { id: "all", label: "All" },
+                    { id: "stable", label: "Stable only" },
+                    { id: "unstable", label: "Unstable only" },
+                  ] as { id: StabilityFilter; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setStabilityFilter(opt.id)}
+                    className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                      stabilityFilter === opt.id
+                        ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-400"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Note: the old standalone Min/Max Band Gap and Min/Max
+                Formation Energy text inputs were removed — those two
+                properties now live exclusively in the accordion below
+                (Electronic → Band Gap, Thermal → Formation Energy),
+                tagged "Live filter", and are what actually drives the
+                search query via handleFilterSearch. */}
 
             <div className="space-y-3">
               {propertyCategories.map((cat) => (
-                <PropertyAccordion key={cat.id} category={cat} />
+                <PropertyAccordion
+                  key={cat.id}
+                  category={cat}
+                  rangeFilters={rangeFilters}
+                  onRangeChange={handleRangeChange}
+                />
               ))}
             </div>
 
             <div className="mt-8 flex justify-end">
               <button
                 type="button"
-                onClick={() => setStep("results")}
-                className="enterprise-button-primary flex items-center gap-2 px-6 py-3 text-xs uppercase tracking-widest"
+                onClick={handleFilterSearch}
+                disabled={loading}
+                className="enterprise-button-primary flex items-center gap-2 px-6 py-3 text-xs uppercase tracking-widest disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="material-symbols-outlined text-sm">
                   search
                 </span>
-                Search Materials
+                {loading
+                  ? "Searching..."
+                  : `Search ${sourceLabels[dataSource]}`}
               </button>
             </div>
           </section>
         )}
 
-        {/* Step 3: Results */}
         {step === "results" && (
           <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-100 dark:border-neutral-700 dark:bg-neutral-800">
-                  <span className="material-symbols-outlined text-2xl text-gray-700 dark:text-neutral-300">
-                    database
-                  </span>
-                </div>
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="flex items-center gap-3">
+                <SourceBadge source={dataSource} />
                 <div>
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-neutral-400">
-                    Indexed structures matching {compositionString}
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-neutral-400">
+                    Results for{" "}
+                    <span className="font-mono">
+                      {compositionString || "selected composition"}
+                    </span>
                   </p>
-                  <p className="font-mono text-2xl font-bold tracking-tight text-gray-900 dark:text-neutral-100">
-                    142,854
+                  <p className="font-mono text-xl font-bold text-gray-900 dark:text-neutral-100">
+                    {materialsList.length} materials
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setStep("properties")}
-                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
-                <span className="material-symbols-outlined text-sm">tune</span>
-                Refine properties
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={downloadCSV}
+                  disabled={!materialsList.length}
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-400 disabled:opacity-40 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    download
+                  </span>
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={exportCIF}
+                  disabled={!selectedMaterialId}
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-400 disabled:opacity-40 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    file_download
+                  </span>
+                  CIF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep("properties")}
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    tune
+                  </span>
+                  Refine
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-8 xl:grid-cols-2 2xl:grid-cols-3">
-              {materials.map((material, idx) => (
-                <div
-                  key={idx}
-                  className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 transition-all duration-500 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
-                >
-                  <div className="pointer-events-none absolute top-0 right-0 h-32 w-32 rounded-full bg-gray-200/80 opacity-0 blur-[50px] transition-opacity duration-500 group-hover:opacity-100 dark:bg-neutral-800/60"></div>
-
-                  <div className="relative z-10 mb-6 flex items-start justify-between">
-                    <h3 className="font-headline text-3xl font-bold tracking-tight text-gray-900 transition-colors group-hover:text-gray-600 dark:text-neutral-100 dark:group-hover:text-neutral-300">
-                      {material.formula}
-                    </h3>
-                    <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-gray-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                      {material.crystalSystem}
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 mb-6 flex h-48 w-full items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-100 transition-colors group-hover:border-gray-300 dark:border-neutral-800 dark:bg-neutral-950">
-                    <img
-                      alt={`3D rendering of ${material.formula}`}
-                      className="h-full w-full object-cover opacity-80 transition-all duration-700 group-hover:scale-105 group-hover:opacity-100"
-                      src={material.imageUrl}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white/80 to-transparent dark:from-neutral-950/80"></div>
-                  </div>
-
-                  <div className="relative z-10 mt-auto space-y-4">
-                    <div className="flex items-center justify-between border-b border-gray-200 pb-3 text-sm transition-colors group-hover:border-gray-300 dark:border-neutral-800">
-                      <span className="font-medium text-gray-500 dark:text-neutral-400">
-                        Symmetry Group
-                      </span>
-                      <span className="font-mono font-bold text-gray-900 dark:text-neutral-100">
-                        {material.symmetryGroup}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between border-b border-gray-200 pb-3 text-sm transition-colors group-hover:border-gray-300 dark:border-neutral-800">
-                      <span className="font-medium text-gray-500 dark:text-neutral-400">
-                        Band Gap
-                      </span>
-                      <span className="rounded bg-gray-100 px-2 py-0.5 font-mono font-bold text-gray-900 dark:bg-neutral-800 dark:text-neutral-100">
-                        {material.bandGap}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-gray-500 dark:text-neutral-400">
-                        Formation Energy
-                      </span>
-                      <span className="font-mono font-bold text-gray-900 dark:text-neutral-100">
-                        {material.formationEnergy}
-                      </span>
-                    </div>
+            {materialsList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center dark:border-neutral-700 dark:bg-neutral-900">
+                <span className="material-symbols-outlined mb-3 text-4xl text-gray-300 dark:text-neutral-700">
+                  search_off
+                </span>
+                <p className="text-sm font-semibold text-gray-600 dark:text-neutral-400">
+                  No materials matched this query.
+                </p>
+                <p className="mt-1 text-xs text-gray-400 dark:text-neutral-600">
+                  Try widening a range filter or switching data sources.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 xl:col-span-2">
+                  <div className="max-h-[70vh] overflow-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead className="sticky top-0 bg-gray-50 text-left dark:bg-neutral-950">
+                        <tr className="text-xs uppercase tracking-widest text-gray-500 dark:text-neutral-400">
+                          <th className="px-4 py-3">Formula</th>
+                          <th className="px-4 py-3">Space Group</th>
+                          <th className="px-4 py-3">Crystal System</th>
+                          <th className="px-4 py-3 text-right">Band Gap</th>
+                          <th className="px-4 py-3 text-right">
+                            Formation Energy
+                          </th>
+                          <th className="px-4 py-3 text-right">Density</th>
+                          <th className="px-4 py-3">Stability</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {materialsList.map((m, idx) => {
+                          const active = selectedMaterialId === m.material_id;
+                          return (
+                            <tr
+                              key={`${m.material_id}-${idx}`}
+                              onClick={() => handleRowClick(m)}
+                              className={`cursor-pointer border-l-2 border-t border-gray-100 transition-colors dark:border-neutral-800 ${
+                                active
+                                  ? "border-l-orange-500 bg-orange-50/60 dark:bg-orange-950/20"
+                                  : "border-l-transparent hover:bg-gray-50 dark:hover:bg-neutral-800/50"
+                              } ${
+                                !active && idx % 2 === 1
+                                  ? "bg-gray-50/40 dark:bg-neutral-950/30"
+                                  : ""
+                              }`}
+                            >
+                              <td className="px-4 py-3 font-mono font-bold text-gray-900 dark:text-neutral-100">
+                                {m.formula}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700 dark:text-neutral-300">
+                                {m.space_group}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
+                                  {m.crystal_system}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-gray-900 dark:text-neutral-100">
+                                {m.band_gap.toFixed(3)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-gray-900 dark:text-neutral-100">
+                                {m.formation_energy.toFixed(3)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-gray-900 dark:text-neutral-100">
+                                {m.density.toFixed(3)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <StabilityPill stable={m.is_stable} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <div className="mt-16 flex justify-center">
-              <button className="group flex items-center gap-2 rounded-xl border border-white/10 bg-neutral-900/50 px-8 py-3.5 text-sm font-bold uppercase tracking-widest text-white shadow-lg backdrop-blur-md transition-all hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-orange-400">
-                Load More Results
-                <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-y-0.5">
-                  expand_more
-                </span>
-              </button>
-            </div>
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                  {selectedMaterial ? (
+                    <div className="flex h-full flex-col">
+                      <div className="border-b border-gray-200 p-5 dark:border-neutral-800">
+                        <div className="mb-2 flex items-center gap-2">
+                          <SourceBadge source={dataSource} />
+                          {selectedMaterial && (
+                            <StabilityPill
+                              stable={selectedMaterial.is_stable}
+                            />
+                          )}
+                        </div>
+                        <h3 className="mb-1 text-3xl font-bold text-gray-900 dark:text-neutral-100">
+                          {selectedMaterialsText}
+                        </h3>
+                        <p className="font-mono text-xs text-gray-400 dark:text-neutral-600">
+                          {selectedMaterial.material_id}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 p-5">
+                        <StatBlock label="Space Group">
+                          {selectedMaterial.space_group}
+                        </StatBlock>
+                        <StatBlock label="Crystal System">
+                          {selectedMaterial.crystal_system}
+                        </StatBlock>
+                        <StatBlock label="Band Gap (eV)">
+                          {selectedMaterial.band_gap.toFixed(3)}
+                        </StatBlock>
+                        <StatBlock label="Formation Energy (eV/atom)">
+                          {selectedMaterial.formation_energy.toFixed(3)}
+                        </StatBlock>
+                        <StatBlock label="Density (g/cm³)">
+                          {selectedMaterial.density.toFixed(3)}
+                        </StatBlock>
+                      </div>
+
+                      {/* 3D structure viewer */}
+                      <div className="border-t border-gray-200 p-5 dark:border-neutral-800">
+                        <div className="mb-3 flex items-center justify-between">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-neutral-500">
+                            3D Structure
+                          </p>
+                          {cifIsRenderable && (
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={viewerStyle}
+                                onChange={(e) => {
+                                  const style = e.target.value as ViewerStyle;
+                                  setViewerStyle(style);
+                                  controlsRef.current?.setStyle(style);
+                                }}
+                                className="rounded border border-gray-200 bg-white px-1.5 py-1 text-[10px] font-medium text-gray-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+                              >
+                                <option value="sphere">Ball & Stick</option>
+                                <option value="stick">Stick</option>
+                                <option value="line">Wireframe</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => controlsRef.current?.resetView()}
+                                title="Reset view"
+                                className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                              >
+                                <span className="material-symbols-outlined text-sm">
+                                  center_focus_strong
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnitCellOn((v) => !v);
+                                  controlsRef.current?.toggleUnitCell();
+                                }}
+                                title="Toggle unit cell"
+                                className={`rounded p-1 ${
+                                  unitCellOn
+                                    ? "bg-gray-900 text-white dark:bg-neutral-100 dark:text-gray-900"
+                                    : "text-gray-500 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                                }`}
+                              >
+                                <span className="material-symbols-outlined text-sm">
+                                  grid_4x4
+                                </span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="relative h-64 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-neutral-800 dark:bg-neutral-950">
+                          {structureLoading ? (
+                            <div className="flex h-full items-center justify-center">
+                              <span className="material-symbols-outlined animate-spin text-3xl text-gray-400 dark:text-neutral-600">
+                                progress_activity
+                              </span>
+                            </div>
+                          ) : cifIsRenderable ? (
+                            <StructureViewer
+                              key={selectedMaterial.material_id}
+                              cifData={cifData}
+                              backgroundColor="#f4f4f5"
+                              initialStyle={viewerStyle}
+                              showUnitCell={unitCellOn}
+                              onViewerReady={(controls) => {
+                                controlsRef.current = controls;
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                              <span className="material-symbols-outlined text-3xl text-gray-300 dark:text-neutral-700">
+                                view_in_ar
+                              </span>
+                              <p className="text-xs text-gray-500 dark:text-neutral-400">
+                                {structureError ||
+                                  "Click a row to load its structure."}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {cifData && !cifIsRenderable && (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowRawStructure((v) => !v)}
+                              className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-700 dark:text-neutral-600 dark:hover:text-neutral-300"
+                            >
+                              {showRawStructure ? "Hide" : "Show"} raw structure
+                              data
+                            </button>
+                            {showRawStructure && (
+                              <pre className="mt-2 max-h-40 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-600 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-400">
+                                {cifData}
+                              </pre>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
+                      <span className="material-symbols-outlined text-4xl text-gray-300 dark:text-neutral-700">
+                        touch_app
+                      </span>
+                      <p className="text-sm font-semibold text-gray-600 dark:text-neutral-400">
+                        Select a material
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-neutral-600">
+                        Click any row to see its details and 3D structure.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
         )}
       </main>

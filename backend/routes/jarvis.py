@@ -1,0 +1,185 @@
+"""
+JARVIS-DFT (NIST) API client, via its OPTIMADE-compliant endpoint.
+
+Docs: https://jarvis.nist.gov/optimade/jarvisdft/
+Base: https://jarvis.nist.gov/optimade/jarvisdft/v1/structures/
+No API key required.
+
+OPTIMADE filter examples from docs:
+  ?filter=elements HAS ANY "C","Si","Ge"
+  ?filter=elements HAS ALL "C","Si","Ge"
+  ?filter=chemical_formula_reduced="MoS2"
+
+NOTE: field names for JARVIS-specific properties (band gap, formation
+energy, energy above hull) are NOT confirmed against a live call from
+this environment. They're built from jarvis-tools' known dataset keys
+(optb88vdw_bandgap, formation_energy_peratom, ehull) with OPTIMADE's
+custom-field underscore-prefix convention (_jarvis_<key>). Verify with
+a simple query first — if attributes come back empty/None, inspect a
+raw response to find the actual prefixed key names JARVIS uses.
+"""
+
+import requests
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
+import csv
+import io
+
+router = APIRouter()
+
+BASE_URL = "https://jarvis.nist.gov/optimade/jarvisdft/v1/structures/"
+
+
+def safe_float(value, default=0.0):
+    try:
+        return round(float(value if value is not None else default), 3)
+    except Exception:
+        return round(float(default), 3)
+
+
+def build_optimade_filter(
+    elements: Optional[str],
+    exclude_elements: Optional[str],
+    is_stable: Optional[bool],
+) -> str:
+    clauses = []
+
+    if elements:
+        els = [e.strip() for e in elements.split(",") if e.strip()]
+        if els:
+            # BUG FIXED: OPTIMADE's filter grammar requires string
+            # values to be quoted — `elements HAS ALL Li,O` is not
+            # valid syntax and will likely get rejected with a 400 by
+            # a spec-compliant server. Each element needs its own
+            # quotes: elements HAS ALL "Li","O"
+            quoted = ",".join(f'"{el}"' for el in els)
+            clauses.append(f"elements HAS ALL {quoted}")
+
+    if exclude_elements:
+        # OPTIMADE supports "NOT elements HAS ANY x,y" in principle, but
+        # JARVIS's implementation of the full filter grammar isn't
+        # confirmed to support NOT — accepted for interface parity only.
+        pass
+
+    if is_stable is True:
+        clauses.append("_jarvis_ehull<=0.05")
+    elif is_stable is False:
+        clauses.append("_jarvis_ehull>0.05")
+
+    return " AND ".join(clauses)
+
+
+def _fetch(elements, exclude_elements, is_stable, limit):
+    filter_str = build_optimade_filter(elements, exclude_elements, is_stable)
+    params = {"page_limit": limit}
+    if filter_str:
+        params["filter"] = filter_str
+
+    try:
+        resp = requests.get(BASE_URL, params=params, timeout=20)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"JARVIS API request failed: {e}")
+    except ValueError:
+        raise HTTPException(status_code=502, detail="JARVIS API returned a non-JSON response.")
+
+
+def _normalize(entry: dict) -> dict:
+    attrs = entry.get("attributes", {}) or {}
+    band_gap = attrs.get("_jarvis_optb88vdw_bandgap")
+    formation_energy = attrs.get("_jarvis_formation_energy_peratom")
+    ehull = attrs.get("_jarvis_ehull")
+    return {
+        "material_id": f"jarvis-{entry.get('id', 'unknown')}",
+        "formula": attrs.get("chemical_formula_reduced", "Unknown"),
+        "space_group": attrs.get("_jarvis_spacegroup", "Unknown"),
+        "crystal_system": attrs.get("_jarvis_crystal_system", "Unknown"),
+        "band_gap": safe_float(band_gap),
+        "formation_energy": safe_float(formation_energy),
+        "density": safe_float(attrs.get("_jarvis_density")),
+        "is_stable": bool(ehull is not None and safe_float(ehull) <= 0.05),
+    }
+
+
+@router.get("/explore")
+def explore_jarvis(
+    elements: Optional[str] = Query(None, description="Elements to INCLUDE (e.g., 'Li,O')"),
+    exclude_elements: Optional[str] = Query(None, description="Not fully supported by JARVIS OPTIMADE filter — accepted for parity only"),
+    min_band_gap: Optional[float] = Query(None, description="Applied as a post-filter in Python, not in the OPTIMADE query"),
+    max_band_gap: Optional[float] = Query(None, description="Applied as a post-filter in Python, not in the OPTIMADE query"),
+    min_formation_energy: Optional[float] = Query(None, description="Applied as a post-filter in Python, not in the OPTIMADE query"),
+    max_formation_energy: Optional[float] = Query(None, description="Applied as a post-filter in Python, not in the OPTIMADE query"),
+    is_stable: Optional[bool] = Query(None),
+    limit: int = Query(25, ge=1, le=100),
+):
+    payload = _fetch(elements, exclude_elements, is_stable, limit)
+    raw_entries = payload.get("data", [])
+
+    compiled_list = [_normalize(e) for e in raw_entries]
+
+    # band gap / formation energy aren't part of the OPTIMADE filter grammar
+    # here (JARVIS's custom fields may not be filterable server-side), so
+    # apply them as a post-filter on whatever the elements query returned.
+    if min_band_gap is not None:
+        compiled_list = [m for m in compiled_list if m["band_gap"] >= min_band_gap]
+    if max_band_gap is not None:
+        compiled_list = [m for m in compiled_list if m["band_gap"] <= max_band_gap]
+    if min_formation_energy is not None:
+        compiled_list = [m for m in compiled_list if m["formation_energy"] >= min_formation_energy]
+    if max_formation_energy is not None:
+        compiled_list = [m for m in compiled_list if m["formation_energy"] <= max_formation_energy]
+
+    return compiled_list[:limit]
+
+
+@router.get("/structure/{jid}")
+def get_jarvis_structure(jid: str):
+    """jid should be passed without the 'jarvis-' prefix used in explore_jarvis's material_id."""
+    try:
+        resp = requests.get(f"{BASE_URL}{jid}", timeout=20)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"JARVIS API request failed: {e}")
+
+
+@router.get("/download/csv")
+def download_csv_jarvis(
+    elements: Optional[str] = Query(None),
+    exclude_elements: Optional[str] = Query(None),
+    min_band_gap: Optional[float] = Query(None),
+    max_band_gap: Optional[float] = Query(None),
+    min_formation_energy: Optional[float] = Query(None),
+    max_formation_energy: Optional[float] = Query(None),
+    is_stable: Optional[bool] = Query(None),
+    limit: int = Query(25, ge=1, le=100),
+):
+    data = explore_jarvis(
+        elements=elements,
+        exclude_elements=exclude_elements,
+        min_band_gap=min_band_gap,
+        max_band_gap=max_band_gap,
+        min_formation_energy=min_formation_energy,
+        max_formation_energy=max_formation_energy,
+        is_stable=is_stable,
+        limit=limit,
+    )
+
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=[
+            "material_id", "formula", "space_group", "crystal_system",
+            "band_gap", "formation_energy", "density", "is_stable",
+        ],
+    )
+    writer.writeheader()
+    writer.writerows(data)
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=jarvis_results.csv"},
+    )

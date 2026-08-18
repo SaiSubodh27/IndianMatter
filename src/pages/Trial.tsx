@@ -102,55 +102,96 @@ export default function Trial() {
         formData.append("material_name", composition);
       }
 
-      const response = await fetch(`${API_BASE_URL}/trial/predict`, {
-        method: "POST",
-        body: formData,
-      });
+      let response: Response;
+      try {
+        response = await fetch(`${API_BASE_URL}/trial/predict`, {
+          method: "POST",
+          body: formData,
+        });
+      } catch {
+        // Fallback to Flask backend on port 5000
+        response = await fetch("http://localhost:5000/predict", {
+          method: "POST",
+          body: formData,
+        });
+      }
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.detail || `Prediction failed for ${file.name}`);
+      if (!response.ok || data.status === "error") {
+        throw new Error(
+          data.detail || data.error || `Prediction failed for ${file.name}`,
+        );
       }
 
       const details =
-        data.material_properties?.material_classification?.detailed;
+        data.material_properties?.material_classification?.detailed ||
+        data.classification_detailed;
+
+      const rawEa =
+        data.Ea ??
+        data.ea ??
+        data.predicted_properties?.activation_energy?.value_ev ??
+        0;
+      const rawLogA =
+        data.logA ??
+        data.log10_A ??
+        data.predicted_properties?.pre_exponential_factor?.log10_value ??
+        0;
+      const rawCond =
+        data.conductivity ??
+        data.conductivity_prediction?.value_s_cm ??
+        data.predicted_properties?.ionic_conductivity?.value_s_cm ??
+        0;
 
       setResult({
-        id: data.id,
+        id: data.id || data.prediction_id,
         fileName: data.cif_name || file.name,
-        Ea: data.predicted_properties?.activation_energy?.value_ev ?? 0,
-        logA:
-          data.predicted_properties?.pre_exponential_factor?.log10_value ?? 0,
-        conductivity:
-          data.conductivity_prediction?.value_s_cm ??
-          data.predicted_properties?.ionic_conductivity?.value_s_cm ??
-          0,
+        Ea: Number(rawEa),
+        logA: Number(rawLogA),
+        conductivity: Number(rawCond),
         composition:
+          data.composition ||
+          data.formula ||
           data.material_properties?.chemical_composition?.formula ||
           composition ||
           "Unknown",
         materialClass:
+          data.classification ||
           details?.ion_conductor_type ||
           data.material_properties?.material_classification?.crystal_system ||
           "Unknown",
         materialDetails: details,
-        structuralDetails: data.material_properties?.structural_details,
-        hesScore: data.hes?.score ?? data.scoring?.hes_score,
-        normalizedHes: data.hes?.normalized ?? data.scoring?.normalized_hes,
-        hesRating: data.hes?.rating ?? data.scoring?.hes_rating,
-        confidence: data.hes?.confidence ?? data.scoring?.confidence,
+        structuralDetails:
+          data.detailed_structure ||
+          data.material_properties?.structural_details,
+        hesScore: data.hes_score ?? data.hes?.score ?? data.scoring?.hes_score,
+        normalizedHes:
+          data.normalized_hes ??
+          data.hes?.normalized ??
+          data.scoring?.normalized_hes,
+        hesRating:
+          data.hes_rating ?? data.hes?.rating ?? data.scoring?.hes_rating,
+        confidence:
+          data.confidence ?? data.hes?.confidence ?? data.scoring?.confidence,
         validationStatus:
-          data.hes?.validation_status ?? data.scoring?.validation_status,
-        predictionQuality: data.hes?.prediction_quality,
+          data.validation_status ??
+          data.hes?.validation_status ??
+          data.scoring?.validation_status,
+        predictionQuality:
+          data.prediction_quality ?? data.hes?.prediction_quality,
         warnings: data.warnings || [],
-        temperatureSeries: data.arrhenius_parameters?.temperature_series || [],
+        temperatureSeries:
+          data.temperature_series ||
+          data.arrhenius_parameters?.temperature_series ||
+          [],
       });
     } catch (err: any) {
       console.error(err);
       setError(
-        err.message ||
-          "An unexpected error occurred connecting to the prediction server.",
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred while predicting.",
       );
     } finally {
       setLoading(false);
@@ -353,7 +394,7 @@ export default function Trial() {
                   bolt
                 </span>
               )}
-                {loading ? "Processing..." : "Predict Properties"}
+              {loading ? "Processing..." : "Predict Properties"}
             </button>
           </div>
 
@@ -378,257 +419,253 @@ export default function Trial() {
                   </div>
                 ) : result ? (
                   <div className="space-y-6 pb-10 border-b border-outline-variant/20 last:border-0 last:pb-0">
-                        <div className="flex items-center justify-between gap-4 rounded-lg border border-green-400/20 bg-green-400/10 px-4 py-3 text-green-300">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[20px]">
-                              check_circle
-                            </span>
-                            <span className="font-headline text-xs font-bold uppercase tracking-widest">
-                              Prediction completed
-                            </span>
-                          </div>
-                          {result.id && (
-                            <button
-                              onClick={() => {
-                                const blob = new Blob(
-                                  [JSON.stringify(result, null, 2)],
-                                  { type: "application/json" },
-                                );
-                                const url = URL.createObjectURL(blob);
-                                const anchor = document.createElement("a");
-                                anchor.href = url;
-                                anchor.download = `${result.fileName.replace(/\.cif$/i, "")}_ioncast_report.json`;
-                                anchor.click();
-                                URL.revokeObjectURL(url);
-                              }}
-                              className="rounded bg-green-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-green-200 hover:bg-green-400/20"
-                            >
-                              Download Report
-                            </button>
-                          )}
-                        </div>
-                        <h3 className="font-headline text-primary font-semibold border-b border-primary/20 pb-2 mb-4 break-all">
-                          {result.fileName}
-                        </h3>
-                        {/* Material Info Header */}
-                        <div className="flex justify-between items-start bg-surface-container-lowest/50 p-4 rounded-lg border border-outline-variant/10 shadow-inner">
-                          <div>
-                            <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
-                              Chemical Composition
-                            </p>
-                            <h4 className="text-xl font-headline font-bold text-on-surface">
-                              {result.composition || "-"}
-                            </h4>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {result.materialDetails?.material_type && (
-                                <span className="bg-secondary-container/10 border border-secondary-container/20 px-2 py-0.5 rounded text-primary text-[9px] font-headline uppercase">
-                                  {result.materialDetails.material_type}
-                                </span>
-                              )}
-                              {result.materialDetails?.crystal_system &&
-                                result.materialDetails.crystal_system !==
-                                  "Unknown" && (
-                                  <span className="bg-secondary-container/10 border border-secondary-container/20 px-2 py-0.5 rounded text-primary text-[9px] font-headline uppercase">
-                                    {result.materialDetails.crystal_system} Phase
-                                  </span>
-                                )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
-                              Predicted Class & Score
-                            </p>
-                            <div className="flex flex-col items-end mt-1 gap-2">
-                              <span
-                                className="bg-secondary-container/20 border border-secondary-container/30 px-3 py-1 rounded-full text-primary text-[10px] font-headline uppercase inline-block text-center max-w-[200px] truncate"
-                                title={result.materialClass}
-                              >
-                                {result.materialClass}
-                              </span>
-                              {result.hesScore !== undefined && (
-                                <span
-                                  className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
-                                    result.hesRating === "Excellent"
-                                      ? "text-green-400 border-green-400/30 bg-green-400/10"
-                                      : result.hesRating === "Good"
-                                        ? "text-blue-400 border-blue-400/30 bg-blue-400/10"
-                                        : result.hesRating === "Moderate"
-                                          ? "text-yellow-400 border-yellow-400/30 bg-yellow-400/10"
-                                          : "text-red-400 border-red-400/30 bg-red-400/10"
-                                  }`}
-                                >
-                                  HES: {result.hesScore.toFixed(0)} / 100 (
-                                  {result.hesRating})
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Structural Information hidden by request */}
-
-                        {/* Metric 1 */}
-                        <div className="relative">
-                          <div className="flex justify-between items-end mb-4">
-                            <div>
-                              <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
-                                Activation Energy
-                              </p>
-                              <h4 className="text-4xl font-headline font-bold text-on-surface">
-                                {result.Ea}
-                                <span className="text-sm text-outline-variant font-normal ml-1">
-                                  eV
-                                </span>
-                              </h4>
-                            </div>
-                            <div className="h-10 w-10 rounded bg-secondary-container/30 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-primary">
-                                energy_savings_leaf
-                              </span>
-                            </div>
-                          </div>
-                          <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                            <div className="bg-primary h-full rounded-full shadow-[0_0_8px_#ff6600] transition-all duration-1000 w-[32%]"></div>
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <div className="flex justify-between items-end mb-4">
-                            <div>
-                              <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
-                                Arrhenius log(A)
-                              </p>
-                              <h4 className="text-4xl font-headline font-bold text-on-surface">
-                                {result.logA?.toFixed(4)}
-                                <span className="text-sm text-outline-variant font-normal ml-1">
-                                  log10
-                                </span>
-                              </h4>
-                            </div>
-                            <div className="h-10 w-10 rounded bg-secondary-container/30 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-primary">
-                                functions
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Metric 3 */}
-                        <div className="relative">
-                          <div className="flex justify-between items-end mb-4">
-                            <div>
-                              <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
-                                Ionic Conductivity (σ)
-                              </p>
-                              <h4 className="text-4xl font-headline font-bold text-primary">
-                                {result.conductivity.toExponential(2)}
-                                <span className="text-sm text-outline-variant font-normal ml-2 text-on-surface">
-                                  S/cm
-                                </span>
-                              </h4>
-                            </div>
-                            <div className="h-10 w-10 rounded bg-primary/20 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-primary">
-                                battery_charging_full
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
-                            <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
-                              Confidence
-                            </p>
-                            <p className="text-lg font-headline font-bold text-on-surface">
-                              {result.confidence || "Unknown"}
-                            </p>
-                          </div>
-                          <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
-                            <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
-                              Validation
-                            </p>
-                            <p className="text-lg font-headline font-bold text-on-surface capitalize">
-                              {(result.validationStatus || "unknown").replace(
-                                "_",
-                                " ",
-                              )}
-                            </p>
-                          </div>
-                          <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
-                            <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
-                              Quality
-                            </p>
-                            <p className="text-lg font-headline font-bold text-on-surface">
-                              {result.predictionQuality || "Unknown"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {result.temperatureSeries &&
-                          result.temperatureSeries.length > 0 && (
-                            <div className="rounded-lg bg-surface-container-lowest/60 p-4 border border-outline-variant/10">
-                              <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-4">
-                                Temperature Graph
-                              </p>
-                              <div className="flex h-28 items-end gap-1">
-                                {result.temperatureSeries.map((point) => {
-                                  const maxValue = Math.max(
-                                    ...result.temperatureSeries!.map(
-                                      (p) => p.conductivity_s_cm,
-                                    ),
-                                  );
-                                  const height =
-                                    maxValue > 0
-                                      ? Math.max(
-                                          6,
-                                          (point.conductivity_s_cm / maxValue) *
-                                            100,
-                                        )
-                                      : 6;
-                                  return (
-                                    <div
-                                      key={point.temperature_k}
-                                      className="flex-1 rounded-t bg-primary/80"
-                                      style={{ height: `${height}%` }}
-                                      title={`${point.temperature_k} K: ${point.conductivity_s_cm.toExponential(2)} S/cm`}
-                                    />
-                                  );
-                                })}
-                              </div>
-                              <div className="mt-2 flex justify-between text-[9px] text-outline-variant">
-                                <span>
-                                  {
-                                    result.temperatureSeries[0]
-                                      .temperature_k
-                                  }{" "}
-                                  K
-                                </span>
-                                <span>
-                                  {
-                                    result.temperatureSeries[
-                                      result.temperatureSeries.length - 1
-                                    ].temperature_k
-                                  }{" "}
-                                  K
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                        {result.warnings && result.warnings.length > 0 && (
-                          <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/10 p-4 text-yellow-200">
-                            <p className="text-[10px] font-headline uppercase tracking-widest mb-2">
-                              Warnings
-                            </p>
-                            {result.warnings.map((warning) => (
-                              <p key={warning} className="text-xs">
-                                {warning}
-                              </p>
-                            ))}
-                          </div>
-                        )}
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-green-400/20 bg-green-400/10 px-4 py-3 text-green-300">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">
+                          check_circle
+                        </span>
+                        <span className="font-headline text-xs font-bold uppercase tracking-widest">
+                          Prediction completed
+                        </span>
                       </div>
+                      {result.id && (
+                        <button
+                          onClick={() => {
+                            const blob = new Blob(
+                              [JSON.stringify(result, null, 2)],
+                              { type: "application/json" },
+                            );
+                            const url = URL.createObjectURL(blob);
+                            const anchor = document.createElement("a");
+                            anchor.href = url;
+                            anchor.download = `${result.fileName.replace(/\.cif$/i, "")}_ioncast_report.json`;
+                            anchor.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="rounded bg-green-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-green-200 hover:bg-green-400/20"
+                        >
+                          Download Report
+                        </button>
+                      )}
+                    </div>
+                    <h3 className="font-headline text-primary font-semibold border-b border-primary/20 pb-2 mb-4 break-all">
+                      {result.fileName}
+                    </h3>
+                    {/* Material Info Header */}
+                    <div className="flex justify-between items-start bg-surface-container-lowest/50 p-4 rounded-lg border border-outline-variant/10 shadow-inner">
+                      <div>
+                        <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
+                          Chemical Composition
+                        </p>
+                        <h4 className="text-xl font-headline font-bold text-on-surface">
+                          {result.composition || "-"}
+                        </h4>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {result.materialDetails?.material_type && (
+                            <span className="bg-secondary-container/10 border border-secondary-container/20 px-2 py-0.5 rounded text-primary text-[9px] font-headline uppercase">
+                              {result.materialDetails.material_type}
+                            </span>
+                          )}
+                          {result.materialDetails?.crystal_system &&
+                            result.materialDetails.crystal_system !==
+                              "Unknown" && (
+                              <span className="bg-secondary-container/10 border border-secondary-container/20 px-2 py-0.5 rounded text-primary text-[9px] font-headline uppercase">
+                                {result.materialDetails.crystal_system} Phase
+                              </span>
+                            )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
+                          Predicted Class & Score
+                        </p>
+                        <div className="flex flex-col items-end mt-1 gap-2">
+                          <span
+                            className="bg-secondary-container/20 border border-secondary-container/30 px-3 py-1 rounded-full text-primary text-[10px] font-headline uppercase inline-block text-center max-w-[200px] truncate"
+                            title={result.materialClass}
+                          >
+                            {result.materialClass}
+                          </span>
+                          {result.hesScore !== undefined && (
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
+                                result.hesRating === "Excellent"
+                                  ? "text-green-400 border-green-400/30 bg-green-400/10"
+                                  : result.hesRating === "Good"
+                                    ? "text-blue-400 border-blue-400/30 bg-blue-400/10"
+                                    : result.hesRating === "Moderate"
+                                      ? "text-yellow-400 border-yellow-400/30 bg-yellow-400/10"
+                                      : "text-red-400 border-red-400/30 bg-red-400/10"
+                              }`}
+                            >
+                              HES: {result.hesScore.toFixed(0)} / 100 (
+                              {result.hesRating})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Structural Information hidden by request */}
+
+                    {/* Metric 1 */}
+                    <div className="relative">
+                      <div className="flex justify-between items-end mb-4">
+                        <div>
+                          <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
+                            Activation Energy
+                          </p>
+                          <h4 className="text-4xl font-headline font-bold text-on-surface">
+                            {result.Ea}
+                            <span className="text-sm text-outline-variant font-normal ml-1">
+                              eV
+                            </span>
+                          </h4>
+                        </div>
+                        <div className="h-10 w-10 rounded bg-secondary-container/30 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-primary">
+                            energy_savings_leaf
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                        <div className="bg-primary h-full rounded-full shadow-[0_0_8px_#ff6600] transition-all duration-1000 w-[32%]"></div>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <div className="flex justify-between items-end mb-4">
+                        <div>
+                          <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
+                            Arrhenius log(A)
+                          </p>
+                          <h4 className="text-4xl font-headline font-bold text-on-surface">
+                            {result.logA?.toFixed(4)}
+                            <span className="text-sm text-outline-variant font-normal ml-1">
+                              log10
+                            </span>
+                          </h4>
+                        </div>
+                        <div className="h-10 w-10 rounded bg-secondary-container/30 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-primary">
+                            functions
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Metric 3 */}
+                    <div className="relative">
+                      <div className="flex justify-between items-end mb-4">
+                        <div>
+                          <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-1">
+                            Ionic Conductivity (σ)
+                          </p>
+                          <h4 className="text-4xl font-headline font-bold text-primary">
+                            {result.conductivity.toExponential(2)}
+                            <span className="text-sm text-outline-variant font-normal ml-2 text-on-surface">
+                              S/cm
+                            </span>
+                          </h4>
+                        </div>
+                        <div className="h-10 w-10 rounded bg-primary/20 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-primary">
+                            battery_charging_full
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
+                        <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
+                          Confidence
+                        </p>
+                        <p className="text-lg font-headline font-bold text-on-surface">
+                          {result.confidence || "Unknown"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
+                        <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
+                          Validation
+                        </p>
+                        <p className="text-lg font-headline font-bold text-on-surface capitalize">
+                          {(result.validationStatus || "unknown").replace(
+                            "_",
+                            " ",
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-surface-container-lowest/60 p-3 border border-outline-variant/10">
+                        <p className="text-[9px] font-headline uppercase tracking-widest text-outline-variant">
+                          Quality
+                        </p>
+                        <p className="text-lg font-headline font-bold text-on-surface">
+                          {result.predictionQuality || "Unknown"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {result.temperatureSeries &&
+                      result.temperatureSeries.length > 0 && (
+                        <div className="rounded-lg bg-surface-container-lowest/60 p-4 border border-outline-variant/10">
+                          <p className="text-[10px] font-headline uppercase tracking-widest text-outline-variant mb-4">
+                            Temperature Graph
+                          </p>
+                          <div className="flex h-28 items-end gap-1">
+                            {result.temperatureSeries.map((point) => {
+                              const maxValue = Math.max(
+                                ...result.temperatureSeries!.map(
+                                  (p) => p.conductivity_s_cm,
+                                ),
+                              );
+                              const height =
+                                maxValue > 0
+                                  ? Math.max(
+                                      6,
+                                      (point.conductivity_s_cm / maxValue) *
+                                        100,
+                                    )
+                                  : 6;
+                              return (
+                                <div
+                                  key={point.temperature_k}
+                                  className="flex-1 rounded-t bg-primary/80"
+                                  style={{ height: `${height}%` }}
+                                  title={`${point.temperature_k} K: ${point.conductivity_s_cm.toExponential(2)} S/cm`}
+                                />
+                              );
+                            })}
+                          </div>
+                          <div className="mt-2 flex justify-between text-[9px] text-outline-variant">
+                            <span>
+                              {result.temperatureSeries[0].temperature_k} K
+                            </span>
+                            <span>
+                              {
+                                result.temperatureSeries[
+                                  result.temperatureSeries.length - 1
+                                ].temperature_k
+                              }{" "}
+                              K
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                    {result.warnings && result.warnings.length > 0 && (
+                      <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/10 p-4 text-yellow-200">
+                        <p className="text-[10px] font-headline uppercase tracking-widest mb-2">
+                          Warnings
+                        </p>
+                        {result.warnings.map((warning) => (
+                          <p key={warning} className="text-xs">
+                            {warning}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-center py-20 text-outline-variant">
                     <span className="material-symbols-outlined text-5xl mb-4">

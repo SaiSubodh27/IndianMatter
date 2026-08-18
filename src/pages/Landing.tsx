@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../contexts/ThemeProvider";
@@ -527,7 +527,7 @@ export default function Landing() {
                 Physics
               </div>
               <div className="text-[0.6875rem] text-on-surface-variant uppercase tracking-tighter mt-1">
-                DFT Validation
+                Validation
               </div>
             </motion.div>
             <div className="hidden lg:block h-px flex-grow bg-gradient-to-r from-primary/40 to-transparent mx-4"></div>
@@ -654,9 +654,12 @@ export default function Landing() {
           Join hundreds of researchers leveraging IndianMatter to pioneer the
           future of semiconductors, energy storage, and aerospace alloys.
         </p>
-        <button className="px-10 py-5 rounded-md font-headline font-bold text-lg bg-primary text-on-primary shadow-[0_0_20px_rgba(255,102,0,0.3)] hover:scale-105 transition-transform">
+        <Link
+          to="/trial"
+          className="inline-block px-10 py-5 rounded-md font-headline font-bold text-lg bg-primary text-on-primary shadow-[0_0_20px_rgba(255,102,0,0.3)] hover:scale-105 transition-transform"
+        >
           Start Free Trial
-        </button>
+        </Link>
       </section>
 
       <footer className="w-full py-12 border-t border-neutral-900 bg-neutral-950 flex flex-col items-center gap-4 px-8">

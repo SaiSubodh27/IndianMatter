@@ -1,0 +1,432 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Precision Lens | AI-Powered Materials Discovery Engine</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {            http://localhost:5000/predict
+              "outline-variant": "#3b494c",
+              "primary-container": "#00e5ff",
+              surface: "#131313",
+              "on-secondary-fixed-variant": "#7a3000",
+              primary: "#c3f5ff",
+              "primary-fixed-dim": "#00daf3",
+              "surface-container": "#201f1f",
+              "surface-variant": "#353534",
+              "on-primary-fixed-variant": "#004f58",
+              "surface-bright": "#393939",
+              "inverse-surface": "#e5e2e1",
+              background: "#131313",
+              "inverse-on-surface": "#313030",
+              "on-tertiary-fixed-variant": "#7b0090",
+              "secondary-container": "#fd6c00",
+              "tertiary-fixed": "#ffd6ff",
+              "inverse-primary": "#006875",
+              secondary: "#ffb692",
+              "surface-container-low": "#1c1b1b",
+              "on-secondary-container": "#562000",
+              "secondary-fixed-dim": "#ffb692",
+              tertiary: "#ffe5fc",
+              "tertiary-container": "#fbbbff",
+              "surface-tint": "#00daf3",
+              "on-surface-variant": "#bac9cc",
+              "on-primary-fixed": "#001f24",
+              "tertiary-fixed-dim": "#f8acff",
+              "surface-dim": "#131313",
+              "on-error-container": "#ffdad6",
+              "on-tertiary-container": "#9800b3",
+              "on-background": "#e5e2e1",
+              "on-tertiary": "#570067",
+              "surface-container-lowest": "#0e0e0e",
+              "error-container": "#93000a",
+              "on-surface": "#e5e2e1",
+              "secondary-fixed": "#ffdbcb",
+              "surface-container-highest": "#353534",
+              error: "#ffb4ab",
+              "on-error": "#690005",
+              "on-primary-container": "#00626e",
+              "on-primary": "#00363d",
+              outline: "#849396",
+              "primary-fixed": "#9cf0ff",
+              "on-secondary": "#562000",
+              "on-secondary-fixed": "#341100",
+              "surface-container-high": "#2a2a2a",
+              "on-tertiary-fixed": "#350040",
+            },
+            borderRadius: {
+              DEFAULT: "0.125rem",
+              lg: "0.25rem",
+              xl: "0.5rem",
+              full: "0.75rem",
+            },
+            fontFamily: {
+              headline: ["Space Grotesk"],
+              body: ["Inter"],
+              label: ["Inter"],
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      .glass-card {
+        background: rgba(53, 53, 52, 0.4);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+      .lattice-bg {
+        background-image: radial-gradient(
+          circle at 2px 2px,
+          rgba(195, 245, 255, 0.05) 1px,
+          transparent 0
+        );
+        background-size: 40px 40px;
+      }
+      .molecular-gradient {
+        background: linear-gradient(135deg, #c3f5ff 0%, #00e5ff 100%);
+      }
+    </style>
+  </head>
+  <body
+    class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container"
+  >
+    <!-- Shared Component: TopNavBar -->
+    <nav
+      class="fixed top-0 w-full z-50 bg-neutral-900/40 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
+    >
+      <div class="flex justify-between items-center h-16 px-6 w-full">
+        <div class="flex items-center gap-8">
+          <span
+            class="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-cyan-500 font-['Space_Grotesk']"
+          >
+            Synthetic Observer
+          </span>
+          <div
+            class="hidden md:flex items-center gap-6 font-['Space_Grotesk'] text-sm tracking-tight"
+          >
+            <a
+              class="text-cyan-400 border-b-2 border-cyan-400 hover:text-cyan-300 transition-colors"
+              href="./index.html"
+              >Lattice</a
+            >
+            <a
+              class="text-neutral-400 hover:text-cyan-300 transition-colors"
+              href="../Property Prediction Dashboard/index.html"
+              >Synthesis</a
+            >
+            <a
+              class="text-neutral-400 hover:text-cyan-300 transition-colors"
+              href="../Advanced Insights & Roadmap/index.html"
+              >Analysis</a
+            >
+            <a
+              class="text-neutral-400 hover:text-cyan-300 transition-colors"
+              href="../Materials Input & Pipeline/index.html"
+              >Inventory</a
+            >
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="relative group hidden sm:block">
+            <input
+              class="bg-surface-container-low border-none rounded-lg py-1.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary w-64 text-on-surface"
+              placeholder="Search structures..."
+              type="text"
+            />
+            <span
+              class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-lg"
+              >search</span
+            >
+          </div>
+          <div class="flex items-center gap-3">
+            <button
+              class="text-neutral-400 hover:text-cyan-300 transition-colors"
+            >
+              <span class="material-symbols-outlined" data-icon="notifications"
+                >notifications</span
+              >
+            </button>
+            <button
+              class="text-neutral-400 hover:text-cyan-300 transition-colors"
+            >
+              <span class="material-symbols-outlined" data-icon="settings"
+                >settings</span
+              >
+            </button>
+            <div
+              class="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant/30"
+            >
+              <img
+                alt="Profile"
+                class="w-full h-full object-cover"
+                data-alt="Close-up portrait of a professional scientist with a neutral expression and clean studio lighting"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIY1bRdHWL-IL9VJ0lsydmEoN1euEn8WKrTLeJJ98yE7R5WWXcQIvjIpst_IAFDPhw_rSUGfXX8V0ZjNsx85aCJoLB-4xnmwraqnd5teU5OOul_ImW5PKTA-_alL-acIj2n4TjzLjX6SlZ5IIOJnIv89Q9pRkWtERtqu75-tkPsHhVFBWQ0MpkPStfKWHNksOryuiUF-pz1VbsaAHnk-Zl3rjTbbi3QejeG8Xri_iT_ZUuVe5TaaB5oygxirgm1tOwCldSoDZG79cr"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <main class="relative min-h-screen pt-16 overflow-hidden lattice-bg">
+      <!-- Abstract Lattice Element -->
+      <div
+        class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none"
+      >
+        <svg class="w-full h-full text-primary-container" viewbox="0 0 400 400">
+          <defs>
+            <pattern
+              height="40"
+              id="grid"
+              patternunits="userSpaceOnUse"
+              width="40"
+            >
+              <circle cx="2" cy="2" fill="currentColor" r="1.5"></circle>
+              <path
+                d="M 40 0 L 0 0 0 40"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="0.5"
+              ></path>
+            </pattern>
+          </defs>
+          <rect fill="url(#grid)" height="100%" width="100%"></rect>
+        </svg>
+      </div>
+      <!-- Hero Section -->
+      <section class="relative z-10 container mx-auto px-6 pt-24 pb-32">
+        <div class="flex flex-col lg:flex-row items-center gap-16">
+          <!-- Text Content -->
+          <div class="w-full lg:w-3/5 space-y-8">
+            <div
+              class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-low border border-outline-variant/20"
+            >
+              <span
+                class="flex h-2 w-2 rounded-full bg-secondary animate-pulse"
+              ></span>
+              <span
+                class="text-[10px] uppercase tracking-[0.2em] font-headline text-secondary"
+                >Neural Synthesis v4.2 Active</span
+              >
+            </div>
+            <h1
+              class="text-5xl md:text-7xl lg:text-8xl font-headline font-bold leading-tight tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-on-surface via-primary to-primary-fixed-dim"
+            >
+              AI-Powered Materials Discovery Engine
+            </h1>
+            <p
+              class="text-xl md:text-2xl text-on-surface-variant font-light max-w-2xl leading-relaxed"
+            >
+              Predict ionic conductivity, explore doping strategies, and
+              accelerate materials innovation with the world's most precise
+              molecular operating system.
+            </p>
+            <div class="flex flex-wrap gap-4 pt-4">
+              <button
+                class="molecular-gradient text-on-primary px-8 py-4 rounded-lg font-headline font-bold tracking-tight text-lg shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:scale-[1.02] transition-transform flex items-center gap-2"
+              >
+                Start Prediction
+                <span class="material-symbols-outlined">bolt</span>
+              </button>
+              <button
+                class="bg-surface-container-high text-primary px-8 py-4 rounded-lg font-headline font-bold tracking-tight text-lg border border-outline-variant/30 hover:bg-surface-bright transition-colors flex items-center gap-2"
+              >
+                Upload CIF
+                <span class="material-symbols-outlined">upload_file</span>
+              </button>
+            </div>
+            <div class="pt-12 flex gap-12 border-t border-outline-variant/10">
+              <div>
+                <div class="text-3xl font-headline font-bold text-primary">
+                  1.2M+
+                </div>
+                <div
+                  class="text-[10px] uppercase tracking-widest text-neutral-500 font-headline mt-1"
+                >
+                  Compounds Screened
+                </div>
+              </div>
+              <div>
+                <div class="text-3xl font-headline font-bold text-primary">
+                  99.4%
+                </div>
+                <div
+                  class="text-[10px] uppercase tracking-widest text-neutral-500 font-headline mt-1"
+                >
+                  Prediction Accuracy
+                </div>
+              </div>
+              <div>
+                <div class="text-3xl font-headline font-bold text-primary">
+                  400ms
+                </div>
+                <div
+                  class="text-[10px] uppercase tracking-widest text-neutral-500 font-headline mt-1"
+                >
+                  Inference Latency
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Visual Content: Asymmetric Bento Grid -->
+          <div class="w-full lg:w-2/5 grid grid-cols-2 gap-4">
+            <div
+              class="glass-card p-6 rounded-xl border border-outline-variant/20 col-span-2"
+            >
+              <div class="flex justify-between items-start mb-6">
+                <span
+                  class="text-[10px] uppercase tracking-widest text-primary font-headline"
+                  >Lattice Simulation</span
+                >
+                <span
+                  class="material-symbols-outlined text-primary"
+                  data-icon="grid_view"
+                  >grid_view</span
+                >
+              </div>
+              <div
+                class="aspect-video rounded-lg overflow-hidden relative group"
+              >
+                <img
+                  alt="Molecular Grid"
+                  class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  data-alt="High-tech digital rendering of a crystal lattice structure with glowing blue neon nodes and connecting lines on black background"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5QnLzzGBFj13yNwRuLm8cN4271PHdgq-UyoBfrgJi939SyU9LZd4ikTgcyJQ8US5lfdvh7ZiWR7MpldjCKgcNVUnGCigEqu4Xplzb6VrdTaLnA89EAIL-wfEZrkneWWdfUHWwR9Nrxfo-wbONJ42j0HW7QnyKBmnjh9rCbpQwzkKUbjb6dgp7RaRHb7RYbZ6cTy6pGxPfJe9FTY4ZSEuH5TyyhUuPuaWtNblOehI4ksvxX_wRSpW-y-eScyaFPCOlcJZFV0X7-60C"
+                />
+                <div
+                  class="absolute inset-0 bg-gradient-to-t from-surface to-transparent opacity-60"
+                ></div>
+                <div class="absolute bottom-4 left-4">
+                  <code
+                    class="text-xs text-primary bg-surface/80 px-2 py-1 rounded"
+                    >Li7La3Zr2O12</code
+                  >
+                </div>
+              </div>
+            </div>
+            <div
+              class="glass-card p-4 rounded-xl border border-outline-variant/20 flex flex-col justify-between"
+            >
+              <span
+                class="text-[10px] uppercase tracking-widest text-secondary font-headline"
+                >Stability Index</span
+              >
+              <div class="mt-4">
+                <div class="text-2xl font-headline font-bold">0.982</div>
+                <div
+                  class="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden"
+                >
+                  <div class="bg-secondary h-full w-[98%]"></div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="glass-card p-4 rounded-xl border border-outline-variant/20 flex flex-col justify-between"
+            >
+              <span
+                class="text-[10px] uppercase tracking-widest text-tertiary font-headline"
+                >Doping Logic</span
+              >
+              <div class="flex items-end gap-1 mt-4">
+                <div class="w-2 bg-primary h-6 rounded-t-sm"></div>
+                <div class="w-2 bg-primary h-10 rounded-t-sm"></div>
+                <div class="w-2 bg-primary h-4 rounded-t-sm"></div>
+                <div class="w-2 bg-primary h-8 rounded-t-sm"></div>
+                <div
+                  class="w-2 bg-secondary h-12 rounded-t-sm animate-pulse"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Trusted By / Marquee (Minimal) -->
+      <section
+        class="border-y border-outline-variant/10 py-8 bg-surface-container-lowest/50"
+      >
+        <div class="container mx-auto px-6">
+          <div
+            class="flex flex-wrap justify-between items-center gap-8 opacity-40 grayscale contrast-125"
+          >
+            <span class="text-xl font-headline font-black tracking-widest"
+              >QUANTUM COLLIDER</span
+            >
+            <span class="text-xl font-headline font-black tracking-widest"
+              >AETHER LABS</span
+            >
+            <span class="text-xl font-headline font-black tracking-widest"
+              >TITAN ENERGY</span
+            >
+            <span class="text-xl font-headline font-black tracking-widest"
+              >HELIX CORE</span
+            >
+            <span class="text-xl font-headline font-black tracking-widest"
+              >NANO STRIDE</span
+            >
+          </div>
+        </div>
+      </section>
+      <!-- Contextual FAB (Hidden by suppression rule on Landing if needed, but here it fits 'New Discovery') -->
+      <button
+        class="fixed bottom-8 right-8 h-14 w-14 rounded-full molecular-gradient text-on-primary shadow-2xl flex items-center justify-center hover:scale-110 transition-transform group"
+      >
+        <span class="material-symbols-outlined text-2xl" data-icon="add"
+          >add</span
+        >
+        <span
+          class="absolute right-full mr-4 bg-surface-container-highest text-on-surface px-3 py-1 rounded text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity font-headline"
+          >New Discovery</span
+        >
+      </button>
+    </main>
+    <!-- Mobile Navigation (Bottom Bar) -->
+    <nav
+      class="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900/80 backdrop-blur-xl border-t border-outline-variant/10 z-50"
+    >
+      <div class="flex justify-around items-center h-16">
+        <button class="flex flex-col items-center gap-1 text-cyan-400">
+          <span class="material-symbols-outlined" data-icon="grid_view"
+            >grid_view</span
+          >
+          <span class="text-[10px] uppercase font-headline">Lattice</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-neutral-400">
+          <span class="material-symbols-outlined" data-icon="science"
+            >science</span
+          >
+          <span class="text-[10px] uppercase font-headline">Synthesis</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-neutral-400">
+          <span class="material-symbols-outlined" data-icon="bar_chart"
+            >bar_chart</span
+          >
+          <span class="text-[10px] uppercase font-headline">Analysis</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-neutral-400">
+          <span class="material-symbols-outlined" data-icon="inventory_2"
+            >inventory_2</span
+          >
+          <span class="text-[10px] uppercase font-headline">Inventory</span>
+        </button>
+      </div>
+    </nav>
+  </body>
+</html>

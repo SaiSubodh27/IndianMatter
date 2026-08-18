@@ -52,7 +52,24 @@ def load_models():
     global expected_cols_base, expected_cols_a
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    models_dir = os.path.join(base_dir, "Surrogative_models")
+    candidate_dirs = [
+        os.path.join(base_dir, "..", "final_models", "pretrained_models"),
+        os.path.join(base_dir, "..", "pretrained_models"),
+        os.path.join(base_dir, "pretrained_models"),
+        os.path.join(base_dir, "Surrogative_models"),
+    ]
+
+    models_dir = None
+    for c_dir in candidate_dirs:
+        norm_dir = os.path.abspath(c_dir)
+        if os.path.exists(os.path.join(norm_dir, "v5_base_models.pkl")):
+            models_dir = norm_dir
+            break
+
+    if not models_dir:
+        models_dir = os.path.abspath(candidate_dirs[0])
+
+    print(f"Loading ML models from: {models_dir}")
 
     try:
         # ── Load v5 stacking models for Ea ──
@@ -71,20 +88,22 @@ def load_models():
 
         # ── Load expected feature columns from trained artifacts ──
         expected_cols_base = getattr(v5_base_models.get("lgb"), "feature_name_", None)
-        if expected_cols_base is None:
+        if expected_cols_base is None and os.path.exists(os.path.join(models_dir, 'base_cols.pkl')):
             with open(os.path.join(models_dir, 'base_cols.pkl'), 'rb') as f:
                 expected_cols_base = pickle.load(f)
 
         expected_cols_a = getattr(v5_model2_A, "feature_name_", None)
         if expected_cols_a is None:
             expected_cols_a = getattr(v5_model2_A, "feature_names_in_", None)
-        if expected_cols_a is None:
+        if expected_cols_a is None and os.path.exists(os.path.join(models_dir, 'a_cols.pkl')):
             with open(os.path.join(models_dir, 'a_cols.pkl'), 'rb') as f:
                 expected_cols_a = pickle.load(f)
 
-        expected_cols_base = list(expected_cols_base)
-        expected_cols_a = list(expected_cols_a)
-        print(f"  OK Feature columns loaded (base: {len(expected_cols_base)}, A: {len(expected_cols_a)})")
+        if expected_cols_base is not None:
+            expected_cols_base = list(expected_cols_base)
+        if expected_cols_a is not None:
+            expected_cols_a = list(expected_cols_a)
+        print(f"  OK Feature columns loaded (base: {len(expected_cols_base) if expected_cols_base else 'N/A'}, A: {len(expected_cols_a) if expected_cols_a else 'N/A'})")
 
         print("\nAll models loaded successfully!\n")
 
