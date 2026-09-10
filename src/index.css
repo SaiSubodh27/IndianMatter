@@ -86,3 +86,168 @@
 .hide-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome/Safari/Edge */
 }
+/* Research Atelier style reminder: parchment, graphite ink, blue-grey metadata, and IndianMatter orange; editorial rules over generic rounded dashboard surfaces. */
+@theme inline {
+  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-display: "Fraunces", serif;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+:root {
+  --background: #ebe6dc;
+  --foreground: #24231f;
+  --card: #fffdf8;
+  --card-foreground: #24231f;
+  --popover: #fffdf8;
+  --popover-foreground: #24231f;
+  --primary: #24231f;
+  --primary-foreground: #fffdf8;
+  --secondary: #f2eee6;
+  --secondary-foreground: #514e47;
+  --muted: #f4f0e8;
+  --muted-foreground: #77736b;
+  --accent: #f47a20;
+  --accent-foreground: #fffdf8;
+  --border: #d8d2c7;
+  --input: #cfc8bc;
+  --ring: #f47a20;
+}
+* {
+  border-color: var(--border);
+}
+html {
+  background: var(--background);
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "IBM Plex Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button,
+a,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+a {
+  transition:
+    color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.font-display {
+  font-family: "Fraunces", serif;
+}
+::selection {
+  background: #f47a20;
+  color: #fffdf8;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.index-paper,
+.catalog-block {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+.index-paper::after {
+  content: "";
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid #f47a20;
+  opacity: 0.7;
+}
+.research-marker {
+  color: #f47a20;
+  letter-spacing: -0.16em;
+  font-weight: 600;
+}
+.assistant-state {
+  position: relative;
+}
+.assistant-state::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: 18px;
+  height: 1px;
+  background: #f47a20;
+  opacity: 0.75;
+}
+
+.dashboard-light {
+  background: #ffffff !important;
+  color: #111111 !important;
+}
+
+.dashboard-light .bg-\[\#070707\],
+.dashboard-light .bg-\[\#0d0d0d\],
+.dashboard-light .bg-\[\#111111\],
+.dashboard-light .bg-\[\#171717\],
+.dashboard-light .bg-\[\#1e1e1e\],
+.dashboard-light .bg-\[\#1e1b18\],
+.dashboard-light .bg-\[\#2b2118\],
+.dashboard-light .bg-\[\#24201b\],
+.dashboard-light .bg-\[\#1c1814\],
+.dashboard-light .bg-\[\#252525\] {
+  background-color: #ffffff !important;
+}
+
+.dashboard-light .text-\[\#F5F5F5\],
+.dashboard-light .text-\[\#e7e7e7\],
+.dashboard-light .text-\[\#d9d9d9\],
+.dashboard-light .text-\[\#bdbdbd\],
+.dashboard-light .text-\[\#c8c8c8\] {
+  color: #111111 !important;
+}
+
+.dashboard-light .text-\[\#9A9A9A\] {
+  color: #666666 !important;
+}
+
+.dashboard-light .border-\[\#292929\],
+.dashboard-light .border-\[\#2a2a2a\],
+.dashboard-light .border-\[\#2d2d2d\],
+.dashboard-light .border-\[\#303030\],
+.dashboard-light .border-\[\#333\],
+.dashboard-light .border-\[\#3a3a3a\],
+.dashboard-light .border-\[\#3b2a1d\],
+.dashboard-light .border-\[\#4a3b2d\],
+.dashboard-light .border-\[\#64401f\] {
+  border-color: #d7d7d7 !important;
+}

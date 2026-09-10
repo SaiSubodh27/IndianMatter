@@ -1,0 +1,140 @@
+import numpy as np
+from typing import Any, Optional
+from properties.base_property import BasePropertyCalculator, PropertyResult
+
+class TotalEnergyCalculator(BasePropertyCalculator):
+    def __init__(self):
+        super().__init__(
+            key="total_energy",
+            name="Total Energy",
+            category="direct_outputs",
+            unit="eV",
+            description="Total potential energy evaluated by the atomistic neural network model."
+        )
+
+    def calculate(self, structure: Any, model_adapter: Optional[Any] = None, settings: Optional[dict] = None) -> PropertyResult:
+        if model_adapter is None:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model="N/A", calculation_method="N/A",
+                status="failed", warnings=["Atomistic model adapter is required."]
+            )
+        try:
+            val = model_adapter.predict_energy(structure)
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=round(float(val), 4), unit=self.unit, source_model=model_adapter.display_name,
+                calculation_method="direct_atomistic_model_evaluation", status="calculated",
+                inputs_used=["crystal_structure", "atomic_species", "lattice"],
+                warnings=[]
+            )
+        except Exception as e:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model=model_adapter.display_name, calculation_method="N/A",
+                status="failed", warnings=[f"Prediction failed: {e}"]
+            )
+
+class EnergyPerAtomCalculator(BasePropertyCalculator):
+    def __init__(self):
+        super().__init__(
+            key="energy_per_atom",
+            name="Energy Per Atom",
+            category="direct_outputs",
+            unit="eV/atom",
+            description="Total potential energy normalized by the number of atoms in the unit cell."
+        )
+
+    def calculate(self, structure: Any, model_adapter: Optional[Any] = None, settings: Optional[dict] = None) -> PropertyResult:
+        if model_adapter is None:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model="N/A", calculation_method="N/A",
+                status="failed", warnings=["Atomistic model adapter is required."]
+            )
+        try:
+            tot_e = model_adapter.predict_energy(structure)
+            n_atoms = len(structure)
+            val = tot_e / max(n_atoms, 1)
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=round(float(val), 4), unit=self.unit, source_model=model_adapter.display_name,
+                calculation_method="derived_from_total_energy", status="derived",
+                inputs_used=["total_energy", "num_atoms"],
+                warnings=[]
+            )
+        except Exception as e:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model=model_adapter.display_name, calculation_method="N/A",
+                status="failed", warnings=[f"Prediction failed: {e}"]
+            )
+
+class AtomicForcesCalculator(BasePropertyCalculator):
+    def __init__(self):
+        super().__init__(
+            key="forces",
+            name="Forces on Atoms",
+            category="direct_outputs",
+            unit="eV/Angstrom",
+            description="Vector forces on each atom in the cell [N_atoms, 3]."
+        )
+
+    def calculate(self, structure: Any, model_adapter: Optional[Any] = None, settings: Optional[dict] = None) -> PropertyResult:
+        if model_adapter is None:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model="N/A", calculation_method="N/A",
+                status="failed", warnings=["Atomistic model adapter is required."]
+            )
+        try:
+            forces = model_adapter.predict_forces(structure)
+            max_force = float(np.max(np.linalg.norm(forces, axis=1)))
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=forces.tolist(), unit=self.unit, source_model=model_adapter.display_name,
+                calculation_method="direct_atomistic_model_gradient", status="calculated",
+                inputs_used=["crystal_structure"],
+                raw_details={"max_force_norm_ev_ang": round(max_force, 4), "shape": list(forces.shape)}
+            )
+        except Exception as e:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model=model_adapter.display_name, calculation_method="N/A",
+                status="failed", warnings=[f"Prediction failed: {e}"]
+            )
+
+class StressTensorCalculator(BasePropertyCalculator):
+    def __init__(self):
+        super().__init__(
+            key="stress_tensor",
+            name="Stress Tensor",
+            category="direct_outputs",
+            unit="GPa",
+            description="Full 3x3 Cauchy stress tensor evaluated by the model."
+        )
+
+    def calculate(self, structure: Any, model_adapter: Optional[Any] = None, settings: Optional[dict] = None) -> PropertyResult:
+        if model_adapter is None:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model="N/A", calculation_method="N/A",
+                status="failed", warnings=["Atomistic model adapter is required."]
+            )
+        try:
+            stress = model_adapter.predict_stress(structure)
+            # Pressure P = -1/3 * Trace(Stress)
+            hydrostatic_p = -float(np.trace(stress)) / 3.0
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=np.round(stress, 4).tolist(), unit=self.unit, source_model=model_adapter.display_name,
+                calculation_method="direct_virial_stress_prediction", status="calculated",
+                inputs_used=["crystal_structure"],
+                raw_details={"hydrostatic_pressure_gpa": round(hydrostatic_p, 4)}
+            )
+        except Exception as e:
+            return PropertyResult(
+                property_key=self.key, property_name=self.name, category=self.category,
+                value=None, unit=self.unit, source_model=model_adapter.display_name, calculation_method="N/A",
+                status="failed", warnings=[f"Prediction failed: {e}"]
+            )

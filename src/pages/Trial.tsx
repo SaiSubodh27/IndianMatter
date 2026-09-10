@@ -1,13 +1,19 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { LandingNav } from "./Landing";
 
-const API_BASE_URL = "http://localhost:8000";
+import {
+  ApiError,
+  predictFromCIF,
+  type ClassificationDetailed,
+  type DetailedStructure,
+  type TemperaturePoint,
+} from "../lib/api";
 
 type TrialResult = {
-  id?: string;
   fileName: string;
   Ea: number;
-  logA?: number;
+  logA: number;
   conductivity: number;
   composition?: string;
   materialClass?: string;
@@ -16,31 +22,13 @@ type TrialResult = {
   predictionQuality?: string;
   normalizedHes?: number;
   warnings?: string[];
-  temperatureSeries?: Array<{
-    temperature_k: number;
-    conductivity_s_cm: number;
-  }>;
-  materialDetails?: {
-    crystal_system?: string;
-    material_type?: string;
-    ion_conductor_type?: string;
-  };
-  structuralDetails?: {
-    space_group?: string;
-    density?: number;
-    volume?: number;
-    elements?: string[];
-    lattice?: {
-      a: number;
-      b: number;
-      c: number;
-      alpha: number;
-      beta: number;
-      gamma: number;
-    };
-  };
+  temperatureSeries?: TemperaturePoint[];
+  materialDetails?: ClassificationDetailed;
+  structuralDetails?: DetailedStructure;
   hesScore?: number;
   hesRating?: string;
+  modelVersion?: string;
+  temperatureK?: number;
 };
 
 export default function Trial() {
@@ -95,149 +83,52 @@ export default function Trial() {
     setResult(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("temperature", temperature.toString());
-      if (composition.trim() !== "") {
-        formData.append("material_name", composition);
-      }
-
-      let response: Response;
-      try {
-        response = await fetch(`${API_BASE_URL}/trial/predict`, {
-          method: "POST",
-          body: formData,
-        });
-      } catch {
-        // Fallback to Flask backend on port 5000
-        response = await fetch("http://localhost:5000/predict", {
-          method: "POST",
-          body: formData,
-        });
-      }
-
-      const data = await response.json();
-
-      if (!response.ok || data.status === "error") {
-        throw new Error(
-          data.detail || data.error || `Prediction failed for ${file.name}`,
-        );
-      }
-
-      const details =
-        data.material_properties?.material_classification?.detailed ||
-        data.classification_detailed;
-
-      const rawEa =
-        data.Ea ??
-        data.ea ??
-        data.predicted_properties?.activation_energy?.value_ev ??
-        0;
-      const rawLogA =
-        data.logA ??
-        data.log10_A ??
-        data.predicted_properties?.pre_exponential_factor?.log10_value ??
-        0;
-      const rawCond =
-        data.conductivity ??
-        data.conductivity_prediction?.value_s_cm ??
-        data.predicted_properties?.ionic_conductivity?.value_s_cm ??
-        0;
+      const data = await predictFromCIF({
+        file,
+        temperature,
+        materialName: composition,
+      });
 
       setResult({
-        id: data.id || data.prediction_id,
-        fileName: data.cif_name || file.name,
-        Ea: Number(rawEa),
-        logA: Number(rawLogA),
-        conductivity: Number(rawCond),
-        composition:
-          data.composition ||
-          data.formula ||
-          data.material_properties?.chemical_composition?.formula ||
-          composition ||
-          "Unknown",
+        fileName: file.name,
+        Ea: data.Ea,
+        logA: data.logA,
+        conductivity: data.conductivity,
+        composition: data.composition || composition || "Unknown",
         materialClass:
+          data.classification_detailed?.ion_conductor_type ||
           data.classification ||
-          details?.ion_conductor_type ||
-          data.material_properties?.material_classification?.crystal_system ||
           "Unknown",
-        materialDetails: details,
-        structuralDetails:
-          data.detailed_structure ||
-          data.material_properties?.structural_details,
-        hesScore: data.hes_score ?? data.hes?.score ?? data.scoring?.hes_score,
-        normalizedHes:
-          data.normalized_hes ??
-          data.hes?.normalized ??
-          data.scoring?.normalized_hes,
-        hesRating:
-          data.hes_rating ?? data.hes?.rating ?? data.scoring?.hes_rating,
-        confidence:
-          data.confidence ?? data.hes?.confidence ?? data.scoring?.confidence,
-        validationStatus:
-          data.validation_status ??
-          data.hes?.validation_status ??
-          data.scoring?.validation_status,
-        predictionQuality:
-          data.prediction_quality ?? data.hes?.prediction_quality,
-        warnings: data.warnings || [],
-        temperatureSeries:
-          data.temperature_series ||
-          data.arrhenius_parameters?.temperature_series ||
-          [],
+        materialDetails: data.classification_detailed,
+        structuralDetails: data.detailed_structure,
+        hesScore: data.hes_score,
+        normalizedHes: data.normalized_hes,
+        hesRating: data.hes_rating,
+        confidence: data.confidence,
+        validationStatus: data.validation_status,
+        predictionQuality: data.prediction_quality,
+        warnings: data.warnings ?? [],
+        temperatureSeries: data.temperature_series ?? [],
+        modelVersion: data.model_version,
+        temperatureK: data.temperature_k,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred while predicting.",
-      );
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred while predicting.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container min-h-screen">
-      {/* Top Navigation Bar */}
-      <nav className="fixed top-0 w-full z-50 bg-neutral-950/60 backdrop-blur-xl shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex justify-between items-center px-8 h-20">
-        <div className="text-2xl font-bold tracking-tighter text-orange-500 font-headline">
-          <Link to="/">IndianMatter</Link>
-        </div>
-        <div className="hidden md:flex items-center gap-8 font-headline tracking-tight">
-          <Link
-            to="/"
-            className="text-neutral-400 hover:text-neutral-200 transition-all duration-300"
-          >
-            Discover
-          </Link>
-          <a
-            className="text-neutral-400 hover:text-neutral-200 transition-all duration-300"
-            href="#"
-          >
-            Datasets
-          </a>
-          <a
-            className="text-neutral-400 hover:text-neutral-200 transition-all duration-300"
-            href="#"
-          >
-            API
-          </a>
-          <a
-            className="text-neutral-400 hover:text-neutral-200 transition-all duration-300"
-            href="#"
-          >
-            Documentation
-          </a>
-        </div>
-        <Link
-          to="/signin"
-          className="bg-neutral-800/50 px-6 py-2 rounded-lg text-orange-400 font-headline font-semibold scale-98 hover:scale-105 active:scale-95 transition-transform hover:bg-neutral-800/70"
-        >
-          Sign In
-        </Link>
-      </nav>
+    <>
+      <LandingNav />
 
       <main className="min-h-screen pt-32 pb-20 px-6 flex flex-col items-center">
         {/* Trial Mode Header */}
@@ -428,25 +319,23 @@ export default function Trial() {
                           Prediction completed
                         </span>
                       </div>
-                      {result.id && (
-                        <button
-                          onClick={() => {
-                            const blob = new Blob(
-                              [JSON.stringify(result, null, 2)],
-                              { type: "application/json" },
-                            );
-                            const url = URL.createObjectURL(blob);
-                            const anchor = document.createElement("a");
-                            anchor.href = url;
-                            anchor.download = `${result.fileName.replace(/\.cif$/i, "")}_ioncast_report.json`;
-                            anchor.click();
-                            URL.revokeObjectURL(url);
-                          }}
-                          className="rounded bg-green-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-green-200 hover:bg-green-400/20"
-                        >
-                          Download Report
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          const blob = new Blob(
+                            [JSON.stringify(result, null, 2)],
+                            { type: "application/json" },
+                          );
+                          const url = URL.createObjectURL(blob);
+                          const anchor = document.createElement("a");
+                          anchor.href = url;
+                          anchor.download = `${result.fileName.replace(/\.cif$/i, "")}_ioncast_report.json`;
+                          anchor.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="rounded bg-green-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-green-200 hover:bg-green-400/20"
+                      >
+                        Download Report
+                      </button>
                     </div>
                     <h3 className="font-headline text-primary font-semibold border-b border-primary/20 pb-2 mb-4 break-all">
                       {result.fileName}
@@ -748,6 +637,6 @@ export default function Trial() {
           © 2026 IndianMatter. Engineered for Scientific Discovery.
         </p>
       </footer>
-    </div>
+    </>
   );
 }

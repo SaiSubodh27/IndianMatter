@@ -12,6 +12,16 @@ import {
   X,
   FileArchive,
 } from "lucide-react";
+import { ApiError } from "../lib/api";
+import {
+  createPredictionJob,
+  getPredictionCapabilities,
+  getPredictionJob,
+  getPredictionResults,
+  inspectPredictionDataset,
+  predictionDownloadUrl,
+  uploadPredictionDataset,
+} from "../lib/materialsPredictionApi";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -24,52 +34,46 @@ interface FeatureOption {
 
 const FEATURE_OPTIONS: FeatureOption[] = [
   {
-    id: "band_gap",
-    name: "Band Gap",
-    description: "Electronic band gap energy (eV)",
-    category: "Electronic",
+    id: "total_energy",
+    name: "Total Energy",
+    description: "Direct atomistic model energy (eV)",
+    category: "Direct Output",
   },
   {
-    id: "formation_energy",
-    name: "Formation Energy",
-    description: "Energy per atom (eV/atom)",
-    category: "Thermodynamic",
+    id: "energy_per_atom",
+    name: "Energy Per Atom",
+    description: "Direct model energy normalized by atom count (eV/atom)",
+    category: "Direct Output",
   },
   {
-    id: "elasticity",
-    name: "Elastic Moduli",
-    description: "Bulk & shear modulus (GPa)",
+    id: "composition_descriptors",
+    name: "Composition Descriptors",
+    description: "Pymatgen and matminer composition features",
+    category: "Composition",
+  },
+  {
+    id: "structural_descriptors",
+    name: "Structural Descriptors",
+    description: "Structure-derived geometry and symmetry features",
+    category: "Structural",
+  },
+  {
+    id: "bulk_modulus",
+    name: "Bulk Modulus",
+    description: "Strain-response mechanical calculation (GPa)",
     category: "Mechanical",
   },
   {
-    id: "density",
-    name: "Density",
-    description: "Mass density (g/cm³)",
-    category: "Structural",
+    id: "debye_temperature",
+    name: "Debye Temperature",
+    description: "Only when the selected model provides required elastic data",
+    category: "Thermal",
   },
   {
-    id: "ionic_conductivity",
-    name: "Ionic Conductivity",
-    description: "Diffusion pathway analysis (S/cm)",
-    category: "Transport",
-  },
-  {
-    id: "thermal_expansion",
-    name: "Thermal Expansion",
-    description: "Coefficient across temperature range",
-    category: "Thermodynamic",
-  },
-  {
-    id: "symmetry",
-    name: "Space Group / Symmetry",
-    description: "Crystallographic symmetry classification",
-    category: "Structural",
-  },
-  {
-    id: "dos",
-    name: "Density of States",
-    description: "Electronic DOS profile",
-    category: "Electronic",
+    id: "electronic_state",
+    name: "Electronic State",
+    description: "Explicitly labeled heuristic classification",
+    category: "Electrical",
   },
 ];
 
@@ -88,11 +92,22 @@ export default function Datasets() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [structureFiles, setStructureFiles] = useState<File[]>([]);
   const [totalRows, setTotalRows] = useState<number>(0);
+  const [datasetId, setDatasetId] = useState<string | null>(null);
+  const [inspection, setInspection] = useState<Awaited<
+    ReturnType<typeof inspectPredictionDataset>
+  > | null>(null);
+  const [selectedModel, setSelectedModel] = useState("chgnet");
+  const [modelAvailability, setModelAvailability] = useState<
+    Record<string, boolean>
+  >({});
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const structureInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — batching + features
-  const [batchSize, setBatchSize] = useState<number>(200);
+  const [batchSize, setBatchSize] = useState<number>(100);
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
     new Set(),
   );
@@ -122,6 +137,7 @@ export default function Datasets() {
   }, []);
 
   const handleCsvUpload = (file: File) => {
+    setError(null);
     setCsvFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -150,38 +166,89 @@ export default function Datasets() {
     });
   };
 
-  const goToStep3 = () => {
-    const built = buildBatches(totalRows, batchSize);
-    setBatches(built);
-    setStep(3);
+  const goToStep3 = async () => {
+    if (!csvFile || totalRows > 100) return;
+    setError(null);
+    try {
+      const uploaded = await uploadPredictionDataset(csvFile, structureFiles);
+      const [details, capabilities] = await Promise.all([
+        inspectPredictionDataset(uploaded.dataset_id),
+        getPredictionCapabilities(),
+      ]);
+      setDatasetId(uploaded.dataset_id);
+      setInspection(details);
+      setTotalRows(details.total_rows);
+      setModelAvailability(
+        Object.fromEntries(
+          Object.entries(capabilities.models).map(([key, model]) => [
+            key,
+            model.available,
+          ]),
+        ),
+      );
+      setBatches(buildBatches(details.total_rows, Math.min(batchSize, 100)));
+      setStep(2);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError ? caught.message : "Dataset upload failed.",
+      );
+    }
   };
 
   const runProcessing = async () => {
+    if (!datasetId || selectedFeatures.size === 0) return;
+    setError(null);
     setProcessing(true);
     setProcessedCount(0);
-    for (let i = 0; i < batches.length; i++) {
-      setBatches((prev) =>
-        prev.map((b, idx) => (idx === i ? { ...b, status: "processing" } : b)),
-      );
-      await new Promise((res) => setTimeout(res, 600));
-      setBatches((prev) =>
-        prev.map((b, idx) => (idx === i ? { ...b, status: "done" } : b)),
-      );
-      setProcessedCount(i + 1);
+    try {
+      const job = await createPredictionJob({
+        dataset_id: datasetId,
+        selected_models: [selectedModel],
+        selected_properties: Array.from(selectedFeatures),
+        calculation_settings: { batch_size: Math.min(batchSize, 100) },
+      });
+      setJobId(job.job_id);
+      setJobStatus(job.status);
+      setStep(3);
+
+      let current = job;
+      while (!["completed", "failed", "canceled"].includes(current.status)) {
+        await new Promise((resolve) => window.setTimeout(resolve, 700));
+        current = await getPredictionJob(job.job_id);
+        setJobStatus(current.status);
+        const completed = Math.round(
+          ((current.progress_percent ?? 0) / 100) * batches.length,
+        );
+        setProcessedCount(Math.min(completed, batches.length));
+      }
+      if (current.status !== "completed")
+        throw new Error(`Prediction job ${current.status}.`);
+      const result = await getPredictionResults(job.job_id);
+      setProcessedCount(batches.length);
+      setJobStatus(`${result.results.length} results ready`);
+      setStep(4);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : String(caught));
+      setJobStatus("failed");
+    } finally {
+      setProcessing(false);
     }
-    setProcessing(false);
-    setStep(4);
   };
 
   const resetAll = () => {
     setCsvFile(null);
     setStructureFiles([]);
     setTotalRows(0);
-    setBatchSize(200);
+    setBatchSize(100);
     setSelectedFeatures(new Set());
     setBatches([]);
     setProcessedCount(0);
     setStep(1);
+    setDatasetId(null);
+    setInspection(null);
+    setJobId(null);
+    setJobStatus("");
+    setError(null);
   };
 
   const stepMeta = [
@@ -204,6 +271,12 @@ export default function Datasets() {
             processing on your dataset.
           </p>
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+            {error}
+          </div>
+        )}
 
         {/* Stepper */}
         <div className="flex items-center mb-12">
@@ -275,7 +348,7 @@ export default function Datasets() {
                       Drop CSV here or click to upload
                     </p>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                      Rows will be split into processing batches
+                      Maximum 100 rows per prediction job
                     </p>
                   </div>
                 ) : (
@@ -304,18 +377,18 @@ export default function Datasets() {
                 )}
               </div>
 
-              {/* Structures upload (ZIP/Parquet) */}
+              {/* Structure uploads */}
               <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <FileArchive className="w-5 h-5 text-orange-500" />
                   <h3 className="font-headline font-semibold text-neutral-900 dark:text-white">
-                    Structures Archive
+                    Structure Files
                   </h3>
                 </div>
                 <input
                   ref={structureInputRef}
                   type="file"
-                  accept=".zip,.parquet"
+                  accept=".cif,.poscar,.contcar,.vasp,.xyz,.json"
                   multiple
                   className="hidden"
                   onChange={(e) =>
@@ -328,11 +401,11 @@ export default function Datasets() {
                 >
                   <Upload className="w-9 h-9 text-orange-500 mx-auto mb-3" />
                   <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                    Drop ZIP or Parquet here or click to upload
+                    Drop CIF, POSCAR, XYZ, or JSON files here
                   </p>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                    Accepts structure files packaged in .zip or consolidated
-                    .parquet formats
+                    Each file is parsed and validated by the backend before
+                    prediction
                   </p>
                 </div>
                 {structureFiles.length > 0 && (
@@ -360,8 +433,8 @@ export default function Datasets() {
 
             <div className="flex justify-end">
               <button
-                disabled={!csvFile || totalRows === 0}
-                onClick={() => setStep(2)}
+                disabled={!csvFile || totalRows === 0 || totalRows > 100}
+                onClick={goToStep3}
                 className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-headline font-semibold px-6 py-3 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_16px_rgba(255,102,0,0.25)]"
               >
                 Continue <ChevronRight className="w-4 h-4" />
@@ -373,6 +446,59 @@ export default function Datasets() {
         {/* STEP 2 — Configure batches + features */}
         {step === 2 && (
           <div className="space-y-6">
+            {inspection && (
+              <div className="bg-white dark:bg-neutral-900/60 rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
+                <h3 className="font-headline font-semibold text-neutral-900 dark:text-white mb-3">
+                  Dataset Inspection
+                </h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {inspection.valid_rows} valid rows,{" "}
+                  {inspection.columns.length} columns.
+                  {inspection.detected_structure_col
+                    ? ` Structure column: ${inspection.detected_structure_col}.`
+                    : " No structure column detected; structure files are required for model outputs."}
+                </p>
+              </div>
+            )}
+
+            <div className="bg-white dark:bg-neutral-900/60 rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-headline font-semibold text-neutral-900 dark:text-white">
+                  Prediction Model
+                </h3>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Availability is checked by the backend
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {["m3gnet", "chgnet", "mace"].map((model) => (
+                  <button
+                    key={model}
+                    type="button"
+                    onClick={() => setSelectedModel(model)}
+                    className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+                      selectedModel === model
+                        ? "border-orange-500 bg-orange-500/10"
+                        : "border-neutral-200 dark:border-neutral-800"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold uppercase text-neutral-900 dark:text-white">
+                      {model}
+                    </span>
+                    <span
+                      className={`text-xs ${modelAvailability[model] === false ? "text-red-500" : "text-neutral-500 dark:text-neutral-400"}`}
+                    >
+                      {modelAvailability[model] === undefined
+                        ? "Checking..."
+                        : modelAvailability[model]
+                          ? "Available"
+                          : "Unavailable"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Batch size */}
             <div className="bg-white dark:bg-neutral-900/60 backdrop-blur-md rounded-xl p-6 border border-neutral-200 dark:border-neutral-800/60 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
@@ -461,7 +587,10 @@ export default function Datasets() {
                 ← Back
               </button>
               <button
-                disabled={selectedFeatures.size === 0}
+                disabled={
+                  selectedFeatures.size === 0 ||
+                  !modelAvailability[selectedModel]
+                }
                 onClick={goToStep3}
                 className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-headline font-semibold px-6 py-3 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_16px_rgba(255,102,0,0.25)]"
               >
@@ -480,7 +609,8 @@ export default function Datasets() {
                   Processing Queue
                 </h3>
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {processedCount}/{batches.length} batches
+                  {processedCount}/{batches.length} batches{" "}
+                  {jobStatus ? `· ${jobStatus}` : ""}
                 </span>
               </div>
               <div className="w-full bg-neutral-100 dark:bg-neutral-950 rounded-full h-2.5 mb-6 overflow-hidden">
@@ -578,6 +708,15 @@ export default function Datasets() {
                 <button className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-headline font-semibold px-6 py-3 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_0_16px_rgba(255,102,0,0.25)]">
                   <Download className="w-4 h-4" /> Download Report
                 </button>
+                {jobId && (
+                  <a
+                    href={predictionDownloadUrl(jobId, "zip")}
+                    download
+                    className="flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 px-6 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-300"
+                  >
+                    <FileArchive className="w-4 h-4" /> Download Results
+                  </a>
+                )}
                 <button
                   onClick={resetAll}
                   className="px-6 py-3 rounded-lg text-sm font-medium border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 bg-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"

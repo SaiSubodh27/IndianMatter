@@ -36,8 +36,9 @@ function LandingNav() {
 
   const links = [
     { name: "Discover", href: "#" },
+    // { name: "Documentation", href: "#" },
     { name: "Datasets", href: "#" },
-    { name: "API", href: "#" },
+    { name: "About", href: "#" },
     { name: "Documentation", href: "#" },
   ];
 
@@ -131,7 +132,7 @@ function LandingNav() {
         ) : (
           <Link
             to="/signin"
-            className="px-6 py-2 rounded-full font-headline text-sm font-semibold bg-gradient-to-br from-primary to-primary-container text-on-primary neon-glow-primary hover:scale-105 active:scale-95 transition-transform whitespace-nowrap"
+            className="px-6 py-2 rounded-xl font-headline text-sm font-semibold bg-gradient-to-br from-primary to-primary-container text-on-primary neon-glow-primary hover:scale-105 active:scale-95 transition-transform whitespace-nowrap"
           >
             Sign In
           </Link>
@@ -140,6 +141,7 @@ function LandingNav() {
     </nav>
   );
 }
+export { LandingNav };
 
 export default function Landing() {
   return (

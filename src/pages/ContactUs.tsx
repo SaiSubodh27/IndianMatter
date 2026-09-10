@@ -190,7 +190,7 @@ export default function ContactUs() {
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 (555) 000 - 0000"
+                    placeholder="+91 0000 000 000"
                     className={inputClass}
                   />
                 </div>

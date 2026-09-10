@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import PeriodicTable from "../components/PeriodicTable";
+import { searchDatasetMaterials, MaterialRecord } from "../lib/datasetapi";
 import StructureViewer, {
   type ViewerControls,
   type ViewerStyle,
@@ -14,6 +15,21 @@ interface ExploreMaterialRow {
   formation_energy: number;
   density: number;
   is_stable: boolean;
+  // IndianMatter-only fields (undefined for the other 4 sources)
+  nsites?: number;
+  e_hull?: number;
+  m3gnet_energy?: number;
+  bulk_modulus?: number;
+  shear_modulus?: number;
+  metal_prob?: number;
+  num_elements?: number;
+  volume?: number;
+  lattice_a?: number;
+  lattice_b?: number;
+  lattice_c?: number;
+  alpha?: number;
+  beta?: number;
+  gamma?: number;
 }
 
 type RangeProperty = {
@@ -48,13 +64,19 @@ interface PropertyCategory {
 
 type Step = "composition" | "properties" | "results";
 type StabilityFilter = "all" | "stable" | "unstable";
-type DataSource = "materials_project" | "oqmd" | "aflow" | "jarvis";
+type DataSource =
+  | "materials_project"
+  | "oqmd"
+  | "aflow"
+  | "jarvis"
+  | "indianmatter";
 
 const sourceEndpoints: Record<DataSource, string> = {
   materials_project: "http://localhost:8000/api/materials/explore",
   oqmd: "http://localhost:8000/api/oqmd/explore",
   aflow: "http://localhost:8000/api/aflow/explore",
   jarvis: "http://localhost:8000/api/jarvis/explore",
+  indianmatter: "http://localhost:8000/api/indianmatter/explore",
 };
 
 const structureEndpoints: Record<DataSource, (id: string) => string> = {
@@ -66,6 +88,9 @@ const structureEndpoints: Record<DataSource, (id: string) => string> = {
     `http://localhost:8000/api/aflow/structure/${id.replace(/^aflow-/, "")}`,
   jarvis: (id) =>
     `http://localhost:8000/api/jarvis/structure/${id.replace(/^jarvis-/, "")}`,
+  // mv_id is used as-is, matching the CIF filenames in 38510_CIFs/
+  indianmatter: (id) =>
+    `http://localhost:8000/api/indianmatter/structure/${id}`,
 };
 
 const csvDownloadEndpoints: Record<DataSource, string> = {
@@ -73,6 +98,7 @@ const csvDownloadEndpoints: Record<DataSource, string> = {
   oqmd: "http://localhost:8000/api/oqmd/download/csv",
   aflow: "http://localhost:8000/api/aflow/download/csv",
   jarvis: "http://localhost:8000/api/jarvis/download/csv",
+  indianmatter: "http://localhost:8000/api/indianmatter/download/csv",
 };
 
 const cifDownloadEndpoints: Record<DataSource, (id: string) => string> = {
@@ -84,6 +110,8 @@ const cifDownloadEndpoints: Record<DataSource, (id: string) => string> = {
     `http://localhost:8000/api/aflow/download/cif/${id.replace(/^aflow-/, "")}`,
   jarvis: (id) =>
     `http://localhost:8000/api/jarvis/download/cif/${id.replace(/^jarvis-/, "")}`,
+  indianmatter: (id) =>
+    `http://localhost:8000/api/indianmatter/download/cif/${id}`,
 };
 
 const sourceLabels: Record<DataSource, string> = {
@@ -91,6 +119,7 @@ const sourceLabels: Record<DataSource, string> = {
   oqmd: "OQMD",
   aflow: "AFLOW",
   jarvis: "JARVIS",
+  indianmatter: "IndianMatter DB",
 };
 
 // Small distinct accent per source so a mixed results list stays scannable —
@@ -104,6 +133,8 @@ const sourceBadgeStyles: Record<DataSource, string> = {
     "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-900/50",
   jarvis:
     "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50",
+  indianmatter:
+    "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50",
 };
 
 // Only Materials Project's /structure endpoint returns an actual CIF string
@@ -186,6 +217,7 @@ const propertyCategories: PropertyCategory[] = [
       },
     ],
   },
+
   {
     id: "electronic",
     label: "Electronic",
@@ -251,6 +283,7 @@ const propertyCategories: PropertyCategory[] = [
       },
     ],
   },
+
   {
     id: "thermal",
     label: "Thermal",
@@ -313,6 +346,7 @@ const propertyCategories: PropertyCategory[] = [
       },
     ],
   },
+
   {
     id: "ionic",
     label: "Ionic / Electrochemical",
@@ -364,6 +398,7 @@ const propertyCategories: PropertyCategory[] = [
       },
     ],
   },
+
   {
     id: "mechanical",
     label: "Mechanical",
@@ -423,6 +458,7 @@ const propertyCategories: PropertyCategory[] = [
       },
     ],
   },
+
   {
     id: "magnetic",
     label: "Magnetic",
@@ -445,6 +481,7 @@ const propertyCategories: PropertyCategory[] = [
       },
     ],
   },
+
   {
     id: "optical",
     label: "Optical",
@@ -474,6 +511,187 @@ const propertyCategories: PropertyCategory[] = [
         min: 0,
         max: 100000,
         step: 1000,
+      },
+    ],
+  },
+
+  // ============================================================
+  // IndianMatter Database Properties
+  // ============================================================
+
+  {
+    id: "indianmatter",
+    label: "IndianMatter DB",
+    icon: "database",
+    properties: [
+      {
+        id: "im-nsites",
+        label: "Number of Sites",
+        type: "range",
+        unit: "sites",
+        min: 2,
+        max: 200,
+        step: 1,
+        wired: true,
+      },
+      {
+        id: "im-e-hull",
+        label: "Energy Above Hull",
+        type: "range",
+        unit: "eV/atom",
+        min: -1.72,
+        max: 0.03,
+        step: 0.001,
+        wired: true,
+      },
+      {
+        id: "im-m3gnet-energy",
+        label: "Final M3GNet Energy",
+        type: "range",
+        unit: "eV",
+        min: -1320,
+        max: -2.9,
+        step: 1,
+        wired: true,
+      },
+      {
+        id: "im-formation-energy",
+        label: "Formation Energy",
+        type: "range",
+        unit: "eV/atom",
+        min: -4.31,
+        max: 0.42,
+        step: 0.01,
+        wired: true,
+      },
+      {
+        id: "im-band-gap",
+        label: "Band Gap",
+        type: "range",
+        unit: "eV",
+        min: -0.22,
+        max: 9.18,
+        step: 0.01,
+        wired: true,
+      },
+      {
+        id: "im-bulk-modulus",
+        label: "Bulk Modulus",
+        type: "range",
+        unit: "GPa",
+        min: 12,
+        max: 234,
+        step: 1,
+        wired: true,
+      },
+      {
+        id: "im-shear-modulus",
+        label: "Shear Modulus",
+        type: "range",
+        unit: "GPa",
+        min: 8,
+        max: 128,
+        step: 1,
+        wired: true,
+      },
+      {
+        id: "im-metal-prob",
+        label: "Metal Probability",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.01,
+        wired: true,
+      },
+      {
+        id: "im-num-elements",
+        label: "Number of Elements",
+        type: "range",
+        unit: "elements",
+        min: 2,
+        max: 8,
+        step: 1,
+        wired: true,
+      },
+      {
+        id: "im-volume",
+        label: "Volume",
+        type: "range",
+        unit: "Å³",
+        min: 26,
+        max: 3850,
+        step: 5,
+        wired: true,
+      },
+      {
+        id: "im-density",
+        label: "Density",
+        type: "range",
+        unit: "g/cm³",
+        min: 0.9,
+        max: 18.7,
+        step: 0.1,
+        wired: true,
+      },
+      {
+        id: "im-lattice-a",
+        label: "Lattice a",
+        type: "range",
+        unit: "Å",
+        min: 2.5,
+        max: 57.7,
+        step: 0.5,
+        wired: true,
+      },
+      {
+        id: "im-lattice-b",
+        label: "Lattice b",
+        type: "range",
+        unit: "Å",
+        min: 2.6,
+        max: 58.2,
+        step: 0.5,
+        wired: true,
+      },
+      {
+        id: "im-lattice-c",
+        label: "Lattice c",
+        type: "range",
+        unit: "Å",
+        min: 2.6,
+        max: 60,
+        step: 0.5,
+        wired: true,
+      },
+      {
+        id: "im-alpha",
+        label: "Lattice α",
+        type: "range",
+        unit: "°",
+        min: 6.8,
+        max: 178,
+        step: 1,
+        wired: true,
+      },
+      {
+        id: "im-beta",
+        label: "Lattice β",
+        type: "range",
+        unit: "°",
+        min: 3,
+        max: 175,
+        step: 1,
+        wired: true,
+      },
+      {
+        id: "im-gamma",
+        label: "Lattice γ",
+        type: "range",
+        unit: "°",
+        min: 13,
+        max: 171,
+        step: 1,
+        wired: true,
       },
     ],
   },
@@ -545,8 +763,8 @@ const PropertyRow = ({
   const [localChecked, setLocalChecked] = useState(false);
 
   // Range properties use lifted state (passed from parent) so wired
-  // ones (band gap, formation energy) can feed the actual search.
-  // Categorical properties stay local since none are backend-wired yet.
+  // properties can feed the actual search. Categorical properties stay
+  // local since none are backend-wired yet.
   const checked =
     prop.type === "range" && rangeValue ? rangeValue.checked : localChecked;
 
@@ -812,6 +1030,30 @@ export default function Explorer() {
     setRangeFilters((prev) => ({ ...prev, [id]: next }));
   };
 
+  /** Append a checked range filter to a URL using the backend query names. */
+  /** Convert a property id (kebab-case, optionally im- prefixed) to a
+   *  snake_case query parameter base name. e.g. "im-band-gap" → "band_gap". */
+  function propertyIdToParamName(id: string): string {
+    return id.replace(/^im-/, "").replace(/-/g, "_");
+  }
+
+  /** Append every checked `wired` range filter to the URL automatically.
+   *  Works for both generic sources and IndianMatter DB. */
+  const appendWiredRangeFilters = (url: URL) => {
+    propertyCategories.forEach((cat) => {
+      cat.properties.forEach((prop) => {
+        if (prop.type === "range" && prop.wired) {
+          const filter = rangeFilters[prop.id];
+          if (filter?.checked) {
+            const paramBase = propertyIdToParamName(prop.id);
+            url.searchParams.append(`min_${paramBase}`, String(filter.lo));
+            url.searchParams.append(`max_${paramBase}`, String(filter.hi));
+          }
+        }
+      });
+    });
+  };
+
   const downloadCSV = () => {
     // Route through the backend's per-source CSV endpoint so exports stay
     // consistent with whatever filters actually produced this result set,
@@ -822,33 +1064,19 @@ export default function Explorer() {
     if (excludeElements.length > 0)
       url.searchParams.append("exclude_elements", excludeElements.join(","));
 
-    const bandGap = rangeFilters["band-gap"];
-    if (bandGap?.checked) {
-      url.searchParams.append("min_band_gap", String(bandGap.lo));
-      url.searchParams.append("max_band_gap", String(bandGap.hi));
-    }
-    const formationEnergy = rangeFilters["formation-energy"];
-    if (formationEnergy?.checked) {
-      url.searchParams.append(
-        "min_formation_energy",
-        String(formationEnergy.lo),
-      );
-      url.searchParams.append(
-        "max_formation_energy",
-        String(formationEnergy.hi),
-      );
-    }
+    appendWiredRangeFilters(url);
+
     if (stabilityFilter !== "all") {
       url.searchParams.append(
         "is_stable",
         String(stabilityFilter === "stable"),
       );
     }
+
     url.searchParams.append("limit", "100");
 
     window.open(url.toString(), "_blank");
   };
-
   const exportCIF = () => {
     if (!selectedMaterialId) return;
     const url = cifDownloadEndpoints[dataSource](selectedMaterialId);
@@ -877,23 +1105,7 @@ export default function Explorer() {
         );
       }
 
-      const bandGap = rangeFilters["band-gap"];
-      if (bandGap?.checked) {
-        baseUrl.searchParams.append("min_band_gap", String(bandGap.lo));
-        baseUrl.searchParams.append("max_band_gap", String(bandGap.hi));
-      }
-
-      const formationEnergy = rangeFilters["formation-energy"];
-      if (formationEnergy?.checked) {
-        baseUrl.searchParams.append(
-          "min_formation_energy",
-          String(formationEnergy.lo),
-        );
-        baseUrl.searchParams.append(
-          "max_formation_energy",
-          String(formationEnergy.hi),
-        );
-      }
+      appendWiredRangeFilters(baseUrl);
 
       if (stabilityFilter !== "all") {
         baseUrl.searchParams.append(
@@ -1110,12 +1322,10 @@ export default function Explorer() {
               </div>
             </div>
 
-            {/* Note: the old standalone Min/Max Band Gap and Min/Max
-                Formation Energy text inputs were removed — those two
-                properties now live exclusively in the accordion below
-                (Electronic → Band Gap, Thermal → Formation Energy),
-                tagged "Live filter", and are what actually drives the
-                search query via handleFilterSearch. */}
+            {/* All live range filters are driven from the accordions above.
+                IndianMatter DB filters use the im-* properties and are mapped
+                to their corresponding backend query parameters in
+                appendIndianMatterFilters. */}
 
             <div className="space-y-3">
               {propertyCategories.map((cat) => (
@@ -1439,3 +1649,63 @@ export default function Explorer() {
     </div>
   );
 }
+
+export const Explorer1: React.FC = () => {
+  const [selectedElements] = useState<string[]>([]);
+  const [materials, setMaterials] = useState<MaterialRecord[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const handleSearch = async () => {
+    setLoading(true);
+    try {
+      const data = await searchDatasetMaterials({
+        elements: selectedElements,
+        matchMode: "contains",
+        page: 1,
+        limit: 20,
+      });
+      setMaterials(data.results);
+      setTotal(data.total);
+    } catch (err) {
+      console.error("Failed to fetch dataset search results:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    handleSearch();
+  }, [selectedElements]);
+
+  return (
+    <div>
+      {/* Pass handleSearch or setSelectedElements to your Periodic Table Component */}
+      <h3>Search Results ({total} materials found)</h3>
+      {loading ? (
+        <p>Loading dataset materials...</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Formula</th>
+              <th>Band Gap (eV)</th>
+              <th>E_hull (eV/atom)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {materials.map((mat) => (
+              <tr key={mat.mv_id}>
+                <td>{mat.mv_id}</td>
+                <td>{mat.Formula}</td>
+                <td>{mat["Band Gap E_g (eV)"]}</td>
+                <td>{mat["E_hull-m (eV/atom)"]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};

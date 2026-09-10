@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any --
+   3Dmol.js publishes no type declarations and is consumed as a CDN global,
+   so the `$3Dmol` surface is untyped by necessity. */
 import { useEffect, useRef, useState } from "react";
 
 // 3Dmol.js is loaded from its CDN build at runtime rather than bundled via

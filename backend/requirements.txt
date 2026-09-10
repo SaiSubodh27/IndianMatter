@@ -8,3 +8,22 @@ pydantic-settings
 email-validator
 python-multipart
 mp-api
+numpy
+pandas
+scipy
+scikit-learn
+torch
+pymatgen
+matminer
+ase
+monty
+joblib
+tqdm
+pydantic
+spglib
+psutil
+# Optional atomistic GNN models (can be installed based on environment):
+# chgnet
+# matgl # M3GNet
+# mace-torch
+

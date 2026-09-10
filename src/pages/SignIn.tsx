@@ -73,6 +73,7 @@ export default function SignIn() {
         );
         navigate("/dashboard");
       } catch (err) {
+        console.error(err);
         setError("Error fetching Google profile");
       }
     },
@@ -100,15 +101,20 @@ export default function SignIn() {
           ></div>
         </div>
 
-        <div className="relative z-10 flex flex-col justify-between p-14 w-full">
-          <Link to="/" className="flex items-center gap-3 w-fit group">
-            <div className="w-10 h-10 shrink-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-              <span className="material-symbols-outlined text-white text-xl">
-                science
-              </span>
-            </div>
-            <span className="text-white font-headline font-bold text-xl tracking-tight">
-              IndianMatter
+        <div className="relative z-10 flex flex-col justify-between p-14 w-full h-full">
+          <Link
+            to="/"
+            className="absolute bottom-14 left-14 flex items-center gap-3 w-fit group"
+          >
+            <img
+              src="/mi-icon-mark.png"
+              alt="IndianMatter"
+              className="w-12 h-12 shrink-0 object-contain"
+            />
+
+            <span className="font-headline font-bold text-xl tracking-tight">
+              <span className="text-orange-500">Indian</span>
+              <span className="text-white">Matter</span>
             </span>
           </Link>
 

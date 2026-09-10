@@ -36,11 +36,7 @@ env_path = os.path.join(backend_dir, ".env")
 load_dotenv(dotenv_path=env_path)
 
 API_KEY = os.getenv("MP_API_KEY")
-# Kept as a single module-level client rather than a per-request context
-# manager: this is a long-running FastAPI process, not a one-off script,
-# so reusing the underlying HTTP session across requests is the better
-# tradeoff (avoids reconnect overhead on every call).
-mpr = MPRester(API_KEY, use_document_model=False) if API_KEY else None
+_mpr = None
 
 # Only request the fields we actually use — MP returns every field on a
 # document by default, which is slow and unnecessary. See "Tips for Large
@@ -69,9 +65,12 @@ EXPLORE_FIELDS = [
 
 
 def get_mpr():
-    if not API_KEY or not mpr:
+    global _mpr
+    if not API_KEY:
         raise HTTPException(status_code=500, detail="MP_API_KEY is missing from configuration.")
-    return mpr
+    if _mpr is None:
+        _mpr = MPRester(API_KEY, use_document_model=False)
+    return _mpr
 
 
 def safe_float(value, default=0.0):
@@ -146,7 +145,7 @@ def explore_and_filter_elements(
     min_formation_energy: Optional[float] = Query(None),
     max_formation_energy: Optional[float] = Query(None),
     is_stable: Optional[bool] = Query(None),
-    limit: int = Query(25, ge=1, le=100),
+    limit: int = Query(85, ge=1, le=1000),
 ):
     mpr_client = get_mpr()
     try:
