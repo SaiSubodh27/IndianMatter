@@ -101,6 +101,9 @@ async function requestJson(
   timeoutMs: number,
   externalSignal?: AbortSignal,
 ): Promise<unknown> {
+  const token = localStorage.getItem("accessToken");
+  const headers = new Headers(init.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   const controller = new AbortController();
   const onExternalAbort = () => controller.abort();
   externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
@@ -115,6 +118,7 @@ async function requestJson(
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
+      headers,
       signal: controller.signal,
     });
   } catch {

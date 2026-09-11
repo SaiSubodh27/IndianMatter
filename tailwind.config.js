@@ -1,68 +1,82 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        "surface-tint": "#ffb596",
-        "on-primary": "#581e00",
-        "on-secondary-fixed": "#360f00",
-        background: "#131313",
-        "primary-fixed-dim": "#ffb596",
-        "tertiary-container": "#009cfc",
-        "on-secondary-fixed-variant": "#7a3006",
-        "on-primary-fixed": "#360f00",
-        "tertiary-fixed": "#d0e4ff",
-        "tertiary-fixed-dim": "#9ccaff",
-        "surface-container-lowest": "#0e0e0e",
-        "on-error": "#690005",
-        "secondary-fixed": "#ffdbcd",
-        "surface-container-highest": "#353535",
-        primary: "#ffb596",
-        "surface-bright": "#393939",
-        "on-error-container": "#ffdad6",
-        "surface-container": "#1f1f1f",
-        "surface-variant": "#353535",
-        "on-tertiary-container": "#003155",
-        "error-container": "#93000a",
-        error: "#ffb4ab",
-        "inverse-surface": "#e2e2e2",
-        "on-secondary-container": "#ffa177",
-        surface: "#131313",
-        "on-primary-container": "#561d00",
-        "secondary-container": "#7d3208",
-        "inverse-on-surface": "#303030",
-        "primary-fixed": "#ffdbcd",
-        "on-tertiary-fixed": "#001d35",
-        "on-tertiary": "#003256",
-        "on-primary-fixed-variant": "#7c2e00",
-        "on-background": "#e2e2e2",
-        "on-secondary": "#581e00",
-        "on-surface": "#e2e2e2",
-        "surface-container-high": "#2a2a2a",
-        "on-tertiary-fixed-variant": "#00497b",
-        secondary: "#ffb596",
-        "surface-container-low": "#1b1b1b",
-        tertiary: "#9ccaff",
-        "secondary-fixed-dim": "#ffb596",
-        "inverse-primary": "#a33e00",
-        "primary-container": "#ff6600",
-        "outline-variant": "#5a4136",
-        outline: "#aa8a7d",
-        "surface-dim": "#131313",
-        "on-surface-variant": "#e3bfb1",
-      },
-      borderRadius: {
-        DEFAULT: "0.125rem",
-        lg: "0.25rem",
-        xl: "0.5rem",
-        full: "0.75rem",
+        im: {
+          // Page & surface — near-white, very light (65-75% of design)
+          bg: "#FFFFFF",
+          surface: "#FFFFFF",
+          surfaceAlt: "#F7F7F5",
+
+          // Accent palette (from spec)
+          orange: "#D47E30",
+          orangeHover: "#B8671E",
+          orangeLight: "#FBF0E6",
+          orangeSubtle: "#FDF5EE",
+
+          // Cream — soft section tints (15-20% of design)
+          cream: "#FDFBD4",
+          creamMid: "#FAF8D4",
+
+          // Brown tones
+          brown: "#8D5A2B",
+          earth: "#825E34",
+
+          // Typography
+          text: "#1A1A1A",
+          textMid: "#3D3D3D",
+          textLight: "#6B6B6B",
+          textMuted: "#9A9A9A",
+
+          // Borders — very light
+          border: "#EBEBEB",
+          borderLight: "#F2F2F0",
+          borderWarm: "#EDE8E2",
+        },
       },
       fontFamily: {
-        headline: ["Space Grotesk", "sans-serif"],
-        body: ["Inter", "sans-serif"],
-        label: ["Space Grotesk", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        headline: ["Space Grotesk", "system-ui", "sans-serif"],
+        handwriting: ["Caveat", "cursive"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+      },
+      boxShadow: {
+        soft: "0 2px 12px rgba(0,0,0,0.06)",
+        card: "0 1px 4px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)",
+        "card-hover":
+          "0 4px 8px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.08)",
+        panel: "0 8px 40px rgba(0,0,0,0.06)",
+        orange: "0 8px 24px rgba(212,126,48,0.28)",
+        "orange-lg": "0 12px 36px rgba(212,126,48,0.36)",
+        popover: "0 8px 40px rgba(0,0,0,0.12)",
+      },
+      borderRadius: {
+        "2xl": "1rem",
+        "3xl": "1.5rem",
+        "4xl": "2rem",
+      },
+      transitionDuration: {
+        120: "120ms",
+        200: "200ms",
+        250: "250ms",
+      },
+      keyframes: {
+        "fade-in": { "0%": { opacity: "0" }, "100%": { opacity: "1" } },
+        "slide-up": {
+          "0%": { transform: "translateY(8px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        "deck-settle": {
+          "0%": { transform: "scale(0.97) translateY(4px)", opacity: "0.7" },
+          "100%": { transform: "scale(1) translateY(0)", opacity: "1" },
+        },
+      },
+      animation: {
+        "fade-in": "fade-in 200ms ease-out",
+        "slide-up": "slide-up 250ms ease-out",
+        "deck-settle": "deck-settle 200ms ease-out",
       },
     },
   },

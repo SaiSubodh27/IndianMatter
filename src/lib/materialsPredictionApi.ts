@@ -43,9 +43,13 @@ export type PredictionJob = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = localStorage.getItem("accessToken");
+  const headers = new Headers(init?.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, init);
+    response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   } catch {
     throw new ApiError(
       `Backend unavailable at ${API_BASE_URL}. Start the FastAPI server and try again.`,

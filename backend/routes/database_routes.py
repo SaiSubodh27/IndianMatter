@@ -32,6 +32,7 @@ def parse_elements_from_formula(formula: str) -> set:
 @router.get("/search")
 def search_materials(
     elements: Optional[List[str]] = Query(None, description="Elements selected from Periodic Table, e.g. ?elements=Li&elements=Ag"),
+    exclude_elements: Optional[List[str]] = Query(None, description="Elements to exclude from formulas"),
     match_mode: str = Query("contains", description="'contains' matches if formula has all elements; 'exact' matches only formulas composed strictly of selected elements"),
     formula: Optional[str] = Query(None, description="Partial text search on Formula or mv_id"),
     min_band_gap: Optional[float] = Query(None),
@@ -55,6 +56,12 @@ def search_materials(
             filtered_df = filtered_df[
                 filtered_df['Formula'].apply(lambda f: target_elements.issubset(parse_elements_from_formula(f)))
             ]
+
+    if exclude_elements:
+        excluded = set(exclude_elements)
+        filtered_df = filtered_df[
+            filtered_df['Formula'].apply(lambda f: excluded.isdisjoint(parse_elements_from_formula(f)))
+        ]
 
     # Formula/ID search string filtering
     if formula:

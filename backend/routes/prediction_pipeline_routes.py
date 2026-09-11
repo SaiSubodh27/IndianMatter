@@ -84,7 +84,7 @@ async def upload_dataset(
 
         dataset_id = store_uploaded_dataset(df, parsed_structures, file.filename)
         summary["dataset_id"] = dataset_id
-        summary["structure_files_received"] = len(structure_files or [])
+        summary["structure_files_received"] = len(structure_files or []) if structure_files else 0
         summary["structure_warnings"] = structure_warnings
         return summary
     except DatasetValidationError as ve:
