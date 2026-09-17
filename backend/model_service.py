@@ -258,7 +258,7 @@ def extract_features(cif_path: str) -> pd.DataFrame:
     feats['log_n_atoms'] = math.log(len(structure) + 1e-8)
     feats['vol_density'] = lattice.volume * structure.density
     feats['n_sites'] = len(structure)
-    li_sites = sum(1 for site in structure if site.specie.symbol == 'Li')
+    li_sites = sum(1 for site in structure if site.species_string == 'Li')
     feats['n_li_sites'] = li_sites
     feats['li_site_frac'] = li_sites / max(len(structure), 1)
 

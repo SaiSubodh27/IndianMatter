@@ -24,8 +24,7 @@ async def parse_uploaded_cif(file: UploadFile = File(...)):
         space_group, space_group_number = structure.get_space_group_info()
         lattice = structure.lattice
         atoms = [
-            {
-                "species": str(site.specie),
+            {   "species": site.species_string,
                 "fractional_coordinates": [round(float(value), 6) for value in site.frac_coords],
                 "occupancy": site.properties.get("occupancy"),
             }

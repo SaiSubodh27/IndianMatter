@@ -1,41 +1,101 @@
-import { API_BASE_URL } from "./api";
-
-export interface ParsedAtom {
-  species: string;
-  fractional_coordinates: [number, number, number];
-  occupancy?: number | null;
+export interface ParsedStructure {
+  formula: string;
+  data_block: string;
+  space_group: string;
+  space_group_number: string;
+  lattice: {
+    a: string;
+    b: string;
+    c: string;
+    alpha: string;
+    beta: string;
+    gamma: string;
+  };
+  atoms: {
+    species: string;
+    fractional_coordinates: [number, number, number];
+  }[];
 }
 
-export interface ParsedStructure {
-  data_block: string;
-  formula: string;
-  space_group: string;
-  space_group_number: number;
-  lattice: {
-    a: number;
-    b: number;
-    c: number;
-    alpha: number;
-    beta: number;
-    gamma: number;
-    volume: number;
-  };
-  atom_count: number;
-  atoms: ParsedAtom[];
+function valueAfter(lines: string[], key: string) {
+  const line = lines.find((item) =>
+    item.toLowerCase().startsWith(key.toLowerCase()),
+  );
+  return line?.split(/\s+/).slice(1).join(" ").trim() || "";
+}
+
+function cleanValue(value: string) {
+  return value.replace(/[()]/g, "").trim();
 }
 
 export async function parseCifFile(file: File): Promise<ParsedStructure> {
-  const formData = new FormData();
-  formData.append("file", file);
-  const response = await fetch(`${API_BASE_URL}/api/cif/parse`, {
-    method: "POST",
-    body: formData,
-  });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(
-      body?.detail ?? `CIF parsing failed with status ${response.status}.`,
+  const text = await file.text();
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const atoms: ParsedStructure["atoms"] = [];
+  const loopStart = lines.findIndex((line) => line.toLowerCase() === "loop_");
+  if (loopStart >= 0) {
+    const headers: string[] = [];
+    let index = loopStart + 1;
+    while (index < lines.length && lines[index].startsWith("_"))
+      headers.push(lines[index++]);
+    const speciesIndex = headers.findIndex((header) =>
+      /type_symbol|label/i.test(header),
     );
+    const xIndex = headers.findIndex((header) => /fract_x/i.test(header));
+    const yIndex = headers.findIndex((header) => /fract_y/i.test(header));
+    const zIndex = headers.findIndex((header) => /fract_z/i.test(header));
+    while (
+      index < lines.length &&
+      !lines[index].startsWith("loop_") &&
+      !lines[index].startsWith("_") &&
+      !lines[index].startsWith("data_")
+    ) {
+      const values = lines[index].split(/\s+/);
+      if (speciesIndex >= 0 && xIndex >= 0 && yIndex >= 0 && zIndex >= 0) {
+        const x = Number.parseFloat(values[xIndex]);
+        const y = Number.parseFloat(values[yIndex]);
+        const z = Number.parseFloat(values[zIndex]);
+        if ([x, y, z].every(Number.isFinite))
+          atoms.push({
+            species: values[speciesIndex],
+            fractional_coordinates: [x, y, z],
+          });
+      }
+      index += 1;
+    }
   }
-  return body as ParsedStructure;
+  if (!atoms.length)
+    throw new Error("No fractional atom coordinates were found in this CIF.");
+  const formula =
+    valueAfter(lines, "_chemical_formula_sum") ||
+    valueAfter(lines, "_chemical_formula_structural") ||
+    "Uploaded structure";
+  return {
+    formula: formula.replace(/[']/g, ""),
+    data_block:
+      lines.find((line) => line.toLowerCase().startsWith("data_"))?.slice(5) ||
+      "uploaded",
+    space_group: cleanValue(
+      valueAfter(lines, "_space_group_name_h-m") ||
+        valueAfter(lines, "_symmetry_space_group_name_h-m") ||
+        "Unknown",
+    ),
+    space_group_number: cleanValue(
+      valueAfter(lines, "_space_group_it_number") ||
+        valueAfter(lines, "_symmetry_int_tables_number") ||
+        "—",
+    ),
+    lattice: {
+      a: cleanValue(valueAfter(lines, "_cell_length_a")),
+      b: cleanValue(valueAfter(lines, "_cell_length_b")),
+      c: cleanValue(valueAfter(lines, "_cell_length_c")),
+      alpha: cleanValue(valueAfter(lines, "_cell_angle_alpha")),
+      beta: cleanValue(valueAfter(lines, "_cell_angle_beta")),
+      gamma: cleanValue(valueAfter(lines, "_cell_angle_gamma")),
+    },
+    atoms,
+  };
 }

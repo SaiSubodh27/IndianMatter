@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from properties.base_property import BasePropertyCalculator, PropertyResult
 
 class TotalEnergyCalculator(BasePropertyCalculator):
@@ -123,7 +123,6 @@ class StressTensorCalculator(BasePropertyCalculator):
             )
         try:
             stress = model_adapter.predict_stress(structure)
-            # Pressure P = -1/3 * Trace(Stress)
             hydrostatic_p = -float(np.trace(stress)) / 3.0
             return PropertyResult(
                 property_key=self.key, property_name=self.name, category=self.category,
@@ -138,3 +137,21 @@ class StressTensorCalculator(BasePropertyCalculator):
                 value=None, unit=self.unit, source_model=model_adapter.display_name, calculation_method="N/A",
                 status="failed", warnings=[f"Prediction failed: {e}"]
             )
+
+
+class DirectPropertyCalculator:
+    """Dispatcher class to execute direct property calculators dynamically by key."""
+    
+    _registry: Dict[str, BasePropertyCalculator] = {
+        "total_energy": TotalEnergyCalculator(),
+        "energy_per_atom": EnergyPerAtomCalculator(),
+        "forces": AtomicForcesCalculator(),
+        "stress_tensor": StressTensorCalculator(),
+    }
+
+    @classmethod
+    def compute(cls, property_key: str, structure: Any, model_adapter: Optional[Any] = None, settings: Optional[dict] = None) -> PropertyResult:
+        calculator = cls._registry.get(property_key)
+        if not calculator:
+            raise KeyError(f"Direct property calculator for '{property_key}' is not registered.")
+        return calculator.calculate(structure, model_adapter=model_adapter, settings=settings)

@@ -9,70 +9,87 @@ from pymatgen.io.xyz import XYZ
 def parse_structure_input(raw_input: Any, fmt_hint: Optional[str] = None) -> Tuple[Optional[Structure], dict]:
     """
     Parse a structure from file path, raw string, dictionary, or Pymatgen Structure object.
-    Supports CIF, POSCAR, CONTCAR, XYZ, and JSON structure objects.
+    Supports CIF, POSCAR, CONTCAR, XYZ, and JSON structure objects, returning both 
+    the Pymatgen Structure and a fully serialized metadata dictionary for the frontend.
     """
     if raw_input is None:
         return None, {"valid": False, "error": "Structure input is null."}
 
-    if isinstance(raw_input, Structure):
-        return raw_input, {"valid": True, "format": "pymatgen_structure"}
+    struct = None
 
-    # If dict (e.g. JSON structure)
-    if isinstance(raw_input, dict):
-        try:
+    try:
+        if isinstance(raw_input, Structure):
+            struct = raw_input
+        elif isinstance(raw_input, dict):
             struct = Structure.from_dict(raw_input)
-            return struct, {"valid": True, "format": "pymatgen_dict"}
-        except Exception as e:
-            return None, {"valid": False, "error": f"Invalid structure dictionary: {e}"}
+        else:
+            raw_str = str(raw_input).strip()
 
-    raw_str = str(raw_input).strip()
-
-    # Case 1: File path exists
-    if os.path.isfile(raw_str):
-        file_path = raw_str
-        ext = os.path.splitext(file_path)[1].lower()
-        try:
-            if ext == ".cif":
-                parser = CifParser(file_path)
+            # Case 1: File path exists
+            if os.path.isfile(raw_str):
+                ext = os.path.splitext(raw_str)[1].lower()
+                if ext == ".cif":
+                    parser = CifParser(raw_str)
+                    struct = parser.get_structures(primitive=False)[0]
+                elif ext in (".poscar", ".contcar") or "poscar" in os.path.basename(raw_str).lower():
+                    poscar = Poscar.from_file(raw_str)
+                    struct = poscar.structure
+                elif ext == ".xyz":
+                    xyz = XYZ.from_file(raw_str)
+                    struct = xyz.molecule.get_boxed_structure()
+                else:
+                    struct = Structure.from_file(raw_str)
+            # Case 2: Inline CIF string
+            elif "data_" in raw_str or "_cell_length_a" in raw_str or "loop_" in raw_str:
+                parser = CifParser.from_str(raw_str)
                 struct = parser.get_structures(primitive=False)[0]
-                return struct, {"valid": True, "format": "CIF", "source": file_path}
-            elif ext in (".poscar", ".contcar") or "poscar" in os.path.basename(file_path).lower():
-                poscar = Poscar.from_file(file_path)
-                return poscar.structure, {"valid": True, "format": "POSCAR", "source": file_path}
-            elif ext == ".xyz":
-                xyz = XYZ.from_file(file_path)
-                return xyz.molecule.get_boxed_structure(), {"valid": True, "format": "XYZ", "source": file_path}
+            # Case 3: Inline JSON string
+            elif raw_str.startswith("{") and raw_str.endswith("}"):
+                data = json.loads(raw_str)
+                struct = Structure.from_dict(data)
+            # Case 4: POSCAR string format
+            elif "Direct" in raw_str or "Cartesian" in raw_str:
+                poscar = Poscar.from_str(raw_str)
+                struct = poscar.structure
             else:
-                # Default pymatgen auto-read
-                struct = Structure.from_file(file_path)
-                return struct, {"valid": True, "format": ext.strip(".").upper(), "source": file_path}
-        except Exception as e:
-            return None, {"valid": False, "error": f"Failed reading file {file_path}: {e}"}
+                return None, {"valid": False, "error": f"Unrecognized structure format or missing file: '{raw_str[:50]}...'"}
+    except Exception as e:
+        return None, {"valid": False, "error": f"Failed parsing structure: {e}"}
 
-    # Case 2: Inline CIF string
-    if "data_" in raw_str or "_cell_length_a" in raw_str or "loop_" in raw_str:
-        try:
-            parser = CifParser.from_str(raw_str)
-            struct = parser.get_structures(primitive=False)[0]
-            return struct, {"valid": True, "format": "CIF_string"}
-        except Exception as e:
-            return None, {"valid": False, "error": f"Failed parsing inline CIF string: {e}"}
+    if struct is None:
+        return None, {"valid": False, "error": "Failed to generate valid Pymatgen structure."}
 
-    # Case 3: Inline JSON string
-    if raw_str.startswith("{") and raw_str.endswith("}"):
-        try:
-            data = json.loads(raw_str)
-            struct = Structure.from_dict(data)
-            return struct, {"valid": True, "format": "JSON_string"}
-        except Exception as e:
-            return None, {"valid": False, "error": f"Failed parsing inline JSON structure: {e}"}
+    # Extract clean metadata payload for frontend / 3D Viewer consumption
+    try:
+        lattice = struct.lattice
+        atoms_list = []
+        for site in struct:
+            # FIX: Use species_string or species instead of the deprecated .specie attribute
+            species_str = site.species_string if hasattr(site, "species_string") else str(site.species)
+            atoms_list.append({
+                "species": species_str,
+                "fractional_coordinates": [round(float(c), 5) for c in site.frac_coords],
+                "occupancy": getattr(site, "occupancy", 1.0)
+            })
 
-    # Case 4: POSCAR string format
-    if "Direct" in raw_str or "Cartesian" in raw_str:
-        try:
-            poscar = Poscar.from_str(raw_str)
-            return poscar.structure, {"valid": True, "format": "POSCAR_string"}
-        except Exception as e:
-            return None, {"valid": False, "error": f"Failed parsing inline POSCAR string: {e}"}
-
-    return None, {"valid": False, "error": f"Unrecognized structure format or missing file: '{raw_str[:50]}...'"}
+        metadata = {
+            "valid": True,
+            "formula": struct.composition.reduced_formula,
+            "data_block": "parsed_structure",
+            "space_group": struct.get_space_group_info()[0],
+            "space_group_number": struct.get_space_group_info()[1],
+            "atom_count": len(struct),
+            "lattice": {
+                "a": f"{lattice.a:.3f}",
+                "b": f"{lattice.b:.3f}",
+                "c": f"{lattice.c:.3f}",
+                "alpha": f"{lattice.alpha:.1f}",
+                "beta": f"{lattice.beta:.1f}",
+                "gamma": f"{lattice.gamma:.1f}",
+                "vol": f"{lattice.volume:.1f}"
+            },
+            "atoms": atoms_list
+        }
+        return struct, metadata
+    except Exception as e:
+        return struct, {"valid": True, "format": "pymatgen_structure", "warning": f"Metadata extraction partial: {e}"}

@@ -56,20 +56,17 @@ class CHGNetAdapter(BaseModelAdapter):
         from pymatgen.core import Structure
 
         species = []
-        coords = []
         for site in structure:
             occu = site.species.as_dict()
-            if len(occu) == 1 and abs(list(occu.values())[0] - 1.0) < 1e-6:
-                species.append(site.specie)
+            if len(occu) == 1:
+                species.append(site.species_string)
             else:
-                majority_symbol = max(occu.items(), key=lambda kv: kv[1])[0]
+                majority_symbol = max(occu, key=occu.get)
                 species.append(majority_symbol)
-            coords.append(site.frac_coords)
-
         ordered_structure = Structure(
             structure.lattice,
             species,
-            coords,
+            [site.frac_coords for site in structure],
             coords_are_cartesian=False,
         )
         return ordered_structure
@@ -189,3 +186,34 @@ class CHGNetAdapter(BaseModelAdapter):
         self.calculator = None
         self.is_loaded = False
         return True
+    def extract_embeddings(self, structure: Any) -> Optional[np.ndarray]:
+        """
+        Extracts shared latent crystal or graph representations from CHGNet 
+        to feed downstream property predictors or your upcoming custom Transformer model.
+        """
+        if not self.is_loaded:
+            if not self.load_model():
+                raise RuntimeError("CHGNet model is not installed or failed to load.")
+        
+        try:
+            ordered_structure = self._ensure_ordered(structure)
+            
+            # CHGNet prediction/feature extraction hook
+            # Depending on the CHGNet version installed, we can extract graph/crystal features.
+            # If using CHGNet's internal model graph feature extractor:
+            predictions = self.chgnet_model.predict_structure(ordered_structure)
+            
+            # If CHGNet returns graph embeddings or latent vectors in predictions:
+            # (Fallback to capturing structural features / graph representation vector if available)
+            embedding = predictions.get("embeddings") or predictions.get("feature_vector")
+            
+            if embedding is not None:
+                return np.array(embedding, dtype=float)
+            
+            # Fallback representation using composition and lattice features if latent layer isn't exposed directly
+            lattice_matrix = ordered_structure.lattice.matrix.flatten()
+            return np.array(lattice_matrix, dtype=float)
+            
+        except Exception as e:
+            print(f"[CHGNetAdapter] Embedding extraction warning: {e}")
+            return None

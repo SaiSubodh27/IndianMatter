@@ -55,15 +55,15 @@ class CHGNetAdapter(BaseModelAdapter):
         from pymatgen.core import Structure
 
         species = []
-        coords = []
         for site in structure:
             occu = site.species.as_dict()
-            if len(occu) == 1 and abs(list(occu.values())[0] - 1.0) < 1e-6:
-                species.append(site.specie)
+            if len(occu) == 1:
+                species.append(site.species_string)
             else:
-                majority_symbol = max(occu.items(), key=lambda kv: kv[1])[0]
+                majority_symbol = max(occu, key=occu.get)
                 species.append(majority_symbol)
-            coords.append(site.frac_coords)
+
+        coords = [site.frac_coords for site in structure]
 
         ordered_structure = Structure(
             structure.lattice,
