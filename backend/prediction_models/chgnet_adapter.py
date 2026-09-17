@@ -4,6 +4,7 @@ from typing import Tuple, Optional, Any
 from prediction_models.base_adapter import BaseModelAdapter
 from core.device_manager import get_device_info, get_torch_device
 
+
 class CHGNetAdapter(BaseModelAdapter):
     def __init__(self):
         super().__init__(model_key="chgnet", display_name="CHGNet")
@@ -40,8 +41,43 @@ class CHGNetAdapter(BaseModelAdapter):
     def check_device(self) -> dict:
         return get_device_info(self.device)
 
+    def _ensure_ordered(self, structure: Any) -> Any:
+        """
+        CHGNet/ASE cannot handle fractional-occupancy (disordered) sites.
+        Collapse each disordered site to its majority species so ASE conversion
+        succeeds. This is a simplification, not full symmetry-aware enumeration.
+        """
+        if getattr(structure, "is_ordered", True):
+            return structure
+
+        print(f"[DEBUG] _ensure_ordered triggered — disorder detected, converting {len(structure)} sites")
+
+        from pymatgen.core import Structure
+
+        species = []
+        coords = []
+        for site in structure:
+            occu = site.species.as_dict()
+            if len(occu) == 1 and abs(list(occu.values())[0] - 1.0) < 1e-6:
+                species.append(site.specie)
+            else:
+                majority_symbol = max(occu.items(), key=lambda kv: kv[1])[0]
+                species.append(majority_symbol)
+            coords.append(site.frac_coords)
+
+        ordered_structure = Structure(
+            structure.lattice,
+            species,
+            coords,
+            coords_are_cartesian=False,
+        )
+        return ordered_structure
+
     def _get_ase_atoms(self, structure: Any):
         from pymatgen.io.ase import AseAtomsAdaptor
+
+        structure = self._ensure_ordered(structure)
+
         if hasattr(structure, "to_ase_atoms"):
             atoms = AseAtomsAdaptor.get_atoms(structure)
         else:
@@ -80,6 +116,25 @@ class CHGNetAdapter(BaseModelAdapter):
         except Exception as e:
             print(f"[CHGNetAdapter] Stress calculation warning: {e}")
             return np.zeros((3, 3), dtype=float)
+
+    def predict_structure(self, structure: Any) -> dict:
+        """
+        Composite prediction interface expected by thermal_properties.py,
+        ionic_conductivity.py, and the strain_response.py fallback branch.
+        """
+        if not self.is_loaded:
+            if not self.load_model():
+                raise RuntimeError("CHGNet model is not installed or failed to load.")
+
+        n_atoms = len(structure)
+        energy_total = self.predict_energy(structure)
+        stress = self.predict_stress(structure)
+
+        return {
+            "energy_per_atom": energy_total / n_atoms if n_atoms else energy_total,
+            "energy_total": energy_total,
+            "stress": stress,
+        }
 
     def relax_structure(self, structure: Any, settings: Optional[dict] = None) -> Tuple[Any, dict]:
         if not self.is_loaded:

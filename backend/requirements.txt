@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pymongo
 passlib[bcrypt]
+bcrypt==4.0.1
 PyJWT
 google-auth
 pydantic-settings
@@ -23,7 +24,8 @@ pydantic
 spglib
 psutil
 # Optional atomistic GNN models (can be installed based on environment):
-# chgnet
-# matgl # M3GNet
-# mace-torch
+chgnet
+matgl 
+M3GNet
+mace-torch
 

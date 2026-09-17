@@ -1,98 +1,188 @@
-import math
+import numpy as np
 from typing import Any, Optional
-from properties.base_property import BasePropertyCalculator, PropertyResult
-from calculations.strain_response import run_strain_response_calculation
+from pymatgen.core import Structure
+from pymatgen.analysis.eos import BirchMurnaghan
 
-class DebyeTemperatureCalculator(BasePropertyCalculator):
-    def __init__(self):
+try:
+    from backend.properties.base_property import BasePropertyCalculator, PropertyResult
+except ImportError:
+    from properties.base_property import BasePropertyCalculator, PropertyResult
+
+
+class ThermalPropertyCalculator(BasePropertyCalculator):
+    def __init__(
+        self, 
+        key: str = "thermal", 
+        name: str = "Birch-Murnaghan EOS", 
+        unit: str = "GPa", 
+        description: str = "Fits volume-energy curves to Birch-Murnaghan Equation of State"
+    ):
         super().__init__(
-            key="debye_temperature",
-            name="Debye Temperature",
-            category="thermal",
-            unit="K",
-            description="Estimated Debye temperature derived from elastic moduli and sound velocities (Anderson formula)."
+            key=key, 
+            name=name, 
+            category="thermal", 
+            unit=unit, 
+            description=description
         )
 
-    def calculate(self, structure: Any, model_adapter: Optional[Any] = None, settings: Optional[dict] = None) -> PropertyResult:
+    def calculate(
+        self, 
+        structure: Structure, 
+        model_adapter: Optional[Any] = None, 
+        settings: Optional[dict] = None
+    ) -> PropertyResult:
+        display_name = (
+            getattr(model_adapter, "display_name", None) 
+            or getattr(model_adapter, "name", None) 
+            or "Unknown_Model"
+        )
+
         if model_adapter is None:
             return PropertyResult(
-                property_key=self.key, property_name=self.name, category=self.category,
-                value=None, unit=self.unit, source_model="N/A", calculation_method="N/A",
-                status="failed", warnings=["Atomistic model adapter is required for elastic strain evaluation."]
+                property_key=self.key,
+                property_name=self.name,
+                category=self.category,
+                value=None,
+                unit=self.unit,
+                source_model="N/A",
+                calculation_method="N/A",
+                status="failed",
+                warnings=["Atomistic model adapter is required for EOS volume scaling."]
             )
 
-        ctx = settings or {}
-        mech_res = ctx.get("precomputed_strain_response")
-        if not mech_res:
-            mech_res = run_strain_response_calculation(model_adapter, structure, ctx.get("strain_settings"))
+        volumes = []
+        energies = []
+        scale_factors = [0.95, 0.98, 1.0, 1.02, 1.05]
 
-        if mech_res.get("status") == "failed":
+        try:
+            for scale in scale_factors:
+                s = structure.copy()
+                s.scale_lattice(structure.volume * scale)
+                
+                if hasattr(model_adapter, "predict_structure"):
+                    pred = model_adapter.predict_structure(s)
+                else:
+                    raise AttributeError(f"Adapter '{display_name}' missing structure prediction interface.")
+
+                e_per_atom = pred.get("energy_per_atom", 0.0)
+                volumes.append(float(s.volume))
+                energies.append(float(e_per_atom * len(s)))
+
+            # Fit Birch-Murnaghan Equation of State
+            eos = BirchMurnaghan(volumes=volumes, energies=energies)
+            eos.fit()
+
+            b0_gpa = float(eos.b0 * 160.21766208)
+
+            raw_details = {
+                "e0": float(eos.e0),
+                "v0_equilibrium": float(eos.v0),
+                "b0_eos_gpa": b0_gpa,
+                "b1_prime": float(eos.b1),
+                "volumes": volumes,
+                "energies": energies
+            }
+
             return PropertyResult(
-                property_key=self.key, property_name=self.name, category=self.category,
-                value=None, unit=self.unit, source_model=model_adapter.display_name,
-                calculation_method="anderson_elastic_sound_velocity", status="failed",
-                warnings=["Mechanical strain calculation failed; Debye temperature unavailable."]
+                property_key=self.key,
+                property_name=self.name,
+                category=self.category,
+                value=b0_gpa,
+                unit=self.unit,
+                source_model=display_name,
+                calculation_method="birch_murnaghan_eos",
+                status="calculated",
+                inputs_used=["scaled_structures", "energy_volume_curve"],
+                raw_details=raw_details
             )
 
-        k_vrh = mech_res.get("bulk_modulus_gpa", 0.0)  # GPa
-        g_vrh = mech_res.get("shear_modulus_gpa", 0.0) # GPa
-        density = float(structure.density) * 1000.0   # kg/m^3
-
-        if k_vrh <= 0 or g_vrh <= 0 or density <= 0:
+        except Exception as e:
             return PropertyResult(
-                property_key=self.key, property_name=self.name, category=self.category,
-                value=None, unit=self.unit, source_model=model_adapter.display_name,
-                calculation_method="anderson_elastic_sound_velocity", status="invalid",
-                warnings=["Non-positive moduli or density preclude Debye temperature estimation."]
+                property_key=self.key,
+                property_name=self.name,
+                category=self.category,
+                value=None,
+                unit=self.unit,
+                source_model=display_name,
+                calculation_method="birch_murnaghan_eos",
+                status="failed",
+                warnings=[f"EOS fitting failed: {str(e)}"]
             )
-
-        # Sound velocities (m/s)
-        # v_l = sqrt((K + 4/3*G) / density), v_s = sqrt(G / density)
-        # K, G in Pa
-        k_pa = k_vrh * 1e9
-        g_pa = g_vrh * 1e9
-        v_l = math.sqrt((k_pa + 4.0/3.0 * g_pa) / density)
-        v_s = math.sqrt(g_pa / density)
-
-        # Average sound velocity v_m
-        v_m = (1.0/3.0 * (2.0 / (v_s**3) + 1.0 / (v_l**3))) ** (-1.0/3.0)
-
-        # Debye temperature theta_D = (h/k_B) * (3*n*N_A / (4*pi*V))^(1/3) * v_m
-        h = 6.62607015e-34
-        k_b = 1.380649e-23
-        n_atoms = len(structure)
-        vol_m3 = float(structure.volume) * 1e-30
-        
-        num_density = n_atoms / vol_m3
-        theta_d = (h / k_b) * ((3.0 * num_density / (4.0 * math.pi)) ** (1.0/3.0)) * v_m
-
-        return PropertyResult(
-            property_key=self.key, property_name=self.name, category=self.category,
-            value=round(float(theta_d), 1), unit=self.unit, source_model=model_adapter.display_name,
-            calculation_method="anderson_elastic_sound_velocity", status="derived",
-            inputs_used=["bulk_modulus", "shear_modulus", "density", "number_density"],
-            warnings=["Debye temperature is an isotropic elastic estimate."],
-            raw_details={"v_longitudinal_m_s": round(v_l, 1), "v_transverse_m_s": round(v_s, 1), "v_mean_m_s": round(v_m, 1)}
+class DebyeTemperatureCalculator(BasePropertyCalculator):
+    def __init__(
+        self,
+        key: str = "debye_temperature",
+        name: str = "Debye Temperature",
+        unit: str = "K",
+        description: str = "Debye temperature estimated from elastic/acoustic properties."
+    ):
+        super().__init__(
+            key=key,
+            name=name,
+            category="thermal",
+            unit=unit,
+            description=description
         )
+
+    def calculate(
+        self,
+        structure: Structure,
+        model_adapter: Optional[Any] = None,
+        settings: Optional[dict] = None
+    ) -> PropertyResult:
+        display_name = (
+            getattr(model_adapter, "display_name", None)
+            or getattr(model_adapter, "name", None)
+            or "Unknown_Model"
+        )
+        return PropertyResult(
+            property_key=self.key,
+            property_name=self.name,
+            category=self.category,
+            value=None,
+            unit=self.unit,
+            source_model=display_name,
+            calculation_method="N/A",
+            status="unavailable",
+            warnings=["Debye temperature calculation is not yet implemented."]
+        )
+
 
 class ThermalConductivityCalculator(BasePropertyCalculator):
-    def __init__(self):
+    def __init__(
+        self,
+        key: str = "thermal_conductivity",
+        name: str = "Thermal Conductivity",
+        unit: str = "W/m·K",
+        description: str = "Lattice thermal conductivity estimated from phonon/elastic properties."
+    ):
         super().__init__(
-            key="thermal_conductivity",
-            name="Thermal Conductivity",
+            key=key,
+            name=name,
             category="thermal",
-            unit="W/(m*K)",
-            description="Phonon lattice thermal conductivity (Requires explicit lattice dynamics or MD)."
+            unit=unit,
+            description=description
         )
 
-    def calculate(self, structure: Any, model_adapter: Optional[Any] = None, settings: Optional[dict] = None) -> PropertyResult:
+    def calculate(
+        self,
+        structure: Structure,
+        model_adapter: Optional[Any] = None,
+        settings: Optional[dict] = None
+    ) -> PropertyResult:
+        display_name = (
+            getattr(model_adapter, "display_name", None)
+            or getattr(model_adapter, "name", None)
+            or "Unknown_Model"
+        )
         return PropertyResult(
-            property_key=self.key, property_name=self.name, category=self.category,
-            value=None, unit=self.unit, source_model=model_adapter.display_name if model_adapter else "N/A",
-            calculation_method="unsupported_direct_evaluation", status="unavailable",
-            inputs_used=[],
-            warnings=[
-                "Thermal conductivity cannot be directly calculated from M3GNet, CHGNet, or MACE without full phonon Boltzmann Transport Equation (BTE) or Molecular Dynamics (MD) simulations."
-            ],
-            limitations="Lattice thermal conductivity requires second- and third-order force constants not computed in single-point or strain evaluations."
+            property_key=self.key,
+            property_name=self.name,
+            category=self.category,
+            value=None,
+            unit=self.unit,
+            source_model=display_name,
+            calculation_method="N/A",
+            status="unavailable",
+            warnings=["Thermal conductivity calculation is not yet implemented."]
         )

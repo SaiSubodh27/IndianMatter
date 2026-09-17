@@ -1,5 +1,9 @@
 import { API_BASE_URL, ApiError } from "./api";
 
+// ==========================================
+// Existing Bulk Dataset & Job Types
+// ==========================================
+
 export type DatasetUploadResponse = {
   dataset_id: string;
   total_rows: number;
@@ -42,6 +46,56 @@ export type PredictionJob = {
   results?: Array<Record<string, unknown>>;
 };
 
+// ==========================================
+// Direct Single CIF Prediction Types
+// ==========================================
+
+export interface MaterialMetadata {
+  formula: string;
+  volume_A3: number;
+  density_g_cm3: number;
+  num_sites: number;
+}
+
+/**
+ * Matches the real shape returned per-property by the backend's
+ * PropertyResult.to_dict() (see properties/base_property.py). Every entry
+ * in `properties` and `base_outputs` is keyed by its property_key
+ * (e.g. "bulk_modulus", "thermal", "band_gap") and shaped like this —
+ * NOT nested under a category name like "mechanical".
+ */
+export interface PropertyResult {
+  property_key: string;
+  property_name: string;
+  category: string;
+  value: number | string | number[][] | number[][][][] | null;
+  unit: string;
+  source_model: string;
+  calculation_method: string;
+  status:
+    | "calculated"
+    | "calculated_with_warnings"
+    | "failed"
+    | "unavailable"
+    | "estimated";
+  inputs_used?: string[];
+  warnings?: string[];
+  limitations?: string;
+  raw_details?: Record<string, unknown>;
+}
+
+export interface DirectPredictionResponse {
+  status: string;
+  material_metadata: MaterialMetadata;
+  model_used: string;
+  base_outputs: Record<string, PropertyResult>;
+  properties: Record<string, PropertyResult>;
+}
+
+// ==========================================
+// Core HTTP Request Handler
+// ==========================================
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("accessToken");
   const headers = new Headers(init?.headers);
@@ -78,6 +132,49 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return parsed as T;
 }
+
+// ==========================================
+// Direct CIF Single-Structure Predictions
+// ==========================================
+
+export async function predictFromCifFile(
+  file: File,
+  modelName: "chgnet" | "m3gnet" | "mace" = "chgnet",
+  requestedProperties: string[] = ["mechanical", "thermal", "electrical"],
+): Promise<DirectPredictionResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("model_name", modelName);
+
+  if (requestedProperties.length > 0) {
+    form.append("properties", requestedProperties.join(","));
+  }
+
+  return request<DirectPredictionResponse>("/api/predict/cif-file", {
+    method: "POST",
+    body: form,
+  });
+}
+
+export async function predictFromCifString(
+  cifString: string,
+  modelName: "chgnet" | "m3gnet" | "mace" = "chgnet",
+  requestedProperties: string[] = ["mechanical", "thermal", "electrical"],
+): Promise<DirectPredictionResponse> {
+  return request<DirectPredictionResponse>("/api/predict/cif-string", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cif_string: cifString,
+      model_name: modelName,
+      requested_properties: requestedProperties,
+    }),
+  });
+}
+
+// ==========================================
+// Bulk Dataset Prediction Pipelines
+// ==========================================
 
 export async function uploadPredictionDataset(
   csv: File,

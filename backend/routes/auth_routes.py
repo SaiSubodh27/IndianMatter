@@ -1,108 +1,157 @@
-from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timedelta
-from google.oauth2 import id_token
-from google.auth.transport import requests
+from fastapi import APIRouter, HTTPException, status
 
-# Make sure you set a client ID in production
-GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"
-
-from models import UserCreate, UserLogin, GoogleLogin, UserInDB, Token
-from auth import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from auth import (
+    verify_password,
+    get_password_hash,
+    create_access_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
+from db_models import UserCreate, UserLogin, GoogleLogin, Token
 from database import users_collection
 
 router = APIRouter()
 
-@router.post("/signup")
-def signup(user: UserCreate):
-    if users_collection.find_one({"email": user.email}):
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    new_user = UserInDB(
-        email=user.email,
-        hashed_password=get_password_hash(user.password),
-        name=user.name,
-        provider="email",
-        created_at=datetime.utcnow(),
-        last_login=datetime.utcnow()
-    )
-    
-    result = users_collection.insert_one(new_user.model_dump())
-    return {"message": "User created successfully", "user_id": str(result.inserted_id)}
 
-@router.post("/login", response_model=Token)
-def login(user: UserLogin):
-    db_user = users_collection.find_one({"email": user.email})
-    if not db_user or not db_user.get("hashed_password"):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-    if not verify_password(user.password, db_user["hashed_password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-    users_collection.update_one({"_id": db_user["_id"]}, {"$set": {"last_login": datetime.utcnow()}})
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": db_user["email"], "user_id": str(db_user["_id"])},
-        expires_delta=access_token_expires
-    )
-    
+def _user_public_dict(user: dict) -> dict:
+    """Strip sensitive fields before returning a user object to the client."""
     return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": str(db_user["_id"]),
-            "email": db_user["email"],
-            "name": db_user.get("name")
-        }
+        "id": str(user.get("_id")),
+        "email": user.get("email"),
+        "name": user.get("name"),
+        "provider": user.get("provider", "email"),
+        "created_at": user.get("created_at"),
+        "last_login": user.get("last_login"),
     }
 
-@router.post("/google-login", response_model=Token)
-def google_login(google_data: GoogleLogin):
-    try:
-        # In a real setup, we verify with the true GOOGLE_CLIENT_ID
-        # idinfo = id_token.verify_oauth2_token(google_data.token, requests.Request(), GOOGLE_CLIENT_ID)
-        
-        # For this prototype we'll decode safely assuming frontend has checked or backend doesn't enforce strict Audience right now
-        # WARNING: In production use the above verify_oauth2_token!
-        import jwt
-        idinfo = jwt.decode(google_data.token, options={"verify_signature": False})
-        
-        email = idinfo['email']
-        name = idinfo.get('name')
-        
-        db_user = users_collection.find_one({"email": email})
-        
-        if not db_user:
-            new_user = UserInDB(
-                email=email,
-                name=name,
-                provider="google",
-                created_at=datetime.utcnow(),
-                last_login=datetime.utcnow()
-            )
-            result = users_collection.insert_one(new_user.model_dump())
-            user_id = str(result.inserted_id)
-            db_user = new_user.model_dump()
-            db_user["_id"] = user_id
-        else:
-            user_id = str(db_user["_id"])
-            users_collection.update_one({"_id": db_user["_id"]}, {"$set": {"last_login": datetime.utcnow()}})
-            
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": email, "user_id": user_id},
-            expires_delta=access_token_expires
+
+@router.post("/register", response_model=Token)
+def register(payload: UserCreate):
+    existing = users_collection.find_one({"email": payload.email})
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists."
         )
-        
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": {
-                "id": str(user_id),
-                "email": email,
-                "name": name
-            }
-        }
+
+    now = datetime.utcnow()
+    user_doc = {
+        "email": payload.email,
+        "hashed_password": get_password_hash(payload.password),
+        "name": payload.name,
+        "provider": "email",
+        "created_at": now,
+        "last_login": now,
+        "saved_materials": [],
+        "prediction_history": [],
+    }
+    result = users_collection.insert_one(user_doc)
+    user_doc["_id"] = result.inserted_id
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": payload.email}, expires_delta=access_token_expires
+    )
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user=_user_public_dict(user_doc),
+    )
+
+
+@router.post("/login", response_model=Token)
+def login(payload: UserLogin):
+    user = users_collection.find_one({"email": payload.email})
+    if not user or not user.get("hashed_password"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password.",
+        )
+
+    if not verify_password(payload.password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password.",
+        )
+
+    users_collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"last_login": datetime.utcnow()}}
+    )
+    user["last_login"] = datetime.utcnow()
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": payload.email}, expires_delta=access_token_expires
+    )
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user=_user_public_dict(user),
+    )
+
+
+@router.post("/google-login", response_model=Token)
+def google_login(payload: GoogleLogin):
+    """
+    Verifies a Google ID token and logs in / auto-registers the user.
+    Requires the `google-auth` package and a GOOGLE_CLIENT_ID configured.
+    """
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+        from core.config import settings
+
+        idinfo = id_token.verify_oauth2_token(
+            payload.token, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+        )
+        email = idinfo.get("email")
+        name = idinfo.get("name")
     except Exception as e:
-        print(f"Error during Google Login inner block: {e}")
-        raise HTTPException(status_code=401, detail="Invalid Google token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Google token: {str(e)}",
+        )
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google token did not contain an email address.",
+        )
+
+    user = users_collection.find_one({"email": email})
+    now = datetime.utcnow()
+
+    if not user:
+        user_doc = {
+            "email": email,
+            "hashed_password": None,
+            "name": name,
+            "provider": "google",
+            "created_at": now,
+            "last_login": now,
+            "saved_materials": [],
+            "prediction_history": [],
+        }
+        result = users_collection.insert_one(user_doc)
+        user_doc["_id"] = result.inserted_id
+        user = user_doc
+    else:
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"last_login": now}}
+        )
+        user["last_login"] = now
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": email}, expires_delta=access_token_expires
+    )
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user=_user_public_dict(user),
+    )

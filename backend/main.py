@@ -1,31 +1,47 @@
 import os
 import sys
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 
+# Ensure the backend directory is in the system path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from routes import (
-    auth_routes, user_routes, predict_routes, oqmd, aflow, 
-    materials_routes, jarvis, database_routes, indianmatter, prediction_pipeline_routes, cif_routes
+    auth_routes,
+    user_routes,
+    predict_routes,
+    oqmd,
+    aflow,
+    jarvis,
+    database_routes,
+    indianmatter,
+    prediction_pipeline_routes,
+    cif_routes,
+    materials_routes
 )
 from model_service import load_models
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load ML models on startup
+    # Load ML models (CHGNet, M3GNet, MACE, Surrogates) on startup
+    print("[startup] Initializing ML models and property calculators...")
     load_models()
+    
     mp_key = os.getenv("MP_API_KEY")
     print(f"[startup] MP_API_KEY {'present' if mp_key else 'MISSING — MP endpoints will return 500'}")
     yield
+    print("[shutdown] Cleaning up resources...")
+
 
 app = FastAPI(
     title="Indian Materials AI Backend",
-    description="Authentication, User Management, and Inference Platform",
+    description="Authentication, User Management, and Property Prediction Platform",
     lifespan=lifespan
 )
 
+# CORS Middleware Setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,19 +50,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Core & Authentication Routes
+app.include_router(auth_routes.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(user_routes.router, prefix="/api/users", tags=["Users"])
+
+# Prediction & Inference Pipeline Routes
+app.include_router(predict_routes.router)  # Handles /api/predict/cif-file & /api/predict/cif-string
+app.include_router(prediction_pipeline_routes.router, tags=["Prediction Pipeline"])
+app.include_router(cif_routes.router, prefix="/api/cif", tags=["CIF Generator & Analyzer"])
+
+# External Databases & Internal Datasets
 app.include_router(materials_routes.router, prefix="/api/materials", tags=["Materials Project"])
 app.include_router(oqmd.router, prefix="/api/oqmd", tags=["OQMD"])
 app.include_router(aflow.router, prefix="/api/aflow", tags=["AFLOW"])
 app.include_router(jarvis.router, prefix="/api/jarvis", tags=["JARVIS"])
 app.include_router(database_routes.router, prefix="/api/dataset", tags=["Dataset"])
-app.include_router(indianmatter.router, tags=["IndianMatter DB"])
-app.include_router(prediction_pipeline_routes.router)
-app.include_router(cif_routes.router, prefix="/api/cif", tags=["CIF"])
-app.include_router(auth_routes.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(user_routes.router, prefix="/api/users", tags=["Users"])
-app.include_router(predict_routes.router, prefix="/api/ml", tags=["Predictions (Trial)"])
-app.include_router(predict_routes.router, prefix="/trial", tags=["Trial Mode"])
+app.include_router(indianmatter.router, prefix="/api/indianmatter", tags=["IndianMatter DB"])
+
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the IndianMaterialsAI Internal API"}
+    return {
+        "status": "online",
+        "message": "Welcome to the IndianMaterialsAI Internal API",
+        "documentation": "/docs"
+    }

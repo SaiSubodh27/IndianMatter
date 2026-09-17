@@ -4,7 +4,7 @@ from properties.direct_outputs import (
     TotalEnergyCalculator, EnergyPerAtomCalculator, AtomicForcesCalculator, StressTensorCalculator
 )
 from properties.mechanical_properties import MechanicalPropertyCalculator
-from properties.thermal_properties import DebyeTemperatureCalculator, ThermalConductivityCalculator
+from properties.thermal_properties import ThermalPropertyCalculator, DebyeTemperatureCalculator, ThermalConductivityCalculator
 from properties.electrical_properties import (
     BandGapCalculator, ElectronicStateClassifier, ExcludedIonicConductivityCalculator, ExcludedActivationEnergyCalculator
 )
@@ -37,6 +37,9 @@ class PropertyRegistry:
         self.register(MechanicalPropertyCalculator("compressibility", "Compressibility", "GPa^-1", "Volumetric compressibility beta = 1/K."))
 
         # Thermal
+        self.register(DebyeTemperatureCalculator())
+        self.register(ThermalConductivityCalculator())
+        self.register(ThermalPropertyCalculator())
         self.register(DebyeTemperatureCalculator())
         self.register(ThermalConductivityCalculator())
 

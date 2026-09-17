@@ -5,6 +5,7 @@ from models.chgnet_adapter import CHGNetAdapter
 from models.mace_adapter import MACEAdapter
 from core.device_manager import get_device_info
 
+
 class ModelRegistry:
     """
     Central registry for managing atomistic ML model adapters.

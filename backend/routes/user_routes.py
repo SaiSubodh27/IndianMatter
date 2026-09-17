@@ -3,7 +3,7 @@ from datetime import datetime
 from bson.objectid import ObjectId
 
 from auth import get_current_user
-from models import PredictionHistory, SavedMaterial, MaterialSaveRequest
+from db_models import PredictionHistory, SavedMaterial, MaterialSaveRequest
 from database import users_collection
 
 router = APIRouter()

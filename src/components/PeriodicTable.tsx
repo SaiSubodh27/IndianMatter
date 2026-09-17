@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, X } from "lucide-react";
+// src/components/PeriodicTable.tsx
+import { useMemo, useState } from "react";
 
 export type ElementSelection = "include" | "exclude" | "none";
 
@@ -148,6 +148,16 @@ export const PERIODIC_ELEMENTS: PeriodicElement[] = elementTuples.map(
   }),
 );
 
+const CATEGORY_OPTIONS: Array<[string, string]> = [
+  ["alkali", "Alkali"],
+  ["transition", "Transition"],
+  ["nonmetal", "Nonmetal"],
+  ["halogen", "Halogen"],
+  ["noble", "Noble gas"],
+  ["lanthanide", "Lanthanide"],
+  ["actinide", "Actinide"],
+];
+
 interface PeriodicTableProps {
   includeElements: string[];
   excludeElements: string[];
@@ -162,84 +172,97 @@ export default function PeriodicTable({
   const [focusedElement, setFocusedElement] = useState<PeriodicElement | null>(
     null,
   );
-  const [searchTerm, setSearchTerm] = useState("");
-  const mainElements = PERIODIC_ELEMENTS.filter(
-    (element) => element.period <= 7,
+  // NOTE: the periodic table's own search box was removed on purpose — the
+  // page above already has a single search bar, and having a second one
+  // here read as a duplicate/confusing "third search box". Category chips
+  // are filters, not a text search, so they stay.
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(
+    new Set(),
   );
-  const fBlock = PERIODIC_ELEMENTS.filter((element) => element.period >= 8);
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const matchesSearch = (element: PeriodicElement) =>
-    !normalizedSearch ||
-    element.name.toLowerCase().includes(normalizedSearch) ||
-    element.symbol.toLowerCase().includes(normalizedSearch) ||
-    String(element.number) === normalizedSearch;
+
+  const mainElements = useMemo(
+    () => PERIODIC_ELEMENTS.filter((element) => element.period <= 7),
+    [],
+  );
+  const fBlock = useMemo(
+    () => PERIODIC_ELEMENTS.filter((element) => element.period >= 8),
+    [],
+  );
+
+  const matchesFilter = (element: PeriodicElement) =>
+    activeCategories.size === 0 || activeCategories.has(element.category);
+
+  const toggleCategory = (category: string) => {
+    setActiveCategories((current) => {
+      const next = new Set(current);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-3">
-      <div className="periodic-search-toolbar">
-        <Search size={16} aria-hidden="true" />
-        <input
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search element, symbol, or atomic number"
-          aria-label="Search periodic table"
-        />
-        {searchTerm && (
+      <div
+        className="flex flex-wrap items-center gap-1.5"
+        aria-label="Filter periodic table by category"
+      >
+        {CATEGORY_OPTIONS.map(([category, label]) => {
+          const active = activeCategories.has(category);
+          return (
+            <button
+              key={category}
+              type="button"
+              onClick={() => toggleCategory(category)}
+              aria-pressed={active}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                active
+                  ? "bg-[#FBE8D8] border-[#F1641D] text-[#F1641D]"
+                  : "bg-white border-[#E9DFD4] text-[#6C737E] hover:border-[#F1641D]/50"
+              }`}
+            >
+              <i
+                className={`periodic-legend-swatch periodic-category-${category}`}
+              />
+              {label}
+            </button>
+          );
+        })}
+        {activeCategories.size > 0 && (
           <button
             type="button"
-            onClick={() => setSearchTerm("")}
-            aria-label="Clear periodic table search"
+            onClick={() => setActiveCategories(new Set())}
+            className="text-[11px] text-[#F1641D] font-semibold ml-1"
           >
-            <X size={15} />
+            Clear categories
           </button>
         )}
       </div>
-      <div
-        className="periodic-table-legend"
-        aria-label="Periodic table categories"
-      >
-        {[
-          ["alkali", "Alkali"],
-          ["transition", "Transition"],
-          ["nonmetal", "Nonmetal"],
-          ["halogen", "Halogen"],
-          ["noble", "Noble gas"],
-          ["lanthanide", "Lanthanide"],
-          ["actinide", "Actinide"],
-        ].map(([category, label]) => (
-          <span key={category}>
-            <i
-              className={`periodic-legend-swatch periodic-category-${category}`}
-            />
-            {label}
-          </span>
-        ))}
-      </div>
+
       <div className="overflow-x-auto pb-2">
         <div
           className="periodic-table-grid"
           role="grid"
           aria-label="Periodic table of chemical elements"
         >
-          {mainElements.map((element) => {
-            const selected = includeElements.includes(element.symbol)
-              ? "include"
-              : excludeElements.includes(element.symbol)
-                ? "exclude"
-                : "none";
-            return (
-              <ElementButton
-                key={element.number}
-                element={element}
-                selected={selected}
-                onClick={() => {
-                  setFocusedElement(element);
-                  onElementClick(element.symbol);
-                }}
-                dimmed={!matchesSearch(element)}
-              />
-            );
-          })}
+          {mainElements.map((element) => (
+            <ElementButton
+              key={element.number}
+              element={element}
+              selected={
+                includeElements.includes(element.symbol)
+                  ? "include"
+                  : excludeElements.includes(element.symbol)
+                    ? "exclude"
+                    : "none"
+              }
+              onClick={() => {
+                setFocusedElement(element);
+                onElementClick(element.symbol);
+              }}
+              dimmed={!matchesFilter(element)}
+            />
+          ))}
           <div
             className="periodic-table-f-label"
             style={{ gridColumn: 1, gridRow: 8 }}
@@ -252,27 +275,27 @@ export default function PeriodicTable({
           >
             Actinides
           </div>
-          {fBlock.map((element) => {
-            const selected = includeElements.includes(element.symbol)
-              ? "include"
-              : excludeElements.includes(element.symbol)
-                ? "exclude"
-                : "none";
-            return (
-              <ElementButton
-                key={element.number}
-                element={element}
-                selected={selected}
-                onClick={() => {
-                  setFocusedElement(element);
-                  onElementClick(element.symbol);
-                }}
-                dimmed={!matchesSearch(element)}
-              />
-            );
-          })}
+          {fBlock.map((element) => (
+            <ElementButton
+              key={element.number}
+              element={element}
+              selected={
+                includeElements.includes(element.symbol)
+                  ? "include"
+                  : excludeElements.includes(element.symbol)
+                    ? "exclude"
+                    : "none"
+              }
+              onClick={() => {
+                setFocusedElement(element);
+                onElementClick(element.symbol);
+              }}
+              dimmed={!matchesFilter(element)}
+            />
+          ))}
         </div>
       </div>
+
       <div
         className="min-h-12 rounded-xl bg-[#FDFBD4] px-4 py-3 text-xs text-[#38240D]"
         aria-live="polite"

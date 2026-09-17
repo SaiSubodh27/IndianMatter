@@ -1,33 +1,231 @@
-import { useEffect, useState } from "react";
-import { Filter, LayoutGrid, List, Search, X } from "lucide-react";
+// src/pages/materials/MaterialsSearchPage.tsx
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Columns3, Download, Filter, RotateCcw, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import MaterialCard, { MaterialCardProps } from "../../components/MaterialCard";
 import PeriodicTable from "../../components/PeriodicTable";
 import { MaterialRecord, searchDatasetMaterials } from "../../lib/datasetapi";
 
-function valueOrUnavailable(value: unknown, suffix = "") {
-  return value === "" || value === null || value === undefined
-    ? "Not available"
-    : `${String(value)}${suffix}`;
+/* ---------- column configuration ---------- */
+
+type ColumnKey =
+  | "mv_id"
+  | "Formula"
+  | "nsites"
+  | "e_hull"
+  | "formation_energy"
+  | "band_gap"
+  | "bulk_modulus"
+  | "shear_modulus"
+  | "ionic_conductivity"
+  | "activation_energy"
+  | "migration_barrier"
+  | "metal_prob";
+
+type Comparator = ">=" | "<=" | "=" | ">" | "<";
+
+interface NumericFilterState {
+  comparator: Comparator;
+  value: string;
 }
 
-function toCard(material: MaterialRecord): MaterialCardProps {
-  return {
-    id: material.mv_id,
-    formula: material.Formula,
-    name: "Dataset material",
-    system: "Not available",
-    spaceGroup: "Not available",
-    bandGap: valueOrUnavailable(material["Band Gap E_g (eV)"], " eV"),
-    formationEnergy: valueOrUnavailable(
-      material["Form. Energy E_f (eV/atom)"],
-      " eV/atom",
-    ),
-    conductivity: "Not available",
-    density: "Not available",
-    database: "IndianMatter dataset",
-    tags: material.nsites === undefined ? [] : [`${material.nsites} sites`],
-  };
+interface ColumnDef {
+  key: ColumnKey;
+  label: string;
+  type: "text" | "number";
+  accessor: (m: MaterialRecord) => number | string | null;
+  format: (m: MaterialRecord) => string;
+  backendFilter?: boolean;
+  /** color-scale used to render this cell as a colorful badge */
+  colorScale?: "goodLow" | "goodHigh" | "neutral";
+}
+
+function num(value: number | null | undefined) {
+  return value === null || value === undefined || Number.isNaN(value)
+    ? null
+    : value;
+}
+
+const COLUMNS: ColumnDef[] = [
+  {
+    key: "mv_id",
+    label: "Material ID",
+    type: "text",
+    accessor: (m) => m.mv_id ?? "",
+    format: (m) => m.mv_id ?? "N/A",
+  },
+  {
+    key: "Formula",
+    label: "Formula",
+    type: "text",
+    accessor: (m) => m.Formula ?? "",
+    format: (m) => m.Formula ?? "N/A",
+  },
+  {
+    key: "nsites",
+    label: "Sites",
+    type: "number",
+    accessor: (m) => num(m.nsites),
+    format: (m) => (num(m.nsites) === null ? "N/A" : String(m.nsites)),
+    colorScale: "neutral",
+  },
+  {
+    key: "e_hull",
+    label: "E Above Hull (eV/atom)",
+    type: "number",
+    accessor: (m) => num(m["E_hull-m (eV/atom)"]),
+    format: (m) => {
+      const v = num(m["E_hull-m (eV/atom)"]);
+      return v === null ? "N/A" : v.toFixed(3);
+    },
+    backendFilter: true,
+    colorScale: "goodLow", // Lower = stable
+  },
+  {
+    key: "formation_energy",
+    label: "Formation Energy (eV/atom)",
+    type: "number",
+    accessor: (m) => num(m["Form. Energy E_f (eV/atom)"]),
+    format: (m) => {
+      const v = num(m["Form. Energy E_f (eV/atom)"]);
+      return v === null ? "N/A" : v.toFixed(3);
+    },
+    colorScale: "goodLow",
+  },
+  {
+    key: "ionic_conductivity",
+    label: "Ionic Cond. (mS/cm)",
+    type: "number",
+    accessor: (m) =>
+      num(m["Ionic Conductivity (mS/cm)"] ?? m.ionic_conductivity),
+    format: (m) => {
+      const v = num(m["Ionic Conductivity (mS/cm)"] ?? m.ionic_conductivity);
+      return v === null ? "N/A" : v.toExponential(2);
+    },
+    colorScale: "goodHigh", // Higher = better conductor
+  },
+  {
+    key: "activation_energy",
+    label: "Activation Energy (eV)",
+    type: "number",
+    accessor: (m) => num(m["Activation Energy Ea (eV)"] ?? m.activation_energy),
+    format: (m) => {
+      const v = num(m["Activation Energy Ea (eV)"] ?? m.activation_energy);
+      return v === null ? "N/A" : v.toFixed(2);
+    },
+    colorScale: "goodLow", // Lower Ea = faster ion diffusion
+  },
+  {
+    key: "migration_barrier",
+    label: "Migration Barrier (eV)",
+    type: "number",
+    accessor: (m) => num(m["Migration Barrier (eV)"] ?? m.migration_barrier),
+    format: (m) => {
+      const v = num(m["Migration Barrier (eV)"] ?? m.migration_barrier);
+      return v === null ? "N/A" : v.toFixed(2);
+    },
+    colorScale: "goodLow",
+  },
+  {
+    key: "band_gap",
+    label: "Band Gap (eV)",
+    type: "number",
+    accessor: (m) => num(m["Band Gap E_g (eV)"]),
+    format: (m) => {
+      const v = num(m["Band Gap E_g (eV)"]);
+      return v === null ? "N/A" : v.toFixed(2);
+    },
+    backendFilter: true,
+    colorScale: "neutral",
+  },
+  {
+    key: "bulk_modulus",
+    label: "Bulk Modulus (GPa)",
+    type: "number",
+    accessor: (m) => num(m["Bulk Modulus K (GPa)"]),
+    format: (m) => {
+      const v = num(m["Bulk Modulus K (GPa)"]);
+      return v === null ? "N/A" : v.toFixed(1);
+    },
+    colorScale: "goodHigh",
+  },
+  {
+    key: "shear_modulus",
+    label: "Shear Modulus (GPa)",
+    type: "number",
+    accessor: (m) => num(m["Shear Modulus G (GPa)"]),
+    format: (m) => {
+      const v = num(m["Shear Modulus G (GPa)"]);
+      return v === null ? "N/A" : v.toFixed(1);
+    },
+    colorScale: "goodHigh",
+  },
+  {
+    key: "metal_prob",
+    label: "Metal Prob.",
+    type: "number",
+    accessor: (m) => num(m["Metal Prob."]),
+    format: (m) => {
+      const v = num(m["Metal Prob."]);
+      return v === null ? "N/A" : `${(v * 100).toFixed(0)}%`;
+    },
+    colorScale: "neutral",
+  },
+];
+
+function compare(value: number, comparator: Comparator, target: number) {
+  switch (comparator) {
+    case ">=":
+      return value >= target;
+    case "<=":
+      return value <= target;
+    case "=":
+      return value === target;
+    case ">":
+      return value > target;
+    case "<":
+      return value < target;
+  }
+}
+
+/** Returns tailwind classes for colorful badges based on column domain logic. */
+function badgeClasses(col: ColumnDef, m: MaterialRecord): string {
+  const base =
+    "inline-flex items-center justify-center px-2 py-0.5 rounded-md font-semibold text-[11px]";
+  if (col.type !== "number" || !col.colorScale) return "";
+  const value = col.accessor(m);
+  if (typeof value !== "number") return `${base} bg-[#F1F2F4] text-[#8C929C]`;
+
+  if (col.key === "e_hull") {
+    if (value <= 0.01) return `${base} bg-[#DFF5E1] text-[#1E7B34]`;
+    if (value <= 0.05) return `${base} bg-[#FFF1CF] text-[#9A6A00]`;
+    return `${base} bg-[#FDE4E1] text-[#B3261E]`;
+  }
+  if (col.key === "formation_energy") {
+    if (value <= -1.5) return `${base} bg-[#DFF5E1] text-[#1E7B34]`;
+    if (value <= 0) return `${base} bg-[#FFF1CF] text-[#9A6A00]`;
+    return `${base} bg-[#FDE4E1] text-[#B3261E]`;
+  }
+  if (col.key === "ionic_conductivity") {
+    if (value >= 1.0) return `${base} bg-[#DFF5E1] text-[#1E7B34]`; // ≥ 1 mS/cm is excellent
+    if (value >= 0.1) return `${base} bg-[#FFF1CF] text-[#9A6A00]`;
+    return `${base} bg-[#F1F2F4] text-[#5F6771]`;
+  }
+  if (col.key === "activation_energy" || col.key === "migration_barrier") {
+    if (value <= 0.35) return `${base} bg-[#DFF5E1] text-[#1E7B34]`; // Low barrier
+    if (value <= 0.5) return `${base} bg-[#FFF1CF] text-[#9A6A00]`;
+    return `${base} bg-[#FDE4E1] text-[#B3261E]`;
+  }
+  if (col.key === "bulk_modulus" || col.key === "shear_modulus") {
+    if (value >= 100) return `${base} bg-[#DFF5E1] text-[#1E7B34]`;
+    if (value >= 40) return `${base} bg-[#FFF1CF] text-[#9A6A00]`;
+    return `${base} bg-[#F1F2F4] text-[#5F6771]`;
+  }
+  if (col.key === "metal_prob") {
+    if (value >= 0.66) return `${base} bg-[#E3ECFC] text-[#1D4FA3]`;
+    if (value >= 0.33) return `${base} bg-[#FFF1CF] text-[#9A6A00]`;
+    return `${base} bg-[#F1F2F4] text-[#5F6771]`;
+  }
+  return `${base} bg-[#FAF4EE] text-[#1E2227]`;
 }
 
 export default function MaterialsSearchPage() {
@@ -46,12 +244,32 @@ export default function MaterialsSearchPage() {
   const [maxBandGap, setMaxBandGap] = useState("");
   const [minHull, setMinHull] = useState("");
   const [maxHull, setMaxHull] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [materials, setMaterials] = useState<MaterialCardProps[]>([]);
+
+  const [submitted, setSubmitted] = useState(
+    () =>
+      Boolean(params.get("q")) ||
+      params.getAll("elements").length > 0 ||
+      params.getAll("exclude_elements").length > 0,
+  );
+
+  const [materials, setMaterials] = useState<MaterialRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"grid" | "list">("grid");
+
+  const [hiddenColumns, setHiddenColumns] = useState<Set<ColumnKey>>(new Set());
+  const [showColumnsPanel, setShowColumnsPanel] = useState(false);
+  const [openFilterColumn, setOpenFilterColumn] = useState<ColumnKey | null>(
+    null,
+  );
+  const [textFilters, setTextFilters] = useState<Record<string, string>>({});
+  const [numericFilters, setNumericFilters] = useState<
+    Record<string, NumericFilterState>
+  >({});
+  const [sort, setSort] = useState<{
+    key: ColumnKey;
+    dir: "asc" | "desc";
+  } | null>(null);
 
   useEffect(() => {
     if (!submitted) return;
@@ -67,11 +285,11 @@ export default function MaterialsSearchPage() {
       minEHull: minHull ? Number(minHull) : undefined,
       maxEHull: maxHull ? Number(maxHull) : undefined,
       page: 1,
-      limit: 24,
+      limit: 100,
     })
       .then((response) => {
         if (!controller.signal.aborted) {
-          setMaterials(response.results.map(toCard));
+          setMaterials(response.results);
           setTotal(response.total);
         }
       })
@@ -120,7 +338,7 @@ export default function MaterialsSearchPage() {
     }
   };
 
-  const runSearch = (event: React.FormEvent) => {
+  const runSearch = (event: FormEvent) => {
     event.preventDefault();
     const next = new URLSearchParams();
     if (query.trim()) next.set("q", query.trim());
@@ -132,20 +350,112 @@ export default function MaterialsSearchPage() {
     setSubmitted(true);
   };
 
-  const clearRefinementFilters = () => {
+  const resetAll = () => {
+    setQuery("");
+    setIncludeElements([]);
+    setExcludeElements([]);
     setMinBandGap("");
     setMaxBandGap("");
     setMinHull("");
     setMaxHull("");
+    setTextFilters({});
+    setNumericFilters({});
+    setSort(null);
+    setParams(new URLSearchParams());
+    setSubmitted(false);
+    setMaterials([]);
+    setTotal(0);
   };
 
-  const selected = [
-    ...includeElements.map((element) => ({ element, prefix: "+" })),
-    ...excludeElements.map((element) => ({ element, prefix: "-" })),
+  const applyBackendNumericFilter = (
+    key: "e_hull" | "band_gap",
+    comparator: Comparator,
+    value: string,
+  ) => {
+    const n = value.trim() === "" ? "" : value.trim();
+    if (key === "band_gap") {
+      if (comparator === "<=") setMaxBandGap(n);
+      else setMinBandGap(n);
+    } else {
+      if (comparator === "<=") setMaxHull(n);
+      else setMinHull(n);
+    }
+    setSubmitted(true);
+  };
+
+  const visibleRows = useMemo(() => {
+    let rows = materials;
+
+    Object.entries(textFilters).forEach(([key, term]) => {
+      if (!term.trim()) return;
+      const column = COLUMNS.find((c) => c.key === key);
+      if (!column) return;
+      const needle = term.trim().toLowerCase();
+      rows = rows.filter((m) =>
+        String(column.accessor(m) ?? "")
+          .toLowerCase()
+          .includes(needle),
+      );
+    });
+
+    Object.entries(numericFilters).forEach(([key, filter]) => {
+      const column = COLUMNS.find((c) => c.key === key);
+      if (!column || column.backendFilter) return;
+      if (filter.value.trim() === "") return;
+      const target = Number(filter.value);
+      if (Number.isNaN(target)) return;
+      rows = rows.filter((m) => {
+        const v = column.accessor(m);
+        return typeof v === "number" && compare(v, filter.comparator, target);
+      });
+    });
+
+    if (sort) {
+      const column = COLUMNS.find((c) => c.key === sort.key)!;
+      rows = [...rows].sort((a, b) => {
+        const av = column.accessor(a);
+        const bv = column.accessor(b);
+        if (av === null || av === "") return 1;
+        if (bv === null || bv === "") return -1;
+        const result = av < bv ? -1 : av > bv ? 1 : 0;
+        return sort.dir === "asc" ? result : -result;
+      });
+    }
+
+    return rows;
+  }, [materials, textFilters, numericFilters, sort]);
+
+  const exportCsv = () => {
+    const cols = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
+    const header = cols.map((c) => c.label).join(",");
+    const rows = visibleRows.map((m) =>
+      cols
+        .map((c) => `"${String(c.accessor(m) ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "materials_export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const selectedElements = [
+    ...includeElements.map((element) => ({
+      element,
+      mode: "include" as const,
+    })),
+    ...excludeElements.map((element) => ({
+      element,
+      mode: "exclude" as const,
+    })),
   ];
 
   return (
-    <div className="w-full max-w-[1550px] mx-auto space-y-7 px-4 sm:px-8 py-6">
+    <div className="w-full max-w-[1600px] mx-auto space-y-7 px-4 sm:px-8 py-6">
       <header>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D]">
           Material discovery
@@ -154,7 +464,8 @@ export default function MaterialsSearchPage() {
           Materials Explorer
         </h1>
         <p className="text-sm text-[#6C737E] mt-1">
-          Search real IndianMatter records, then refine the returned materials.
+          Search real IndianMatter records, then refine returned solid-state
+          battery candidates.
         </p>
       </header>
 
@@ -168,65 +479,86 @@ export default function MaterialsSearchPage() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search formula or material ID"
+              placeholder="Search formula or material ID (e.g., Li7La3Zr2O12)"
               aria-label="Search materials"
               className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl py-3 pl-11 pr-4 text-sm outline-none focus:border-[#F1641D]"
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="px-6 py-3 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F]"
-            >
-              Search Materials
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="px-6 py-3 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F]"
+          >
+            Search Materials
+          </button>
+          <button
+            type="button"
+            onClick={resetAll}
+            className="px-4 py-3 border border-[#E9DFD4] rounded-xl text-xs font-medium text-[#5F6771] hover:bg-[#FAF4EE] flex items-center gap-1.5"
+          >
+            <RotateCcw size={13} /> Reset
+          </button>
         </form>
+
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="font-semibold text-[#1E2227]">Element mode:</span>
           <button
             type="button"
             onClick={() => setSelectionMode("include")}
-            className={`px-3 py-1.5 rounded-lg ${selectionMode === "include" ? "bg-[#FBE8D8] text-[#F1641D]" : "bg-[#FAF4EE] text-[#6C737E]"}`}
+            className={`px-3 py-1.5 rounded-lg ${
+              selectionMode === "include"
+                ? "bg-[#FBE8D8] text-[#F1641D]"
+                : "bg-[#FAF4EE] text-[#6C737E]"
+            }`}
           >
             Include
           </button>
           <button
             type="button"
             onClick={() => setSelectionMode("exclude")}
-            className={`px-3 py-1.5 rounded-lg ${selectionMode === "exclude" ? "bg-[#713600] text-white" : "bg-[#FAF4EE] text-[#6C737E]"}`}
+            className={`px-3 py-1.5 rounded-lg ${
+              selectionMode === "exclude"
+                ? "bg-[#713600] text-white"
+                : "bg-[#FAF4EE] text-[#6C737E]"
+            }`}
           >
             Exclude
           </button>
+
+          {selectedElements.length > 0 && (
+            <span className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[#8C929C]">·</span>
+              {selectedElements.map(({ element, mode }) => (
+                <span
+                  key={`${mode}-${element}`}
+                  className={`inline-flex items-center gap-1 font-mono text-[11px] font-semibold ${
+                    mode === "exclude" ? "text-[#713600]" : "text-[#F1641D]"
+                  }`}
+                >
+                  {mode === "exclude" ? "−" : "+"}
+                  {element}
+                  <button
+                    type="button"
+                    onClick={() => handleElementClick(element)}
+                    aria-label={`Remove ${element}`}
+                    className="text-[#8C929C] hover:text-[#1E2227]"
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              ))}
+            </span>
+          )}
+
           <span className="ml-auto text-[#8C929C]">
             Database: IndianMatter dataset
           </span>
         </div>
+
         <PeriodicTable
           includeElements={includeElements}
           excludeElements={excludeElements}
           onElementClick={handleElementClick}
         />
-        <div
-          className="flex flex-wrap gap-2 text-xs"
-          aria-label="Selected elements"
-        >
-          <span className="font-semibold text-[#1E2227]">
-            Selected elements:
-          </span>
-          {selected.map(({ element, prefix }) => (
-            <button
-              type="button"
-              key={`${prefix}${element}`}
-              onClick={() => handleElementClick(element)}
-              className={`px-2.5 py-1 rounded-lg font-semibold ${prefix === "+" ? "bg-[#F3D9AE] text-[#C05800]" : "bg-[#713600] text-white"}`}
-            >
-              {prefix}
-              {element} <X size={11} className="inline" />
-            </button>
-          ))}
-          {!selected.length && <span className="text-[#8C929C]">None</span>}
-        </div>
       </section>
 
       {!submitted && (
@@ -235,124 +567,297 @@ export default function MaterialsSearchPage() {
           Start with a formula, material ID, or element selection.
         </div>
       )}
+
       {submitted && (
-        <div className="grid grid-cols-1 lg:grid-cols-[230px_1fr] gap-6 items-start">
-          <aside className="bg-white rounded-2xl p-5 border border-[#EFE5DC] space-y-4 lg:sticky lg:top-20">
-            <div className="flex justify-between items-center">
-              <h2 className="font-headline font-bold text-sm">
-                Refine results
-              </h2>
+        <section className="bg-white rounded-2xl border border-[#EFE5DC] overflow-hidden shadow-card">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-3 p-4 border-b border-[#F2E7DC] bg-[#FAF4EE]/40">
+            <button
+              type="button"
+              onClick={resetAll}
+              className="px-4 py-2 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] flex items-center gap-1.5"
+            >
+              <RotateCcw size={13} /> Reset
+            </button>
+            <span className="px-3 py-2 bg-[#1E2227] text-white rounded-xl text-xs font-semibold">
+              {loading
+                ? "Searching…"
+                : `${visibleRows.length} of ${total} materials`}
+            </span>
+            <div className="relative ml-auto">
               <button
                 type="button"
-                onClick={clearRefinementFilters}
-                className="text-[11px] text-[#F1641D]"
+                onClick={() => setShowColumnsPanel((v) => !v)}
+                className="px-3 py-2 border border-[#E9DFD4] rounded-xl text-xs font-medium text-[#1E2227] hover:bg-[#FAF4EE] flex items-center gap-1.5"
               >
-                Clear filters
+                <Columns3 size={14} /> Columns
               </button>
+              {showColumnsPanel && (
+                <div className="absolute right-0 mt-1 w-60 bg-white border border-[#E9DFD4] rounded-xl shadow-card p-3 z-30 space-y-1">
+                  {COLUMNS.map((col) => (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-2 text-xs text-[#1E2227] py-1 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!hiddenColumns.has(col.key)}
+                        onChange={() =>
+                          setHiddenColumns((current) => {
+                            const next = new Set(current);
+                            if (next.has(col.key)) next.delete(col.key);
+                            else next.add(col.key);
+                            return next;
+                          })
+                        }
+                      />
+                      {col.label}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
-            <p className="text-[11px] text-[#8C929C]">
-              Backend-supported numeric filters
-            </p>
-            <label className="block text-xs text-[#6C737E]">
-              Band gap min (eV)
-              <input
-                type="number"
-                step="any"
-                value={minBandGap}
-                onChange={(event) => setMinBandGap(event.target.value)}
-                className="mt-1 w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2 py-2"
-              />
-            </label>
-            <label className="block text-xs text-[#6C737E]">
-              Band gap max (eV)
-              <input
-                type="number"
-                step="any"
-                value={maxBandGap}
-                onChange={(event) => setMaxBandGap(event.target.value)}
-                className="mt-1 w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2 py-2"
-              />
-            </label>
-            <label className="block text-xs text-[#6C737E]">
-              Energy hull min
-              <input
-                type="number"
-                step="any"
-                value={minHull}
-                onChange={(event) => setMinHull(event.target.value)}
-                className="mt-1 w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2 py-2"
-              />
-            </label>
-            <label className="block text-xs text-[#6C737E]">
-              Energy hull max
-              <input
-                type="number"
-                step="any"
-                value={maxHull}
-                onChange={(event) => setMaxHull(event.target.value)}
-                className="mt-1 w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2 py-2"
-              />
-            </label>
-          </aside>
-          <section className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-[#6C737E]">
-              <span>
-                {loading
-                  ? "Searching materials..."
-                  : `${total} materials found`}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setView("grid")}
-                  aria-label="Grid view"
-                  className="p-2"
-                >
-                  <LayoutGrid size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("list")}
-                  aria-label="List view"
-                  className="p-2"
-                >
-                  <List size={15} />
-                </button>
-              </div>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="px-3 py-2 border border-[#E9DFD4] rounded-xl text-xs font-medium text-[#1E2227] hover:bg-[#FAF4EE] flex items-center gap-1.5"
+            >
+              <Download size={14} /> Export Table
+            </button>
+          </div>
+
+          {error && (
+            <div role="alert" className="p-5 text-sm text-red-700">
+              {error}
             </div>
-            {error && (
-              <div
-                role="alert"
-                className="bg-white rounded-xl p-5 text-sm text-red-700 border border-red-100"
-              >
-                {error}
-              </div>
-            )}
-            {!loading && !error && !materials.length && (
-              <div className="bg-white rounded-xl p-8 text-center text-sm text-[#6C737E]">
-                No materials found. Try removing an element or widening a range.
-              </div>
-            )}
-            {loading && (
-              <div className="bg-white rounded-xl p-8 text-center text-sm text-[#6C737E]">
-                Searching materials...
-              </div>
-            )}
-            {!loading && !error && materials.length > 0 && (
-              <div
-                className={
-                  view === "grid"
-                    ? "grid grid-cols-1 md:grid-cols-2 gap-5"
-                    : "space-y-4"
-                }
-              >
-                {materials.map((material) => (
-                  <MaterialCard key={material.id} {...material} />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+          )}
+
+          {!loading && !error && !visibleRows.length && (
+            <div className="p-8 text-center text-sm text-[#6C737E]">
+              No materials found. Try removing an element, widening a range, or
+              clearing a column filter.
+            </div>
+          )}
+
+          {loading && (
+            <div className="p-8 text-center text-sm text-[#6C737E]">
+              Searching materials...
+            </div>
+          )}
+
+          {!loading && !error && visibleRows.length > 0 && (
+            <div className="overflow-x-auto relative">
+              <table className="w-full text-xs border-separate border-spacing-0">
+                <thead>
+                  <tr className="bg-[#1E2227]">
+                    {COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
+                      (col, index, array) => (
+                        <th
+                          key={col.key}
+                          className="relative px-3.5 py-3 text-left font-semibold text-[#E9DFD4] whitespace-nowrap border-b border-[#333842]"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSort((current) => ({
+                                  key: col.key,
+                                  dir:
+                                    current?.key === col.key &&
+                                    current.dir === "asc"
+                                      ? "desc"
+                                      : "asc",
+                                }))
+                              }
+                              className="hover:text-white transition-colors"
+                            >
+                              {col.label}
+                              {sort?.key === col.key
+                                ? sort.dir === "asc"
+                                  ? " ▲"
+                                  : " ▼"
+                                : ""}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenFilterColumn((current) =>
+                                  current === col.key ? null : col.key,
+                                )
+                              }
+                              aria-label={`Filter ${col.label}`}
+                              className={`${
+                                (col.type === "text" && textFilters[col.key]) ||
+                                (col.type === "number" &&
+                                  numericFilters[col.key]?.value)
+                                  ? "text-[#F1641D]"
+                                  : "text-[#8C929C]"
+                              } hover:text-white transition-colors`}
+                            >
+                              <Filter size={12} />
+                            </button>
+                          </div>
+
+                          {openFilterColumn === col.key && (
+                            <div
+                              className={`absolute top-full mt-1.5 w-60 bg-white border border-[#E9DFD4] rounded-xl shadow-2xl p-3.5 z-50 text-left font-normal normal-case text-[#1E2227] ${
+                                index > array.length - 3 ? "right-0" : "left-0"
+                              }`}
+                            >
+                              {col.type === "text" ? (
+                                <>
+                                  <p className="text-[10px] text-[#8C929C] mb-1 font-semibold uppercase tracking-wider">
+                                    Contains Text
+                                  </p>
+                                  <input
+                                    value={textFilters[col.key] ?? ""}
+                                    onChange={(e) =>
+                                      setTextFilters((current) => ({
+                                        ...current,
+                                        [col.key]: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Filter..."
+                                    className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D]"
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-[10px] text-[#8C929C] mb-1 font-semibold uppercase tracking-wider">
+                                    {col.backendFilter
+                                      ? "Filter Range (Backend Query)"
+                                      : "Numeric Comparator"}
+                                  </p>
+                                  <select
+                                    defaultValue=">="
+                                    id={`comp-${col.key}`}
+                                    className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2 py-1.5 text-xs outline-none mb-2"
+                                  >
+                                    <option value=">=">
+                                      Greater than or equal (≥)
+                                    </option>
+                                    <option value="<=">
+                                      Less than or equal (≤)
+                                    </option>
+                                    {!col.backendFilter && (
+                                      <>
+                                        <option value="=">Equal to (=)</option>
+                                        <option value=">">
+                                          Strictly greater (&gt;)
+                                        </option>
+                                        <option value="<">
+                                          Strictly less (&lt;)
+                                        </option>
+                                      </>
+                                    )}
+                                  </select>
+                                  <input
+                                    id={`val-${col.key}`}
+                                    type="number"
+                                    step="any"
+                                    placeholder="Threshold value..."
+                                    defaultValue={
+                                      col.backendFilter
+                                        ? undefined
+                                        : (numericFilters[col.key]?.value ?? "")
+                                    }
+                                    className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D] mb-2.5"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const comparator = (
+                                          document.getElementById(
+                                            `comp-${col.key}`,
+                                          ) as HTMLSelectElement
+                                        ).value as Comparator;
+                                        const value = (
+                                          document.getElementById(
+                                            `val-${col.key}`,
+                                          ) as HTMLInputElement
+                                        ).value;
+                                        if (
+                                          col.backendFilter &&
+                                          (col.key === "e_hull" ||
+                                            col.key === "band_gap")
+                                        ) {
+                                          applyBackendNumericFilter(
+                                            col.key,
+                                            comparator,
+                                            value,
+                                          );
+                                        } else {
+                                          setNumericFilters((current) => ({
+                                            ...current,
+                                            [col.key]: { comparator, value },
+                                          }));
+                                        }
+                                        setOpenFilterColumn(null);
+                                      }}
+                                      className="flex-1 py-1.5 bg-[#F1641D] text-white rounded-lg text-xs font-semibold hover:bg-[#D9520F]"
+                                    >
+                                      Apply
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setNumericFilters((current) => {
+                                          const next = { ...current };
+                                          delete next[col.key];
+                                          return next;
+                                        });
+                                        setOpenFilterColumn(null);
+                                      }}
+                                      className="px-2.5 py-1.5 border border-[#E9DFD4] rounded-lg text-xs font-medium text-[#5F6771] hover:bg-[#FAF4EE]"
+                                    >
+                                      Clear
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleRows.map((m, i) => (
+                    <tr
+                      key={m.mv_id ?? i}
+                      className={`${
+                        i % 2 === 0 ? "bg-white" : "bg-[#FDF9F4]"
+                      } border-b border-[#F2E7DC] hover:bg-[#FBE8D8]/40 transition-colors`}
+                    >
+                      {COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
+                        (col) => (
+                          <td
+                            key={col.key}
+                            className="px-3.5 py-2.5 whitespace-nowrap"
+                          >
+                            {col.colorScale ? (
+                              <span
+                                className={`${badgeClasses(col, m)} font-mono`}
+                              >
+                                {col.format(m)}
+                              </span>
+                            ) : (
+                              <span className="text-[#1E2227] font-mono">
+                                {col.format(m)}
+                              </span>
+                            )}
+                          </td>
+                        ),
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );
