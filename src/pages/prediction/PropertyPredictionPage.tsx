@@ -378,11 +378,10 @@ function ModelPicker({
             key={m}
             type="button"
             onClick={() => onSelectGnnModel(m)}
-            className={`py-2 px-3 rounded-xl border text-xs font-medium uppercase tracking-wider transition-all ${
-              gnnModel === m
+            className={`py-2 px-3 rounded-xl border text-xs font-medium uppercase tracking-wider transition-all ${gnnModel === m
                 ? "border-[#F1641D] bg-[#FAF4EE] text-[#F1641D] font-bold"
                 : "border-[#E9DFD4] text-[#6C737E] hover:border-[#F1641D]"
-            }`}
+              }`}
           >
             {m}
           </button>
@@ -422,13 +421,12 @@ function PropertyChecklist({
                     <div
                       key={prop.key}
                       onClick={() => !disabled && onToggle(prop.key)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
-                        disabled
+                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${disabled
                           ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                           : isChecked
                             ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227] cursor-pointer"
                             : "border-[#E9DFD4] text-[#6C737E] hover:border-[#F1641D] cursor-pointer"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2 truncate">
                         {isChecked ? (

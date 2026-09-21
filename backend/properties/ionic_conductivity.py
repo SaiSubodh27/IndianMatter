@@ -1,15 +1,14 @@
-import numpy as np
+import os
+import tempfile
 from typing import Any, Optional
 from pymatgen.core import Structure
 
 try:
     from backend.properties.base_property import BasePropertyCalculator, PropertyResult
+    from backend import model_service
 except ImportError:
     from properties.base_property import BasePropertyCalculator, PropertyResult
-
-# Boltzmann constant in eV/K
-KB = 8.617333262145e-5
-
+    import model_service
 
 class IonicConductivityCalculator(BasePropertyCalculator):
     def __init__(
@@ -36,48 +35,35 @@ class IonicConductivityCalculator(BasePropertyCalculator):
         settings = settings or {}
         target_temp_k = settings.get("temperature_k", 298.15)  # Default room temp (25°C)
         
-        display_name = (
-            getattr(model_adapter, "display_name", None) 
-            or getattr(model_adapter, "name", None) 
-            or "v5_base_model"
-        )
+        display_name = "IonCast-v5/v6 OBLiEx workflow"
 
-        if model_adapter is None:
-            return PropertyResult(
-                property_key=self.key,
-                property_name=self.name,
-                category=self.category,
-                value=None,
-                unit=self.unit,
-                source_model="N/A",
-                calculation_method="N/A",
-                status="failed",
-                warnings=["v5_base_model adapter is required for transport calculations."]
-            )
-
+        temp_path = None
         try:
-            # Dispatch prediction to v5_base_model adapter
-            if hasattr(model_adapter, "predict_ionic_transport"):
-                pred = model_adapter.predict_ionic_transport(structure, temperature=target_temp_k)
-            elif hasattr(model_adapter, "predict_structure"):
-                pred = model_adapter.predict_structure(structure)
-            else:
-                raise AttributeError(f"Adapter '{display_name}' missing transport prediction interface.")
+            if model_service.v5_base_models is None:
+                model_service.load_models()
 
-            # Extract or infer activation energy (Ea in eV) and pre-exponential factor (sigma_0)
-            activation_energy = pred.get("activation_energy_ev", pred.get("ea", 0.45))
-            conductivity_ms_cm = pred.get("ionic_conductivity_ms_cm", None)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".cif", mode="w", encoding="utf-8") as tmp:
+                tmp.write(structure.to(fmt="cif"))
+                temp_path = tmp.name
 
-            # Fallback Arrhenius calculation if direct conductivity isn't returned: sigma = (sigma_0 / T) * exp(-Ea / kBT)
-            if conductivity_ms_cm is None:
-                sigma_0 = pred.get("pre_exponential_factor", 1e5)  # mS*K/cm baseline
-                conductivity_ms_cm = (sigma_0 / target_temp_k) * np.exp(-activation_energy / (KB * target_temp_k))
+            pred = model_service.predict_from_cif(temp_path, target_temp_k)
+            if pred.get("status") != "success":
+                raise ValueError(pred.get("error", "IonCast prediction failed."))
+
+            conductivity_s_cm = float(pred["conductivity"])
+            conductivity_ms_cm = conductivity_s_cm * 1000.0
+            activation_energy = float(pred["Ea"])
 
             raw_details = {
-                "activation_energy_ev": float(activation_energy),
+                "activation_energy_ev": activation_energy,
+                "logA": float(pred.get("logA", 0.0)),
                 "temperature_k": float(target_temp_k),
-                "diffusivity_cm2_s": pred.get("diffusivity_cm2_s", None),
-                "carrier_concentration": pred.get("carrier_concentration", None)
+                "conductivity_s_cm": conductivity_s_cm,
+                "base_conductivity_s_cm": float(pred.get("base_conductivity", conductivity_s_cm)),
+                "corrected_conductivity_s_cm": float(pred.get("corrected_conductivity", conductivity_s_cm)),
+                "corrector_applied": bool(pred.get("corrector_applied")),
+                "corrector_log10_delta": float(pred.get("corrector_log10_delta", 0.0)),
+                "feature_coverage": pred.get("feature_coverage"),
             }
 
             return PropertyResult(
@@ -87,9 +73,10 @@ class IonicConductivityCalculator(BasePropertyCalculator):
                 value=float(conductivity_ms_cm),
                 unit=self.unit,
                 source_model=display_name,
-                calculation_method="v5_base_model_arrhenius",
+                calculation_method="obliex_cif_descriptors_v5_stack_v6_residual",
                 status="calculated",
                 inputs_used=["structure", f"temperature_{target_temp_k}K"],
+                warnings=pred.get("warnings", []),
                 raw_details=raw_details
             )
 
@@ -101,7 +88,10 @@ class IonicConductivityCalculator(BasePropertyCalculator):
                 value=None,
                 unit=self.unit,
                 source_model=display_name,
-                calculation_method="v5_base_model_arrhenius",
+                calculation_method="obliex_cif_descriptors_v5_stack_v6_residual",
                 status="failed",
                 warnings=[f"Ionic conductivity calculation failed: {str(e)}"]
             )
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)

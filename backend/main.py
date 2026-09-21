@@ -3,6 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from api.calculator_router import router as calculator_router
 
 # Ensure the backend directory is in the system path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -10,23 +11,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from routes import (
     auth_routes,
     user_routes,
-    predict_routes,
     oqmd,
     aflow,
     jarvis,
     database_routes,
     indianmatter,
-    prediction_pipeline_routes,
     cif_routes,
-    materials_routes
+    materials_routes,
 )
 from model_service import load_models
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load ML models (CHGNet, M3GNet, MACE, Surrogates) on startup
-    print("[startup] Initializing ML models and property calculators...")
+    print("[startup] Loading global ML models...")
     load_models()
     
     mp_key = os.getenv("MP_API_KEY")
@@ -55,8 +53,6 @@ app.include_router(auth_routes.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(user_routes.router, prefix="/api/users", tags=["Users"])
 
 # Prediction & Inference Pipeline Routes
-app.include_router(predict_routes.router)  # Handles /api/predict/cif-file & /api/predict/cif-string
-app.include_router(prediction_pipeline_routes.router, tags=["Prediction Pipeline"])
 app.include_router(cif_routes.router, prefix="/api/cif", tags=["CIF Generator & Analyzer"])
 
 # External Databases & Internal Datasets
@@ -66,6 +62,11 @@ app.include_router(aflow.router, prefix="/api/aflow", tags=["AFLOW"])
 app.include_router(jarvis.router, prefix="/api/jarvis", tags=["JARVIS"])
 app.include_router(database_routes.router, prefix="/api/dataset", tags=["Dataset"])
 app.include_router(indianmatter.router, prefix="/api/indianmatter", tags=["IndianMatter DB"])
+
+# ---------------------------------------------------------
+# CALCULATIONS ROUTER
+# ---------------------------------------------------------
+app.include_router(calculator_router)
 
 
 @app.get("/")

@@ -1,4 +1,5 @@
 import os
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", "1")
 import pickle
 import re
 import joblib
@@ -7,6 +8,11 @@ import numpy as np
 import math
 import warnings
 warnings.filterwarnings('ignore')
+
+try:
+    from model_paths import resolve_pretrained_models_dir
+except ImportError:
+    from .model_paths import resolve_pretrained_models_dir
 
 try:
     from pymatgen.core import Structure
@@ -40,8 +46,15 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 v5_base_models = None
+v5_mlp_models = None
+v5_meta_model = None
+v5_model_a = None
+v5_quantile_transformer = None
+v6_corrector_model = None
 
 expected_cols_base = None
+expected_cols_a = None
+expected_cols_corrector = None
 canonical_cols = []
 
 # Set by _probe_log_a_model() during load_models(). True when the bundled log10(A)
@@ -55,7 +68,7 @@ LOG_A_MODEL_IS_CONSTANT = False
 TARGET_SCALE = 10.0
 EA_CLIP_EV = (0.005, 5.0)
 
-MODEL_VERSION = "v5_stacking_Ea + v2_model_A"
+MODEL_VERSION = "IonCast-v5-stacking-Ea+A + v6-residual-corrector"
 SUPPORTED_TEMPERATURE_RANGE_K = (250, 1000)
 
 
@@ -139,49 +152,59 @@ def _probe_log_a_model(model, columns) -> bool:
 
 
 def load_models():
-    """Load only the v5 base learners on server startup."""
-    global v5_base_models, expected_cols_base
+    """Load the deployed IonCast v5 stack and optional v6 residual corrector."""
+    global v5_base_models, v5_mlp_models, v5_meta_model, v5_model_a
+    global v5_quantile_transformer, v6_corrector_model
+    global expected_cols_base, expected_cols_a, expected_cols_corrector
+    global LOG_A_MODEL_IS_CONSTANT
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    candidate_dirs = [
-        os.path.join(base_dir, "pretrained_models"),
-        os.path.join(base_dir, "IonCastBackup", "pretrained_models"),
-        os.path.join(base_dir, "..", "final_models", "pretrained_models"),
-        os.path.join(base_dir, "..", "pretrained_models"),
-        os.path.join(base_dir, "Surrogative_models"),
-    ]
-
-    models_dir = None
-    for c_dir in candidate_dirs:
-        norm_dir = os.path.abspath(c_dir)
-        if os.path.exists(os.path.join(norm_dir, "v5_base_models.pkl")):
-            models_dir = norm_dir
-            break
-
-    if not models_dir:
-        models_dir = os.path.abspath(candidate_dirs[0])
+    models_dir = resolve_pretrained_models_dir("v5_base_models.pkl")
 
     print(f"\n[model_service] Loading ML models from: {models_dir}")
 
     try:
         v5_base_models = joblib.load(os.path.join(models_dir, "v5_base_models.pkl"))
         print(f"  OK v5_base_models loaded  ({len(v5_base_models)} base learners: {list(v5_base_models.keys())})")
+        v5_mlp_models = joblib.load(os.path.join(models_dir, "v5_mlp_models.pkl"))
+        v5_meta_model = joblib.load(os.path.join(models_dir, "v5_meta_model.pkl"))
+        v5_quantile_transformer = joblib.load(os.path.join(models_dir, "v5_quantile_transformer.pkl"))
+        v5_model_a = joblib.load(os.path.join(models_dir, "v5_model2_A.pkl"))
+        print(f"  OK v5 MLP/meta/A models loaded ({len(v5_mlp_models)} MLP learners)")
+
+        corrector_path = os.path.join(models_dir, "v6_corrector_model.pkl")
+        if os.path.exists(corrector_path):
+            v6_corrector_model = joblib.load(corrector_path)
+            print("  OK v6 residual corrector loaded")
+        else:
+            v6_corrector_model = None
+            print("  WARN v6 residual corrector not found; serving base v5 conductivity")
 
         # Load expected feature columns from trained artifacts.
         # The quantile transformer was fitted on the training DataFrame, so its
         # feature_names_in_ is the authoritative name list *and* column order;
         # LightGBM stores the same list with spaces rewritten to underscores.
-        expected_cols_base = getattr(v5_base_models.get("lgb"), "feature_name_", None)
+        expected_cols_base = getattr(v5_quantile_transformer, "feature_names_in_", None)
+        if expected_cols_base is None:
+            expected_cols_base = getattr(v5_base_models.get("lgb"), "feature_name_", None)
         if expected_cols_base is None and os.path.exists(os.path.join(models_dir, 'base_cols.pkl')):
             with open(os.path.join(models_dir, 'base_cols.pkl'), 'rb') as f:
                 expected_cols_base = pickle.load(f)
 
         if expected_cols_base is not None:
             expected_cols_base = list(expected_cols_base)
+
+        expected_cols_a = _feature_columns_for_model(v5_model_a, expected_cols_base)
+        expected_cols_corrector = (
+            _feature_columns_for_model(v6_corrector_model, expected_cols_base)
+            if v6_corrector_model is not None else []
+        )
+        LOG_A_MODEL_IS_CONSTANT = _probe_log_a_model(v5_model_a, expected_cols_a)
+
         global canonical_cols
         canonical_cols = list(expected_cols_base or [])
 
         print(f"  OK Feature columns loaded (base: {len(expected_cols_base) if expected_cols_base else 'N/A'})")
+        print(f"  OK Feature columns loaded (A: {len(expected_cols_a) if expected_cols_a else 'N/A'}, corrector: {len(expected_cols_corrector) if expected_cols_corrector else 'N/A'})")
         print("[model_service SUCCESS] All models loaded successfully!\n")
 
     except Exception as e:
@@ -193,6 +216,23 @@ def extract_features(cif_path: str) -> pd.DataFrame:
     comp = structure.composition
 
     feats = {}
+
+    def add_feature_aliases(label: str, value):
+        """Store matminer labels under the naming variants used by v5/v6."""
+        feats[label] = value
+        feats[label.replace(" ", "_")] = value
+        if label.startswith("MagpieData "):
+            parts = label.split()
+            if len(parts) >= 3:
+                stat = parts[1].lower()
+                prop = "_".join(parts[2:])
+                for prefix in ("magpie_MagpieData", "ep_MagpieData"):
+                    feats[f"{prefix}_{stat}_{prop}"] = value
+                    feats[f"{prefix}_{stat.capitalize()}_{prop}"] = value
+            feats['magpie_' + label] = value
+            feats['magpie_' + label.replace(" ", "_")] = value
+            feats['ep_' + label] = value
+            feats['ep_' + label.replace(" ", "_")] = value
 
     # Composition basics
     try:
@@ -212,10 +252,7 @@ def extract_features(cif_path: str) -> pd.DataFrame:
     try:
         ep = ElementProperty.from_preset('magpie')
         for label, value in zip(ep.feature_labels(), ep.featurize(comp)):
-            feats['magpie_' + label] = value
-            feats['ep_MagpieData_' + label] = value
-            feats['MagpieData ' + label] = value
-            feats[label] = value
+            add_feature_aliases(label, value)
     except Exception as e:
         print(f"  MAGPIE featurization warning: {e}")
 
@@ -227,8 +264,9 @@ def extract_features(cif_path: str) -> pd.DataFrame:
             ('ion', IonProperty()),
         ]:
             for label, value in zip(featurizer.feature_labels(), featurizer.featurize(comp)):
-                feats[label] = value
+                add_feature_aliases(label, value)
                 feats[f'{name}_{label}'] = value
+                feats[f'{name}_{label.replace(" ", "_")}'] = value
     except Exception as e:
         print(f"  Additional composition feature warning: {e}")
 
@@ -484,7 +522,7 @@ def classify_material(composition: str, structure=None) -> dict:
 
 
 def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
-    if v5_base_models is None:
+    if v5_base_models is None or v5_meta_model is None or v5_model_a is None:
         return {
             "status": "model_not_loaded",
             "error": "Models not loaded. Check server startup logs.",
@@ -586,21 +624,46 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
             print(f"  WARN Ea model missing {len(missing_base)} feature(s); zero-filling to satisfy model contract: {missing_base[:10]}")
 
         base_predictions = []
-        for model in v5_base_models.values():
+        model_outputs = {}
+        for name, model in v5_base_models.items():
             model_cols = _feature_columns_for_model(model, expected_cols_base)
-            base_predictions.append(float(model.predict(_align_features(df_raw, model_cols))[0]))
+            single_pred = float(model.predict(_align_features(df_raw, model_cols))[0])
+            base_predictions.append(single_pred)
+            model_outputs[f"base_{name}"] = single_pred
+
+        if v5_quantile_transformer is not None and v5_mlp_models:
+            qt_cols = _feature_columns_for_model(v5_quantile_transformer, expected_cols_base)
+            X_qt = v5_quantile_transformer.transform(_align_features(df_raw, qt_cols))
+            for name, model in v5_mlp_models.items():
+                single_pred = float(model.predict(X_qt)[0])
+                base_predictions.append(single_pred)
+                model_outputs[f"mlp_{name}"] = single_pred
 
         if not base_predictions:
             raise ValueError("v5_base_models contains no predictors")
 
-        pred_log_target = float(np.mean(base_predictions))
+        base_stack = np.asarray(base_predictions, dtype=float).reshape(1, -1)
+        pred_log_target = float(v5_meta_model.predict(base_stack)[0])
         pred_Ea = float(np.clip(np.expm1(pred_log_target) / TARGET_SCALE,
                                 EA_CLIP_EV[0], EA_CLIP_EV[1]))
 
+        df_a = _align_features(df_raw, expected_cols_a)
+        pred_A = float(v5_model_a.predict(df_a)[0])
+
         k_B = 8.617333262145e-5
-        pred_A = 0.0
-        A_real = 10 ** pred_A
-        conductivity = A_real * math.exp(-pred_Ea / (k_B * temperature))
+        log10_base_conductivity = pred_A - (pred_Ea / (k_B * temperature * math.log(10)))
+        base_conductivity = 10 ** log10_base_conductivity if log10_base_conductivity > -300 else 0.0
+
+        correction_log10 = 0.0
+        corrected_conductivity = base_conductivity
+        corrector_applied = False
+        if v6_corrector_model is not None and expected_cols_corrector:
+            correction_log10 = float(v6_corrector_model.predict(_align_features(df_raw, expected_cols_corrector))[0])
+            corrected_log10 = log10_base_conductivity + correction_log10
+            corrected_conductivity = 10 ** corrected_log10 if corrected_log10 > -300 else 0.0
+            corrector_applied = True
+
+        conductivity = corrected_conductivity
 
         log_cond = math.log10(conductivity) if conductivity > 0 else -10
         cond_score = max(0, min(100, (log_cond + 8) * 12.5))
@@ -659,6 +722,15 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
                 f"The bundled log10(A) branch is constant at {pred_A:.2f} for this v5 stack, so the absolute conductivity "
                 f"value is a fixed-prefactor screening estimate. Use Ea as the primary material comparison metric."
             )
+        if corrector_applied:
+            warnings_out.append(
+                f"v6 OBLiEx residual correction was applied as a {correction_log10:.4g} log10(S/cm) adjustment "
+                f"to the v5 Arrhenius conductivity."
+            )
+        else:
+            warnings_out.append(
+                "v6 OBLiEx residual corrector was unavailable, so final conductivity equals the base v5 Arrhenius estimate."
+            )
         if PredictionValidator is not None:
             for label, value, validator in [
                 ("Ea", pred_Ea, PredictionValidator.validate_ea),
@@ -674,7 +746,8 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
         temperature_series = [
             {
                 "temperature_k": temp,
-                "conductivity_s_cm": float(f"{(10 ** pred_A) * math.exp(-pred_Ea / (k_B * temp)):.4e}"),
+                "base_conductivity_s_cm": float(f"{(10 ** (pred_A - pred_Ea / (k_B * temp * math.log(10)))):.4e}"),
+                "corrected_conductivity_s_cm": float(f"{(10 ** (pred_A - pred_Ea / (k_B * temp * math.log(10)) + correction_log10)):.4e}"),
             }
             for temp in temperatures
         ]
@@ -692,6 +765,10 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
             "Ea": float(pred_Ea),
             "logA": float(pred_A),
             "conductivity": float(f"{conductivity:.12e}"),
+            "base_conductivity": float(f"{base_conductivity:.12e}"),
+            "corrected_conductivity": float(f"{corrected_conductivity:.12e}"),
+            "corrector_applied": corrector_applied,
+            "corrector_log10_delta": float(correction_log10),
             "temperature_k": temperature,
             "composition": composition,
             "classification": crystal_type,
@@ -718,6 +795,7 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
             "supported_temperature_range_k": list(SUPPORTED_TEMPERATURE_RANGE_K),
             "log_a_is_constant": LOG_A_MODEL_IS_CONSTANT,
             "temperature_series": temperature_series,
+            "model_outputs": model_outputs,
             "warnings": warnings_out,
             "model_version": MODEL_VERSION,
             "source": MODEL_VERSION,
@@ -735,6 +813,14 @@ def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
                 "conductivity_s_cm": {
                     "value": _format_float_for_payload(conductivity),
                     "unit": "S/cm",
+                },
+                "base_conductivity_s_cm": {
+                    "value": _format_float_for_payload(base_conductivity),
+                    "unit": "S/cm",
+                },
+                "corrector_log10_delta": {
+                    "value": _format_float_for_payload(correction_log10),
+                    "unit": "log10(S/cm)",
                 },
             },
         }
