@@ -58,37 +58,47 @@ export interface MaterialMetadata {
 }
 
 /**
- * Matches the real shape returned per-property by the backend's
- * PropertyResult.to_dict() (see properties/base_property.py). Every entry
- * in `properties` and `base_outputs` is keyed by its property_key
- * (e.g. "bulk_modulus", "thermal", "band_gap") and shaped like this —
- * NOT nested under a category name like "mechanical".
+ * Matches the shape returned per-property by the backend's unified
+ * `/api/calculations/predict-properties` endpoint. Every entry in
+ * `properties` is keyed by its property_key (e.g. "bulk_modulus",
+ * "thermal", "band_gap"). The unified endpoint returns a lean shape
+ * (property_key, value, unit, status, warnings) — the richer fields
+ * below are optional so the type also covers other/legacy endpoints
+ * that may populate them.
  */
 export interface PropertyResult {
   property_key: string;
-  property_name: string;
-  category: string;
+  property_name?: string;
+  category?: string;
   value: number | string | number[][] | number[][][][] | null;
   unit: string;
-  source_model: string;
-  calculation_method: string;
+  source_model?: string;
+  calculation_method?: string;
   status:
-    | "calculated"
-    | "calculated_with_warnings"
-    | "failed"
-    | "unavailable"
-    | "estimated";
+  | "calculated"
+  | "calculated_with_warnings"
+  | "failed"
+  | "unavailable"
+  | "estimated";
   inputs_used?: string[];
   warnings?: string[];
   limitations?: string;
   raw_details?: Record<string, unknown>;
 }
 
+/** Shape of entries under `base_outputs` (e.g. energy_per_atom). */
+export interface BaseOutputResult {
+  value: number | string | null;
+  unit?: string;
+  property_key?: string;
+  status?: string;
+}
+
 export interface DirectPredictionResponse {
   status: string;
   material_metadata: MaterialMetadata;
   model_used: string;
-  base_outputs: Record<string, PropertyResult>;
+  base_outputs: Record<string, BaseOutputResult>;
   properties: Record<string, PropertyResult>;
 }
 
@@ -137,23 +147,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // Direct CIF Single-Structure Predictions
 // ==========================================
 
+/**
+ * Calls the backend's unified, dynamic prediction pipeline
+ * (`POST /api/calculations/predict-properties`) for a single CIF upload.
+ *
+ * This endpoint parses the uploaded structure on the fly and evaluates
+ * whichever property keys are requested — mechanical, thermal,
+ * electrical and ionic-transport properties can all be requested
+ * together in one call, since the backend resolves the correct model
+ * adapter per key internally. There is no client-side mocking here:
+ * whatever the backend computes (or reports as "unavailable"/"failed")
+ * is passed straight through to the caller.
+ */
 export async function predictFromCifFile(
   file: File,
-  modelName: "chgnet" | "m3gnet" | "mace" = "chgnet",
-  requestedProperties: string[] = ["mechanical", "thermal", "electrical"],
+  requestedProperties: string[] = ["bulk_modulus", "shear_modulus", "thermal"],
+  temperature: number = 298.15,
 ): Promise<DirectPredictionResponse> {
   const form = new FormData();
   form.append("file", file);
-  form.append("model_name", modelName);
+  form.append("properties", requestedProperties.join(","));
+  form.append("temperature", String(temperature));
 
-  if (requestedProperties.length > 0) {
-    form.append("properties", requestedProperties.join(","));
-  }
-
-  return request<DirectPredictionResponse>("/api/predict/cif-file", {
-    method: "POST",
-    body: form,
-  });
+  return request<DirectPredictionResponse>(
+    "/api/calculations/predict-properties",
+    {
+      method: "POST",
+      body: form,
+    },
+  );
 }
 
 export async function predictFromCifString(

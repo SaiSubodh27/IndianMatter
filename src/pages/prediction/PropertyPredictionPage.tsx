@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Activity,
   Play,
@@ -17,9 +17,10 @@ import {
 
 // ---------------------------------------------------------------------------
 // Property catalogue — one entry per REAL backend property key.
-// `requiresModel` determines which model adapter must run this property:
-//   "gnn"  -> CHGNet / M3GNet / MACE interatomic potential
-//   "base" -> the ionic-transport surrogate (v5 base model), not a GNN
+// `requiresModel` is informational only (shown as a badge); the unified
+// backend endpoint resolves the right model adapter per key internally,
+// so mechanical/thermal/electronic/ionic properties can all be requested
+// together in a single call.
 // ---------------------------------------------------------------------------
 
 type ModelRequirement = "gnn" | "base";
@@ -166,8 +167,163 @@ const CATEGORY_ORDER = [
   "Ionic Transport",
 ];
 
-type GnnModel = "chgnet" | "m3gnet" | "mace";
-const BASE_MODEL_KEY = "base_model"; // sent to backend when ionic properties are requested
+const MODEL_BADGE: Record<ModelRequirement, string> = {
+  gnn: "GNN",
+  base: "Ionic Surrogate",
+};
+
+// ---------------------------------------------------------------------------
+// 3D structure viewer (3Dmol.js), rendering the actual uploaded CIF —
+// styled in the spirit of the Materials Project crystal structure viewer.
+// ---------------------------------------------------------------------------
+
+declare global {
+  interface Window {
+    $3Dmol?: any;
+  }
+}
+
+const THREE_DMOL_SRC =
+  "https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js";
+
+let threeDMolLoadPromise: Promise<any> | null = null;
+
+function loadThreeDMol(): Promise<any> {
+  if (window.$3Dmol) return Promise.resolve(window.$3Dmol);
+  if (threeDMolLoadPromise) return threeDMolLoadPromise;
+
+  threeDMolLoadPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${THREE_DMOL_SRC}"]`,
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.$3Dmol));
+      existing.addEventListener("error", () =>
+        reject(new Error("Failed to load 3Dmol.js")),
+      );
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = THREE_DMOL_SRC;
+    script.async = true;
+    script.onload = () => resolve(window.$3Dmol);
+    script.onerror = () => reject(new Error("Failed to load 3Dmol.js"));
+    document.body.appendChild(script);
+  });
+
+  return threeDMolLoadPromise;
+}
+
+function useCifText(file: File | null) {
+  const [cifText, setCifText] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setCifText(null);
+      return;
+    }
+    let cancelled = false;
+    file
+      .text()
+      .then((text) => {
+        if (!cancelled) setCifText(text);
+      })
+      .catch(() => {
+        if (!cancelled) setCifText(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  return cifText;
+}
+
+function StructureViewer({ cifText }: { cifText: string | null }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<any>(null);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
+
+  useEffect(() => {
+    if (!cifText || !containerRef.current) {
+      setStatus("idle");
+      return;
+    }
+
+    let cancelled = false;
+    setStatus("loading");
+
+    loadThreeDMol()
+      .then(($3Dmol) => {
+        if (cancelled || !containerRef.current) return;
+        containerRef.current.innerHTML = "";
+
+        const viewer = $3Dmol.createViewer(containerRef.current, {
+          backgroundColor: "white",
+        });
+        viewerRef.current = viewer;
+
+        viewer.addModel(cifText, "cif");
+        viewer.setStyle(
+          {},
+          { sphere: { scale: 0.28 }, stick: { radius: 0.1 } },
+        );
+        try {
+          viewer.addUnitCell();
+        } catch {
+          // unit-cell overlay is best-effort; some CIFs omit full symmetry
+        }
+        viewer.zoomTo();
+        viewer.render();
+        if (!cancelled) setStatus("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("error");
+      });
+
+    return () => {
+      cancelled = true;
+      if (viewerRef.current) {
+        try {
+          viewerRef.current.clear();
+        } catch {
+          // no-op
+        }
+        viewerRef.current = null;
+      }
+    };
+  }, [cifText]);
+
+  if (!cifText) {
+    return (
+      <div className="text-center space-y-2 p-4">
+        <Layers className="mx-auto text-[#F1641D]" size={32} />
+        <p className="text-xs font-medium text-[#1E2227]">
+          Upload a CIF file to preview the 3D crystal structure.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full relative">
+      <div ref={containerRef} className="w-full h-full" />
+      {status === "loading" && (
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-[#6C737E] bg-white/70">
+          Loading structure viewer…
+        </div>
+      )}
+      {status === "error" && (
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-red-600 bg-white/90 px-4 text-center">
+          Couldn't load the 3D structure viewer. Check your network
+          connection and try again.
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -175,7 +331,6 @@ const BASE_MODEL_KEY = "base_model"; // sent to backend when ionic properties ar
 
 export default function PropertyPredictionPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [gnnModel, setGnnModel] = useState<GnnModel>("chgnet");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([
     "bulk_modulus",
     "shear_modulus",
@@ -185,24 +340,12 @@ export default function PropertyPredictionPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedRequirements = new Set(
-    selectedKeys.map((k) => PROPERTY_MAP[k]?.requiresModel).filter(Boolean),
-  );
-  const usesIonicModel = selectedRequirements.has("base");
-  const usesGnnModel = selectedRequirements.has("gnn");
+  const cifText = useCifText(file);
 
   const toggleProperty = (key: string) => {
     setSelectedKeys((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     );
-  };
-
-  const isPropertyDisabled = (prop: PropertyOption) => {
-    // Mutually exclusive: a GNN-model run and a base-model run can't happen
-    // in the same request, since the backend resolves one adapter per call.
-    if (usesIonicModel && prop.requiresModel === "gnn") return true;
-    if (usesGnnModel && prop.requiresModel === "base") return true;
-    return false;
   };
 
   const handlePredict = async (event: FormEvent<HTMLFormElement>) => {
@@ -220,10 +363,11 @@ export default function PropertyPredictionPage() {
     setError(null);
     setResult(null);
 
-    const effectiveModel = usesIonicModel ? BASE_MODEL_KEY : gnnModel;
-
     try {
-      const res = await predictFromCifFile(file, effectiveModel, selectedKeys);
+      // The unified backend endpoint resolves whichever model adapters
+      // (mechanical / thermal / electrical / ionic) each requested
+      // property needs — no client-side model routing required.
+      const res = await predictFromCifFile(file, selectedKeys);
       setResult(res);
     } catch (requestError) {
       setError(
@@ -252,15 +396,8 @@ export default function PropertyPredictionPage() {
 
             <FileInput file={file} onChange={setFile} />
 
-            <ModelPicker
-              usesIonicModel={usesIonicModel}
-              gnnModel={gnnModel}
-              onSelectGnnModel={setGnnModel}
-            />
-
             <PropertyChecklist
               selectedKeys={selectedKeys}
-              isPropertyDisabled={isPropertyDisabled}
               onToggle={toggleProperty}
             />
 
@@ -288,7 +425,7 @@ export default function PropertyPredictionPage() {
         </div>
 
         <div className="lg:col-span-7">
-          <ResultsPanel result={result} loading={loading} />
+          <ResultsPanel result={result} loading={loading} cifText={cifText} />
         </div>
       </div>
     </div>
@@ -309,8 +446,7 @@ function PageHeader() {
         Property Prediction Engine
       </h1>
       <p className="text-sm text-[#6C737E] max-w-2xl mt-1">
-        Submit a CIF structure to run model inference using CHGNet, M3GNet, or
-        MACE interatomic potentials, or the ionic-transport surrogate model.
+        Submit a CIF structure to calculate desired target properties using optimized model pipelines.
       </p>
     </div>
   );
@@ -340,64 +476,11 @@ function FileInput({
   );
 }
 
-function ModelPicker({
-  usesIonicModel,
-  gnnModel,
-  onSelectGnnModel,
-}: {
-  usesIonicModel: boolean;
-  gnnModel: GnnModel;
-  onSelectGnnModel: (m: GnnModel) => void;
-}) {
-  if (usesIonicModel) {
-    return (
-      <div className="space-y-1.5">
-        <label className="block text-xs font-semibold text-[#1E2227]">
-          Prediction Model
-        </label>
-        <div className="py-2 px-3 rounded-xl border border-[#F1641D] bg-[#FAF4EE] text-[#F1641D] text-xs font-bold uppercase tracking-wider text-center">
-          Base Model (Ionic Transport Surrogate)
-        </div>
-        <p className="text-[11px] text-[#8C929C] leading-snug">
-          Ionic conductivity properties use a dedicated surrogate model, not an
-          interatomic potential — the GNN picker is hidden while these are
-          selected.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-semibold text-[#1E2227]">
-        ML Interatomic Model Architecture
-      </label>
-      <div className="grid grid-cols-3 gap-2">
-        {(["chgnet", "m3gnet", "mace"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => onSelectGnnModel(m)}
-            className={`py-2 px-3 rounded-xl border text-xs font-medium uppercase tracking-wider transition-all ${gnnModel === m
-                ? "border-[#F1641D] bg-[#FAF4EE] text-[#F1641D] font-bold"
-                : "border-[#E9DFD4] text-[#6C737E] hover:border-[#F1641D]"
-              }`}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PropertyChecklist({
   selectedKeys,
-  isPropertyDisabled,
   onToggle,
 }: {
   selectedKeys: string[];
-  isPropertyDisabled: (prop: PropertyOption) => boolean;
   onToggle: (key: string) => void;
 }) {
   return (
@@ -416,16 +499,13 @@ function PropertyChecklist({
               <div className="space-y-1.5">
                 {props.map((prop) => {
                   const isChecked = selectedKeys.includes(prop.key);
-                  const disabled = isPropertyDisabled(prop);
                   return (
                     <div
                       key={prop.key}
-                      onClick={() => !disabled && onToggle(prop.key)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${disabled
-                          ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                          : isChecked
-                            ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227] cursor-pointer"
-                            : "border-[#E9DFD4] text-[#6C737E] hover:border-[#F1641D] cursor-pointer"
+                      onClick={() => onToggle(prop.key)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all cursor-pointer ${isChecked
+                        ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227]"
+                        : "border-[#E9DFD4] text-[#6C737E] hover:border-[#F1641D]"
                         }`}
                     >
                       <div className="flex items-center gap-2 truncate">
@@ -444,9 +524,14 @@ function PropertyChecklist({
                           {prop.title}
                         </span>
                       </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[#8C929C] bg-white/70 px-2 py-0.5 rounded border border-[#EFE5DC] shrink-0">
-                        {prop.unit || "—"}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[9px] uppercase tracking-wider text-[#8C929C] bg-white/70 px-1.5 py-0.5 rounded border border-[#EFE5DC]">
+                          {MODEL_BADGE[prop.requiresModel]}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider text-[#8C929C] bg-white/70 px-2 py-0.5 rounded border border-[#EFE5DC]">
+                          {prop.unit || "—"}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -462,9 +547,11 @@ function PropertyChecklist({
 function ResultsPanel({
   result,
   loading,
+  cifText,
 }: {
   result: DirectPredictionResponse | null;
   loading: boolean;
+  cifText: string | null;
 }) {
   if (loading) {
     return (
@@ -484,17 +571,18 @@ function ResultsPanel({
     );
   }
 
-  return <PredictionResultView result={result} />;
+  return <PredictionResultView result={result} cifText={cifText} />;
 }
 
 function PredictionResultView({
   result,
+  cifText,
 }: {
   result: DirectPredictionResponse;
+  cifText: string | null;
 }) {
   const { material_metadata, base_outputs, properties, model_used } = result;
   const energyPerAtom = base_outputs?.energy_per_atom?.value;
-
   const returnedKeys = Object.keys(properties ?? {});
 
   return (
@@ -502,6 +590,7 @@ function PredictionResultView({
       className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-card border border-[#EFE5DC] space-y-6"
       aria-label="Prediction result"
     >
+      {/* Header Info */}
       <div className="border-b border-[#F2E7DC] pb-4 flex justify-between items-start">
         <div>
           <h2 className="font-headline font-bold text-2xl text-[#1E2227]">
@@ -509,7 +598,7 @@ function PredictionResultView({
           </h2>
           <p className="text-xs text-[#8C929C] mt-1 flex items-center gap-2">
             <Cpu size={12} className="text-[#F1641D]" />
-            Model:{" "}
+            Pipeline:{" "}
             <span className="uppercase font-semibold text-[#1E2227]">
               {model_used}
             </span>{" "}
@@ -522,6 +611,22 @@ function PredictionResultView({
         </span>
       </div>
 
+      {/* 3D Crystal Structure Display Section — renders the actual uploaded CIF */}
+      <div className="bg-[#FAF4EE] rounded-2xl p-5 border border-[#EFE5DC] space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-bold text-[#1E2227] uppercase tracking-wider">
+            Crystal Lattice Visualization
+          </span>
+          <span className="text-[10px] text-[#8C929C]">
+            Interactive 3D Unit Cell
+          </span>
+        </div>
+        <div className="w-full h-72 bg-white rounded-xl border border-[#EFE5DC] overflow-hidden relative flex items-center justify-center">
+          <StructureViewer cifText={cifText} />
+        </div>
+      </div>
+
+      {/* Potential Energy Banner */}
       {typeof energyPerAtom === "number" && (
         <div className="bg-[#FAF4EE] rounded-2xl p-4 border border-[#EFE5DC] flex justify-between items-center">
           <div>
@@ -536,34 +641,12 @@ function PredictionResultView({
         </div>
       )}
 
+      {/* Predicted Properties Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {returnedKeys.map((key) => {
           const prop = properties[key];
           const display = PROPERTY_MAP[key];
           if (!prop || !display) return null;
-
-          if (prop.status === "failed") {
-            return (
-              <PropertyCard
-                key={key}
-                title={display.title}
-                category={display.category}
-                value="Failed"
-                warning={prop.warnings?.[0]}
-              />
-            );
-          }
-          if (prop.status === "unavailable") {
-            return (
-              <PropertyCard
-                key={key}
-                title={display.title}
-                category={display.category}
-                value="Not available"
-                warning={prop.warnings?.[0]}
-              />
-            );
-          }
 
           return (
             <PropertyCard
@@ -571,8 +654,13 @@ function PredictionResultView({
               title={display.title}
               category={display.category}
               value={display.format(prop.value, prop.unit)}
+              status={prop.status}
               warning={
-                prop.status === "estimated" ? prop.warnings?.[0] : undefined
+                prop.status === "estimated" ||
+                  prop.status === "calculated_with_warnings" ||
+                  prop.status === "failed"
+                  ? prop.warnings?.[0]
+                  : undefined
               }
             />
           );
@@ -586,19 +674,28 @@ function PropertyCard({
   title,
   value,
   category,
+  status,
   warning,
 }: {
   title: string;
   value: string;
   category: string;
+  status?: string;
   warning?: string;
 }) {
   return (
     <div className="bg-[#FAF4EE] rounded-2xl p-5 border border-[#EFE5DC] flex flex-col justify-between">
       <div>
-        <span className="block text-[10px] font-bold text-[#8C929C] uppercase tracking-wider">
-          {category}
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="block text-[10px] font-bold text-[#8C929C] uppercase tracking-wider">
+            {category}
+          </span>
+          {status && status !== "calculated" && (
+            <span className="text-[9px] uppercase tracking-wider text-[#F1641D] bg-white px-1.5 py-0.5 rounded border border-[#EFE5DC]">
+              {status.replace(/_/g, " ")}
+            </span>
+          )}
+        </div>
         <span className="block text-xs font-bold text-[#1E2227] mt-1">
           {title}
         </span>
