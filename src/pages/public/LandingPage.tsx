@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   ExternalLink,
@@ -8,6 +8,8 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  LogOut,
   Zap,
   Mail,
   MapPin,
@@ -20,6 +22,7 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 /* ─────────────────────────────────────────────────────────────
    DATA
@@ -160,7 +163,11 @@ const features = [
    COMPONENT
 ───────────────────────────────────────────────────────────── */
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState("home");
   const [exploreIdx, setExploreIdx] = useState(2); // LiCoO2 centered
   const [resourceIdx, setResourceIdx] = useState(0);
@@ -174,6 +181,55 @@ export default function LandingPage() {
     "idle" | "loading" | "success" | "error"
   >("idle");
 
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [userMenuOpen]);
+
+  // Ultra-smooth cross-browser scrolling engine using requestAnimationFrame
+  // Guarantees smooth easing animation even if the user's OS or browser has reduced motion or native smooth scroll disabled
+  const smoothScrollTo = (targetPosition: number, duration = 650) => {
+    const startPosition =
+      window.scrollY ||
+      window.pageYOffset ||
+      document.documentElement.scrollTop ||
+      0;
+    const distance = targetPosition - startPosition;
+    if (Math.abs(distance) < 2) return;
+
+    let startTime: number | null = null;
+
+    // Cubic ease-in-out easing curve for fluid, natural acceleration and deceleration
+    const easeInOutCubic = (t: number): number => {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    const animationStep = (currentTime: number) => {
+      if (!startTime) startTime = currentTime;
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = easeInOutCubic(progress);
+
+      window.scrollTo(0, startPosition + distance * ease);
+
+      if (progress < 1) {
+        window.requestAnimationFrame(animationStep);
+      }
+    };
+
+    window.requestAnimationFrame(animationStep);
+  };
+
   // Dedicated smooth scroll function ensuring fixed navbar offset (72px)
   const scrollToSection = (e?: React.MouseEvent, targetId?: string) => {
     if (e) e.preventDefault();
@@ -181,12 +237,18 @@ export default function LandingPage() {
     const el = document.getElementById(id);
     if (el) {
       const navOffset = 72;
+      const currentScroll =
+        window.scrollY ||
+        window.pageYOffset ||
+        document.documentElement.scrollTop ||
+        0;
       const elementPosition = el.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - navOffset;
-      window.scrollTo({
-        top: Math.max(0, offsetPosition),
-        behavior: "smooth",
-      });
+      const targetPosition = Math.max(
+        0,
+        elementPosition + currentScroll - navOffset,
+      );
+
+      smoothScrollTo(targetPosition, 650);
       window.history.pushState(null, "", `#${id}`);
       setActiveSection(id);
     }
@@ -202,15 +264,19 @@ export default function LandingPage() {
         if (el) {
           const timer = setTimeout(() => {
             const navOffset = 72;
+            const currentScroll =
+              window.scrollY ||
+              window.pageYOffset ||
+              document.documentElement.scrollTop ||
+              0;
             const elementPosition = el.getBoundingClientRect().top;
-            const offsetPosition =
-              elementPosition + window.pageYOffset - navOffset;
-            window.scrollTo({
-              top: Math.max(0, offsetPosition),
-              behavior: "smooth",
-            });
+            const targetPosition = Math.max(
+              0,
+              elementPosition + currentScroll - navOffset,
+            );
+            smoothScrollTo(targetPosition, 650);
             setActiveSection(id);
-          }, 100);
+          }, 150);
           return () => clearTimeout(timer);
         }
       }
@@ -341,23 +407,122 @@ export default function LandingPage() {
             >
               <Sun size={17} />
             </button>
-            <Link
-              to="/signin"
-              className="hidden sm:inline-flex items-center gap-2 text-[14px] font-medium px-5 py-2.5 rounded-full transition-all duration-120 active:scale-95"
-              style={{
-                backgroundColor: "#D47E30",
-                color: "#FFFFFF",
-                boxShadow: "0 4px 14px rgba(212,126,48,0.32)",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = "#B8671E")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "#D47E30")
-              }
-            >
-              Sign In <ArrowRight size={14} />
-            </Link>
+            {isAuthenticated && user ? (
+              <div className="relative hidden sm:block" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="inline-flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full border border-[#EDE8E2] bg-white hover:bg-[#FAF8F5] transition-all shadow-sm"
+                >
+                  <div className="relative">
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-7 h-7 rounded-full object-cover shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-[#8D5A2B] text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {user.isGoogle && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center shadow-xs border border-white">
+                        <img
+                          src="https://www.svgrepo.com/show/475656/google-color.svg"
+                          alt="Google"
+                          className="w-2.5 h-2.5"
+                        />
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-xs font-semibold text-[#1A1A1A] max-w-[120px] truncate">
+                      {user.name}
+                    </span>
+                    {user.isGoogle ? (
+                      <span className="text-[10px] text-[#1967D2] font-medium flex items-center gap-1">
+                        Google
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-[#6B6B6B] max-w-[120px] truncate">
+                        {user.email}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronDown
+                    size={13}
+                    className={`text-[#8C929C] transition-transform duration-200 ${
+                      userMenuOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-[#EDE8E2] p-2.5 z-50 animate-slide-up">
+                    <div className="px-3 py-2 border-b border-[#F2EDE6] mb-1.5">
+                      {user.isGoogle && (
+                        <div className="flex items-center gap-1.5 mb-1 text-[10px] font-semibold text-[#1967D2] bg-[#E8F0FE] px-2 py-0.5 rounded-full w-fit">
+                          <img
+                            src="https://www.svgrepo.com/show/475656/google-color.svg"
+                            alt="Google"
+                            className="w-2.5 h-2.5"
+                          />
+                          Google Account
+                        </div>
+                      )}
+                      <p className="text-xs font-bold text-[#1A1A1A] truncate">
+                        {user.name}
+                      </p>
+                      <p className="text-[11px] text-[#6B6B6B] truncate">
+                        {user.email}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        navigate("/app");
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-[#1A1A1A] hover:bg-[#FBF0E6] hover:text-[#D47E30] transition-colors text-left"
+                    >
+                      <span>Open Workspace</span>
+                      <ArrowRight size={13} />
+                    </button>
+                    <div className="h-px bg-[#EDE8E2] my-1 mx-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        signOut();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-red-600 hover:bg-red-50 transition-colors text-left"
+                    >
+                      <LogOut size={13} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/signin"
+                className="hidden sm:inline-flex items-center gap-2 text-[14px] font-medium px-5 py-2.5 rounded-full transition-all duration-120 active:scale-95"
+                style={{
+                  backgroundColor: "#D47E30",
+                  color: "#FFFFFF",
+                  boxShadow: "0 4px 14px rgba(212,126,48,0.32)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#B8671E")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#D47E30")
+                }
+              >
+                Sign In <ArrowRight size={14} />
+              </Link>
+            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden w-9 h-9 rounded-full flex items-center justify-center text-[#1A1A1A] hover:bg-[#F2F2F0] transition-colors"
@@ -389,14 +554,72 @@ export default function LandingPage() {
                 {label}
               </a>
             ))}
-            <Link
-              to="/signin"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mt-3 flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-medium text-white"
-              style={{ backgroundColor: "#D47E30" }}
-            >
-              Sign In <ArrowRight size={14} />
-            </Link>
+            {isAuthenticated && user ? (
+              <div className="mt-3 pt-3 border-t border-[#EBEBEB] space-y-2">
+                <div className="px-2 py-1 flex items-center gap-2.5">
+                  <div className="relative">
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-[#8D5A2B] text-white flex items-center justify-center text-xs font-bold">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {user.isGoogle && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center border border-white">
+                        <img
+                          src="https://www.svgrepo.com/show/475656/google-color.svg"
+                          alt=""
+                          className="w-2.5 h-2.5"
+                        />
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold text-[#1A1A1A] truncate">
+                      {user.name}
+                    </span>
+                    <span className="text-[10px] text-[#6B6B6B] truncate">
+                      {user.email}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    navigate("/app");
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-medium text-white"
+                  style={{ backgroundColor: "#D47E30" }}
+                >
+                  Open Workspace <ArrowRight size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    signOut();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-full text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                >
+                  <LogOut size={13} /> Sign Out
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/signin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="mt-3 flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-medium text-white"
+                style={{ backgroundColor: "#D47E30" }}
+              >
+                Sign In <ArrowRight size={14} />
+              </Link>
+            )}
           </div>
         )}
       </header>
@@ -429,9 +652,16 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
-              <Link
-                to="/app"
-                className="inline-flex items-center gap-2.5 text-white text-[15px] font-medium px-8 py-3.5 rounded-full transition-all duration-120 active:scale-95"
+              <button
+                type="button"
+                onClick={() => {
+                  if (isAuthenticated) {
+                    navigate("/app");
+                  } else {
+                    navigate("/signin?redirect=/app");
+                  }
+                }}
+                className="inline-flex items-center gap-2.5 text-white text-[15px] font-medium px-8 py-3.5 rounded-full transition-all duration-120 active:scale-95 cursor-pointer"
                 style={{
                   backgroundColor: "#D47E30",
                   boxShadow: "0 10px 28px rgba(212,126,48,0.32)",
@@ -448,7 +678,7 @@ export default function LandingPage() {
                 }}
               >
                 Start Your Research <ArrowRight size={16} />
-              </Link>
+              </button>
               <a
                 href="#explore"
                 onClick={(e) => scrollToSection(e, "explore")}
@@ -736,9 +966,20 @@ export default function LandingPage() {
 
                     {/* CTA */}
                     {isCenter && (
-                      <Link
-                        to={mat.detailsUrl}
-                        className="mt-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-white text-sm font-medium transition-all duration-120"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isAuthenticated) {
+                            navigate(mat.detailsUrl);
+                          } else {
+                            navigate(
+                              `/signin?redirect=${encodeURIComponent(
+                                mat.detailsUrl,
+                              )}`,
+                            );
+                          }
+                        }}
+                        className="mt-1 w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-white text-sm font-medium transition-all duration-120 active:scale-95 cursor-pointer"
                         style={{ backgroundColor: "#D47E30" }}
                         onMouseEnter={(e) =>
                           (e.currentTarget.style.backgroundColor = "#B8671E")
@@ -748,7 +989,7 @@ export default function LandingPage() {
                         }
                       >
                         View Material <ArrowRight size={14} />
-                      </Link>
+                      </button>
                     )}
                   </div>
                 </article>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, LogOut, Settings, Bookmark, Menu } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 interface TopHeaderProps {
   onToggleMobileMenu?: () => void;
@@ -8,17 +9,13 @@ interface TopHeaderProps {
 
 export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [userName, setUserName] = useState("Researcher");
 
-  useEffect(() => {
-    try {
-      const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-      if (profile?.name) setUserName(profile.name);
-    } catch {}
-  }, []);
-
+  const userName = user?.name || "Researcher";
+  const userEmail = user?.email || "researcher@indianmatter.org";
+  const isGoogle = !!user?.isGoogle;
   const initial = userName.charAt(0).toUpperCase();
 
   const handleSearch = (e: React.FormEvent) => {
@@ -29,8 +26,7 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   };
 
   const handleSignOut = () => {
-    localStorage.removeItem("userProfile");
-    localStorage.removeItem("accessToken");
+    signOut();
     navigate("/signin");
   };
 
@@ -120,17 +116,47 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
             onClick={() => setDropdownOpen(!dropdownOpen)}
             aria-expanded={dropdownOpen}
             aria-haspopup="menu"
-            className="flex items-center gap-2 p-1 pr-2 rounded-full hover:bg-im-surfaceAlt transition-colors"
+            className="flex items-center gap-2 p-1 pr-2.5 rounded-full border border-[#EDE8E2] bg-white hover:bg-im-surfaceAlt transition-colors"
           >
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
-              style={{ backgroundColor: "var(--im-brown, #8D5A2B)" }}
-            >
-              {initial}
+            <div className="relative">
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={userName}
+                  className="w-7 h-7 rounded-full object-cover shadow-sm"
+                />
+              ) : (
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                  style={{ backgroundColor: "var(--im-brown, #8D5A2B)" }}
+                >
+                  {initial}
+                </div>
+              )}
+              {isGoogle && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center shadow-xs border border-white">
+                  <img
+                    src="https://www.svgrepo.com/show/475656/google-color.svg"
+                    alt="Google"
+                    className="w-2.5 h-2.5"
+                  />
+                </span>
+              )}
             </div>
-            <span className="hidden sm:block text-xs font-medium text-im-text max-w-[100px] truncate">
-              {userName}
-            </span>
+            <div className="hidden sm:flex flex-col items-start leading-tight">
+              <span className="text-xs font-semibold text-im-text max-w-[120px] truncate">
+                {userName}
+              </span>
+              {isGoogle ? (
+                <span className="text-[10px] text-[#1967D2] font-medium flex items-center gap-1">
+                  Google
+                </span>
+              ) : (
+                <span className="text-[10px] text-im-textMuted max-w-[120px] truncate">
+                  {userEmail}
+                </span>
+              )}
+            </div>
             <ChevronDown
               size={13}
               className={`text-im-textMuted transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
@@ -140,8 +166,23 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
           {dropdownOpen && (
             <div
               role="menu"
-              className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-popover border border-im-border p-1.5 z-50 animate-slide-up"
+              className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-popover border border-im-border p-2 z-50 animate-slide-up"
             >
+              <div className="px-3 py-2 border-b border-im-border mb-1.5">
+                {isGoogle && (
+                  <div className="flex items-center gap-1.5 mb-1 text-[10px] font-semibold text-[#1967D2] bg-[#E8F0FE] px-2 py-0.5 rounded-full w-fit">
+                    <img
+                      src="https://www.svgrepo.com/show/475656/google-color.svg"
+                      alt="Google"
+                      className="w-2.5 h-2.5"
+                    />
+                    Google Account
+                  </div>
+                )}
+                <p className="text-xs font-bold text-im-text truncate">{userName}</p>
+                <p className="text-[11px] text-im-textMuted truncate">{userEmail}</p>
+              </div>
+
               <button
                 role="menuitem"
                 onClick={() => { setDropdownOpen(false); navigate("/app/settings"); }}
@@ -162,7 +203,7 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
               <button
                 role="menuitem"
                 onClick={handleSignOut}
-                className="w-full text-left px-3 py-2 rounded-xl text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5"
+                className="w-full text-left px-3 py-2 rounded-xl text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 font-medium"
               >
                 <LogOut size={13} />
                 Sign Out

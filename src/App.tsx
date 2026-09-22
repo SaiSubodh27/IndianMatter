@@ -18,20 +18,30 @@ import LiteraturePage from "./pages/literature/LiteraturePage";
 import SavedResultsPage from "./pages/results/SavedResultsPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import HelpPage from "./pages/help/HelpPage";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public Shell Routes */}
-        <Route element={<PublicLayout />}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/signin" element={<SignInPage />} />
-        </Route>
+      <AuthProvider>
+        <Routes>
+          {/* Public Shell Routes */}
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/signin" element={<SignInPage />} />
+          </Route>
 
-        {/* Authenticated Computational Workspace Routes */}
-        <Route path="/app" element={<MainLayout />}>
-          <Route index element={<DashboardPage />} />
+          {/* Authenticated Computational Workspace Routes */}
+          <Route
+            path="/app"
+            element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<DashboardPage />} />
           <Route path="materials" element={<MaterialsSearchPage />} />
           <Route path="materials/:id" element={<MaterialDetailsPage />} />
           <Route path="advanced-search" element={<AdvancedSearchPage />} />
@@ -48,7 +58,14 @@ export default function App() {
 
         {/* Canonical product URLs. Keep the original /app links working while
             exposing the routes used by shared materials-platform navigation. */}
-        <Route path="/dashboard" element={<MainLayout />}>
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<DashboardPage />} />
           <Route path="dft-validation" element={<DFTValidationPage />} />
           <Route path="cif-generation" element={<CIFGenerationPage />} />
@@ -62,29 +79,72 @@ export default function App() {
           />
           <Route path="batch-prediction" element={<BatchPredictionPage />} />
         </Route>
-        <Route path="/materials-search" element={<MainLayout />}>
+        <Route
+          path="/materials-search"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<MaterialsSearchPage />} />
           <Route path="advanced" element={<AdvancedSearchPage />} />
         </Route>
-        <Route path="/materials" element={<MainLayout />}>
+        <Route
+          path="/materials"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route path=":id" element={<MaterialDetailsPage />} />
         </Route>
-        <Route path="/literature-diversity" element={<MainLayout />}>
+        <Route
+          path="/literature-diversity"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<LiteraturePage />} />
         </Route>
-        <Route path="/saved-results" element={<MainLayout />}>
+        <Route
+          path="/saved-results"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<SavedResultsPage />} />
         </Route>
-        <Route path="/settings" element={<MainLayout />}>
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<SettingsPage />} />
         </Route>
-        <Route path="/help-support" element={<MainLayout />}>
+        <Route
+          path="/help-support"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<HelpPage />} />
         </Route>
 
         {/* Global Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </AuthProvider>
+  </BrowserRouter>
   );
 }

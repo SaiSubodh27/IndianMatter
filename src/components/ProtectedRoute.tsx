@@ -1,0 +1,24 @@
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+
+interface ProtectedRouteProps {
+  children?: React.ReactNode;
+}
+
+export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    const targetUrl = location.pathname + location.search;
+    return (
+      <Navigate
+        to={`/signin?redirect=${encodeURIComponent(targetUrl)}`}
+        replace
+      />
+    );
+  }
+
+  return <>{children}</>;
+}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -14,7 +14,7 @@ import {
   GoogleLogin,
   CredentialResponse,
 } from "@react-oauth/google";
-import { API_BASE_URL } from "../../lib/api";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Default public Google Client ID or environmental override
 const GOOGLE_CLIENT_ID =
@@ -23,6 +23,8 @@ const GOOGLE_CLIENT_ID =
 
 export default function SignInPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, signIn, signInWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,100 +32,78 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const redirectTarget =
+    new URLSearchParams(location.search).get("redirect") || "/app";
+
+  // If already authenticated, redirect immediately and replace history so back button never returns to sign in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(redirectTarget, { replace: true });
+    }
+  }, [isAuthenticated, redirectTarget, navigate]);
+
+  const handleEmailLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
 
-    try {
-      // Attempt backend login
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+    // Any random id or password keeps the user signed in
+    const trimmed = email.trim() || "researcher@indianmatter.org";
+    signIn({
+      email: trimmed,
+      name: trimmed.includes("@") ? trimmed.split("@")[0] : trimmed,
+      isGoogle:
+        trimmed.toLowerCase().includes("gmail.com") ||
+        trimmed.toLowerCase().includes("google.com"),
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem("accessToken", data.access_token);
-        localStorage.setItem("userProfile", JSON.stringify(data.user));
-        navigate("/app");
-      } else {
-        // Fallback for demonstration / local mode
-        localStorage.setItem(
-          "userProfile",
-          JSON.stringify({ name: email.split("@")[0] || "Researcher", email }),
-        );
-        navigate("/app");
-      }
-    } catch {
-      // Offline fallback: allow researcher access
-      localStorage.setItem(
-        "userProfile",
-        JSON.stringify({ name: email.split("@")[0] || "Researcher", email }),
-      );
-      navigate("/app");
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+    // Replace current history entry so the Back button goes back to before the sign in page
+    navigate(redirectTarget, { replace: true });
   };
 
-  const handleGoogleSuccess = async (
-    credentialResponse: CredentialResponse,
-  ) => {
+  const handleGoogleSuccess = (credentialResponse: CredentialResponse) => {
     setLoading(true);
     setErrorMsg("");
 
     try {
       if (credentialResponse.credential) {
-        // Forward token to FastAPI backend google-login endpoint
-        const res = await fetch(`${API_BASE_URL}/api/auth/google-login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: credentialResponse.credential }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          localStorage.setItem("accessToken", data.access_token);
-          localStorage.setItem("userProfile", JSON.stringify(data.user));
-          navigate("/app");
+        try {
+          const base64Url = credentialResponse.credential.split(".")[1];
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join("")
+          );
+          const payload = JSON.parse(jsonPayload);
+          signInWithGoogle({
+            name: payload.name || "Dr. Subodh Kumar",
+            email: payload.email || "subodh.matter@gmail.com",
+            avatar:
+              payload.picture ||
+              "https://lh3.googleusercontent.com/a/default-user=s96-c",
+          });
+          navigate(redirectTarget, { replace: true });
           return;
-        }
+        } catch {}
       }
-      // Demo fallback if backend database is offline
-      localStorage.setItem(
-        "userProfile",
-        JSON.stringify({
-          name: "Google Researcher",
-          email: "researcher@google.auth",
-        }),
-      );
-      navigate("/app");
-    } catch {
-      localStorage.setItem(
-        "userProfile",
-        JSON.stringify({
-          name: "Google Researcher",
-          email: "researcher@google.auth",
-        }),
-      );
-      navigate("/app");
+      signInWithGoogle();
+      navigate(redirectTarget, { replace: true });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleError = () => {
-    // If client ID is unverified, allow seamless quick demo sign in
-    localStorage.setItem(
-      "userProfile",
-      JSON.stringify({
-        name: "Google Researcher",
-        email: "researcher@google.auth",
-      }),
-    );
-    navigate("/app");
+  const handleGoogleQuickSignIn = () => {
+    signInWithGoogle({
+      name: "Dr. Subodh Kumar",
+      email: "subodh.matter@gmail.com",
+      isGoogle: true,
+    });
+    // Replace current history entry so the Back button goes back to before the sign in page
+    navigate(redirectTarget, { replace: true });
   };
 
   return (
@@ -269,7 +249,7 @@ export default function SignInPage() {
                 <div className="w-full flex justify-center">
                   <GoogleLogin
                     onSuccess={handleGoogleSuccess}
-                    onError={handleGoogleError}
+                    onError={handleGoogleQuickSignIn}
                     theme="outline"
                     shape="pill"
                     text="signin_with"
@@ -280,7 +260,7 @@ export default function SignInPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={handleGoogleError}
+                    onClick={handleGoogleQuickSignIn}
                     className="flex items-center justify-center gap-2.5 py-2.5 px-4 border border-[#E9DFD4] rounded-xl hover:bg-[#FAF4EE] text-xs font-semibold text-[#1E2227] transition-all active:scale-98"
                   >
                     <img
@@ -294,11 +274,12 @@ export default function SignInPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      localStorage.setItem(
-                        "userProfile",
-                        JSON.stringify({ name: "GitHub Researcher" }),
-                      );
-                      navigate("/app");
+                      signIn({
+                        name: "GitHub Researcher",
+                        email: "researcher@github.com",
+                        provider: "github",
+                      });
+                      navigate(redirectTarget, { replace: true });
                     }}
                     className="flex items-center justify-center gap-2.5 py-2.5 px-4 border border-[#E9DFD4] rounded-xl hover:bg-[#FAF4EE] text-xs font-semibold text-[#1E2227] transition-all active:scale-98"
                   >
