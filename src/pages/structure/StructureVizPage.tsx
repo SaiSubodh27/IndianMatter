@@ -139,27 +139,25 @@ export default function StructureVizPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#060912] px-4 py-5 text-white sm:px-7 lg:px-10">
-      <div className="mx-auto max-w-[1600px]">
-        <header className="mb-7 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+    <div className="w-full max-w-[1550px] mx-auto space-y-6 px-4 sm:px-8 py-6 text-im-text">
+      <div>
+        <header className="mb-6 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.26em] text-cyan-300">
-              <Atom size={14} /> Structure intelligence{" "}
-              <span className="text-slate-600">/</span> visual lab
+            <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#D47E30] font-headline">
+              <Atom size={14} /> Structure Intelligence Engine
             </div>
-            <h1 className="text-3xl font-semibold tracking-[-.04em] text-white sm:text-5xl">
-              Crystal structure studio
+            <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227] tracking-tight">
+              Crystal Structure Studio
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Inspect lattice geometry, atomic coordination, and material
-              identity in a focused WebGL workspace.
+            <p className="mt-1 max-w-2xl text-sm text-[#6C737E]">
+              Inspect crystallographic lattice geometry, atomic coordination, and material identity in an interactive 3D WebGL workspace.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-[11px] font-semibold text-emerald-200">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
               <CheckCircle2 size={14} /> WebGL ready
             </div>
-            <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-100">
+            <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#D47E30] hover:bg-[#B8671E] px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all">
               <FileUp size={15} /> Upload CIF
               <input
                 type="file"
@@ -171,94 +169,104 @@ export default function StructureVizPage() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[260px_minmax(0,1fr)_285px]">
-          <aside className="order-2 rounded-[24px] border border-white/10 bg-[#0b111d]/90 p-4 shadow-2xl xl:order-1">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+          {/* Left Column: Preset Library */}
+          <aside className="order-2 rounded-[2rem] border border-[#EDE8E2] bg-white p-5 shadow-card xl:order-1">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8C929C]">
                   Structure library
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-100">
-                  Curated presets
+                <p className="mt-0.5 text-base font-headline font-bold text-[#1E2227]">
+                  Curated Presets
                 </p>
               </div>
-              <Layers3 size={17} className="text-slate-500" />
+              <div className="w-8 h-8 rounded-xl bg-[#FDF5EE] flex items-center justify-center text-[#D47E30]">
+                <Layers3 size={17} />
+              </div>
             </div>
             <div className="space-y-2">
-              {presets.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(preset.id);
-                    setParsedStructure(null);
-                  }}
-                  className={`w-full rounded-2xl border p-3 text-left transition ${!parsedStructure && current.id === preset.id ? "border-cyan-300/50 bg-cyan-300/10" : "border-white/5 bg-white/[.025] hover:border-white/15 hover:bg-white/[.05]"}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm font-semibold text-white">
-                      {preset.formula}
-                    </span>
-                    {!parsedStructure && current.id === preset.id && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_#67e8f9]" />
-                    )}
-                  </div>
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    {preset.name}
-                  </p>
-                  <p className="mt-2 text-[10px] text-slate-600">
-                    {preset.system} · {preset.spaceGroup}
-                  </p>
-                </button>
-              ))}
+              {presets.map((preset) => {
+                const isSelected = !parsedStructure && current.id === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(preset.id);
+                      setParsedStructure(null);
+                    }}
+                    className={`w-full rounded-2xl border p-3.5 text-left transition-all ${
+                      isSelected
+                        ? "border-[#D47E30] bg-[#FDF5EE] shadow-sm"
+                        : "border-[#EDE8E2] bg-white hover:border-[#D47E30]/40 hover:bg-[#FAF4EE]/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm font-bold text-[#1E2227]">
+                        {preset.formula}
+                      </span>
+                      {isSelected && (
+                        <span className="h-2 w-2 rounded-full bg-[#D47E30] shadow-[0_0_8px_rgba(212,126,48,0.5)]" />
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-[#6C737E]">
+                      {preset.name}
+                    </p>
+                    <p className="mt-2 text-[10px] font-medium text-[#8C929C]">
+                      {preset.system} · {preset.spaceGroup}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
-            <div className="my-5 h-px bg-white/10" />
+            <div className="my-5 h-px bg-[#EDE8E2]" />
             <button
               type="button"
               onClick={() => setShowLibrary((value) => !value)}
-              className="flex w-full items-center justify-between text-[11px] font-semibold text-slate-300"
+              className="flex w-full items-center justify-between text-xs font-semibold text-[#1E2227] hover:text-[#D47E30] transition-colors"
             >
               <span>Viewer preferences</span>
               <ChevronDown
                 size={14}
-                className={`transition ${showLibrary ? "rotate-180" : ""}`}
+                className={`transition-transform duration-200 ${showLibrary ? "rotate-180" : ""}`}
               />
             </button>
             {showLibrary && (
-              <div className="mt-3 space-y-3 text-[11px] text-slate-500">
+              <div className="mt-3 space-y-2.5 text-xs text-[#6C737E]">
                 <div className="flex items-center justify-between">
                   <span>Renderer</span>
-                  <span className="font-mono text-slate-300">WebGL 2.0</span>
+                  <span className="font-mono text-[#1E2227] font-medium">WebGL 2.0</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Antialiasing</span>
-                  <span className="text-emerald-300">Active</span>
+                  <span className="text-emerald-700 font-medium">Active</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Source fidelity</span>
-                  <span className="text-cyan-300">High</span>
+                  <span className="text-[#D47E30] font-medium">High</span>
                 </div>
               </div>
             )}
           </aside>
 
+          {/* Center Column: 3D Crystal Visualizer */}
           <section className="order-1 min-w-0 xl:order-2">
-            <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#080d17] shadow-[0_30px_100px_rgba(0,0,0,.35)]">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 sm:px-6">
+            <div className="overflow-hidden rounded-[2rem] border border-[#EDE8E2] bg-white shadow-card">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EDE8E2] bg-[#FAF4EE]/30 px-6 py-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[.2em] text-cyan-300">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D47E30]">
                     Active structure
                   </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-tight">
+                  <h2 className="mt-0.5 text-xl font-headline font-bold text-[#1E2227] tracking-tight">
                     {formula}
                   </h2>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                  <ShieldCheck size={14} className="text-emerald-300" />{" "}
-                  Validated geometry
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                  <ShieldCheck size={14} /> Validated geometry
                 </div>
               </div>
-              <div className="p-2 sm:p-3">
+              <div className="p-3 sm:p-4 bg-[#FDFBF8]/60 min-h-[500px]">
                 <CrystalViewerCanvas
                   atoms={atoms}
                   lattice={lattice}
@@ -268,14 +276,14 @@ export default function StructureVizPage() {
               </div>
             </div>
             {isParsing && (
-              <div className="mt-3 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-xs text-cyan-100">
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 font-medium flex items-center gap-2">
                 Parsing CIF with the structure service…
               </div>
             )}
             {parseError && (
               <div
                 role="alert"
-                className="mt-3 flex items-center justify-between rounded-2xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-xs text-rose-100"
+                className="mt-3 flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900 font-medium"
               >
                 <span>{parseError}</span>
                 <button type="button" onClick={() => setParseError(null)}>
@@ -285,20 +293,23 @@ export default function StructureVizPage() {
             )}
           </section>
 
-          <aside className="order-3 space-y-4">
-            <section className="rounded-[24px] border border-white/10 bg-[#0b111d]/90 p-5 shadow-2xl">
-              <div className="mb-5 flex items-center justify-between">
+          {/* Right Column: Profile & Lattice Parameters */}
+          <aside className="order-3 space-y-5">
+            <section className="rounded-[2rem] border border-[#EDE8E2] bg-white p-5 shadow-card space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8C929C]">
                     Structure profile
                   </p>
-                  <h3 className="mt-1 text-base font-semibold">
+                  <h3 className="mt-0.5 text-base font-headline font-bold text-[#1E2227]">
                     {parsedStructure ? "Uploaded CIF" : current.name}
                   </h3>
                 </div>
-                <Sparkles size={16} className="text-violet-300" />
+                <div className="w-8 h-8 rounded-xl bg-[#FDF5EE] flex items-center justify-center text-[#D47E30]">
+                  <Sparkles size={16} />
+                </div>
               </div>
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {[
                   [
                     "Crystal system",
@@ -315,21 +326,21 @@ export default function StructureVizPage() {
                 ].map(([label, value]) => (
                   <div
                     key={label}
-                    className="rounded-xl border border-white/5 bg-white/[.025] px-3 py-2.5"
+                    className="rounded-xl border border-[#EDE8E2] bg-[#FAF4EE]/40 px-3.5 py-2.5"
                   >
-                    <p className="text-[10px] text-slate-500">{label}</p>
-                    <p className="mt-1 text-xs font-medium text-slate-200">
+                    <p className="text-[10px] uppercase font-semibold text-[#8C929C]">{label}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-[#1E2227]">
                       {value}
                     </p>
                   </div>
                 ))}
               </div>
             </section>
-            <section className="rounded-[24px] border border-white/10 bg-[#0b111d]/90 p-5 shadow-2xl">
-              <p className="text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">
+            <section className="rounded-[2rem] border border-[#EDE8E2] bg-white p-5 shadow-card">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8C929C]">
                 Lattice parameters
               </p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 {[
                   ["a", lattice.a],
                   ["b", lattice.b],
@@ -338,14 +349,14 @@ export default function StructureVizPage() {
                 ].map(([label, value]) => (
                   <div
                     key={label}
-                    className="rounded-xl border border-white/5 bg-white/[.025] px-3 py-2.5"
+                    className="rounded-xl border border-[#EDE8E2] bg-[#FAF4EE]/40 px-3 py-2"
                   >
-                    <p className="text-[10px] uppercase text-slate-500">
+                    <p className="text-[10px] uppercase font-bold text-[#8C929C]">
                       {label}
                     </p>
-                    <p className="mt-1 font-mono text-xs text-white">
+                    <p className="mt-0.5 font-mono text-xs font-bold text-[#1E2227]">
                       {Number(value).toFixed(label === "volume" ? 1 : 3)}{" "}
-                      <span className="text-[9px] text-slate-500">
+                      <span className="text-[9px] text-[#8C929C]">
                         Å{label === "volume" ? "³" : ""}
                       </span>
                     </p>
@@ -353,29 +364,29 @@ export default function StructureVizPage() {
                 ))}
               </div>
             </section>
-            <div className="flex gap-2">
+            <div className="flex gap-2.5">
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-[11px] font-semibold text-slate-300 transition hover:bg-white/10"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#EDE8E2] bg-white hover:bg-im-surfaceAlt px-3 py-2.5 text-xs font-semibold text-[#1E2227] shadow-sm transition-colors"
               >
                 <RotateCcw size={14} /> Reset
               </button>
               <button
                 type="button"
                 onClick={() => alert("Structure export queued.")}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-3 py-2.5 text-[11px] font-bold text-slate-950 transition hover:bg-cyan-200"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#D47E30] hover:bg-[#B8671E] px-3 py-2.5 text-xs font-bold text-white shadow-sm transition-colors"
               >
                 <Download size={14} /> Export
               </button>
             </div>
           </aside>
         </div>
-        <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-[10px] text-slate-600">
-          <span>IndianMatter Structure Intelligence · Interactive preview</span>
-          <span>All visual values reflect the active structure record</span>
+        <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[#EDE8E2] pt-4 text-[11px] text-[#8C929C]">
+          <span>IndianMatter Structure Intelligence · Interactive WebGL preview</span>
+          <span>All visual coordinates reflect the active crystal lattice record</span>
         </footer>
       </div>
-    </main>
+    </div>
   );
 }

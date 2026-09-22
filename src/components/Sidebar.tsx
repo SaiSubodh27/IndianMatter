@@ -33,9 +33,22 @@ const utilityNav = [
   { name: "Help & Support", path: "/app/help", icon: HelpCircle },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  setMobileOpen?: (open: boolean) => void;
+}
+
+export default function Sidebar({
+  mobileOpen: controlledMobileOpen,
+  setMobileOpen: controlledSetMobileOpen,
+}: SidebarProps = {}) {
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [localMobileOpen, setLocalMobileOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const mobileOpen = controlledMobileOpen ?? localMobileOpen;
+  const setMobileOpen = controlledSetMobileOpen ?? setLocalMobileOpen;
+  const isExpanded = isHovered || mobileOpen;
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";
@@ -62,34 +75,17 @@ export default function Sidebar() {
         />
       )}
       <aside
-        className={`sidebar-fixed flex flex-col bg-transparent select-none ${mobileOpen ? "sidebar-open" : ""}`}
+        className={`sidebar-fixed flex flex-col bg-white select-none no-scrollbar ${
+          mobileOpen ? "sidebar-open" : ""
+        } ${isHovered ? "sidebar-expanded" : ""}`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         aria-label="Primary navigation"
       >
-        {/* ── Brand ── */}
-        <Link
-          to="/app"
-          className="flex items-center gap-3 px-5 h-16 shrink-0 group"
-          onClick={() => setMobileOpen(false)}
-          aria-label="IndianMatter Dashboard"
-        >
-          <img
-            src="/mi-icon-mark.png"
-            alt="IndianMatter"
-            className="w-7 h-7 object-contain transition-transform duration-200 group-hover:scale-110"
-          />
-          <div>
-            <span className="font-headline font-bold text-[15px] text-im-text leading-none tracking-tight">
-              Indian<span style={{ color: "var(--im-orange)" }}>Matter</span>
-            </span>
-            <p className="text-[9px] text-im-textMuted font-normal tracking-wider uppercase mt-0.5">
-              Materials Platform
-            </p>
-          </div>
-        </Link>
 
         {/* ── Primary Nav ── */}
         <nav
-          className="flex-1 flex flex-col gap-0.5 px-3 py-4 overflow-y-auto"
+          className="flex-1 flex flex-col gap-1 px-3 py-3 overflow-y-auto no-scrollbar"
           aria-label="Main"
         >
           {primaryNav.map((item) => {
@@ -99,16 +95,18 @@ export default function Sidebar() {
               <Link
                 key={item.path}
                 to={item.path}
+                title={!isExpanded ? item.name : undefined}
                 onClick={() => setMobileOpen(false)}
                 className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium
-                transition-all duration-120 group
-                ${
-                  active
-                    ? "bg-[--im-orange-subtle] text-[--im-orange] font-semibold"
-                    : "text-im-textLight hover:text-im-text hover:bg-im-surfaceAlt"
-                }
-              `}
+                  relative flex items-center h-10 rounded-xl text-xs font-medium
+                  transition-all duration-150 group
+                  ${isExpanded ? "px-3 gap-3 w-full" : "justify-center px-0 w-10 mx-auto"}
+                  ${
+                    active
+                      ? "bg-[--im-orange-subtle] text-[--im-orange] font-semibold"
+                      : "text-im-textLight hover:text-im-text hover:bg-im-surfaceAlt"
+                  }
+                `}
                 style={
                   active
                     ? ({
@@ -118,20 +116,36 @@ export default function Sidebar() {
                 }
                 aria-current={active ? "page" : undefined}
               >
-                <Icon
-                  size={16}
-                  strokeWidth={active ? 2.2 : 1.7}
-                  style={{ color: active ? "var(--im-orange)" : undefined }}
-                  className={
-                    active
-                      ? ""
-                      : "text-im-textMuted group-hover:text-im-textLight"
-                  }
-                />
-                <span className="truncate">{item.name}</span>
-                {active && (
+                <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+                  <Icon
+                    size={17}
+                    strokeWidth={active ? 2.2 : 1.7}
+                    style={{ color: active ? "var(--im-orange)" : undefined }}
+                    className={
+                      active
+                        ? ""
+                        : "text-im-textMuted group-hover:text-im-textLight transition-colors"
+                    }
+                  />
+                </div>
+                <span
+                  className={`truncate whitespace-nowrap transition-all duration-200 ${
+                    isExpanded
+                      ? "opacity-100 max-w-[170px]"
+                      : "opacity-0 max-w-0 overflow-hidden hidden"
+                  }`}
+                >
+                  {item.name}
+                </span>
+                {active && isExpanded && (
                   <span
                     className="ml-auto w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: "var(--im-orange)" }}
+                  />
+                )}
+                {active && !isExpanded && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 rounded-r-full"
                     style={{ backgroundColor: "var(--im-orange)" }}
                   />
                 )}
@@ -141,7 +155,10 @@ export default function Sidebar() {
         </nav>
 
         {/* ── Utility Nav ── */}
-        <nav className="flex flex-col gap-0.5 px-3 py-3" aria-label="Utilities">
+        <nav
+          className="flex flex-col gap-1 px-3 py-2 border-t border-[#EDE8E2]/70 shrink-0 no-scrollbar"
+          aria-label="Utilities"
+        >
           {utilityNav.map((item) => {
             const active = isActive(item.path);
             const Icon = item.icon;
@@ -149,44 +166,47 @@ export default function Sidebar() {
               <Link
                 key={item.path}
                 to={item.path}
+                title={!isExpanded ? item.name : undefined}
                 onClick={() => setMobileOpen(false)}
                 className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium
-                transition-all duration-120 group
-                ${
-                  active
-                    ? "bg-[#FDF5EE] text-[#D47E30] font-semibold"
-                    : "text-im-textLight hover:text-im-text hover:bg-im-surfaceAlt"
-                }
-              `}
+                  relative flex items-center h-10 rounded-xl text-xs font-medium
+                  transition-all duration-150 group
+                  ${isExpanded ? "px-3 gap-3 w-full" : "justify-center px-0 w-10 mx-auto"}
+                  ${
+                    active
+                      ? "bg-[#FDF5EE] text-[#D47E30] font-semibold"
+                      : "text-im-textLight hover:text-im-text hover:bg-im-surfaceAlt"
+                  }
+                `}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon
-                  size={16}
-                  strokeWidth={active ? 2.2 : 1.7}
-                  className={
-                    active
-                      ? "text-[#D47E30]"
-                      : "text-im-textMuted group-hover:text-im-textLight"
-                  }
-                />
-                <span>{item.name}</span>
+                <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+                  <Icon
+                    size={17}
+                    strokeWidth={active ? 2.2 : 1.7}
+                    className={
+                      active
+                        ? "text-[#D47E30]"
+                        : "text-im-textMuted group-hover:text-im-textLight transition-colors"
+                    }
+                  />
+                </div>
+                <span
+                  className={`truncate whitespace-nowrap transition-all duration-200 ${
+                    isExpanded
+                      ? "opacity-100 max-w-[170px]"
+                      : "opacity-0 max-w-0 overflow-hidden hidden"
+                  }`}
+                >
+                  {item.name}
+                </span>
               </Link>
             );
           })}
         </nav>
 
-        {/* ── Bottom crystal decoration ── */}
-        <div className="px-4 pb-4 pt-2 pointer-events-none select-none shrink-0">
-          <div className="w-36 mx-auto opacity-80">
-            <img
-              src="/assets/dash_sidebar_crystal.png"
-              alt=""
-              aria-hidden="true"
-              className="w-full h-auto object-contain drop-shadow-sm"
-            />
-          </div>
-        </div>
+        {/* Bottom padding spacer */}
+        <div className="pb-2" />
         <button
           type="button"
           className="sidebar-mobile-close"

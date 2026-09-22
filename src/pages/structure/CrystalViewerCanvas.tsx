@@ -218,18 +218,18 @@ export default function CrystalViewerCanvas({
   return (
     <div
       ref={mountRef}
-      className="relative h-full min-h-[360px] w-full overflow-hidden rounded-3xl bg-[#fdfbf8]"
+      className="relative h-full min-h-[480px] w-full overflow-hidden rounded-2xl bg-[#fdfbf8] border border-[#EDE8E2]"
       aria-label="Interactive crystal structure visualization"
     >
       {(materialLabel || sourceLabel) && (
-        <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-[70%] rounded-2xl bg-white/70 px-3.5 py-2.5 shadow-sm backdrop-blur-sm">
+        <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-[70%] rounded-xl bg-white/90 px-3.5 py-2 shadow-sm backdrop-blur-sm border border-[#EDE8E2]">
           {materialLabel && (
-            <p className="font-mono text-sm font-semibold text-slate-900">
+            <p className="font-mono text-xs font-bold text-[#1E2227]">
               {materialLabel}
             </p>
           )}
           {sourceLabel && (
-            <p className="mt-0.5 text-[10px] uppercase tracking-[.14em] text-slate-500">
+            <p className="mt-0.5 text-[9px] uppercase tracking-[.14em] text-[#8C929C] font-medium">
               {sourceLabel}
             </p>
           )}

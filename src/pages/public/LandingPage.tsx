@@ -174,6 +174,53 @@ export default function LandingPage() {
     "idle" | "loading" | "success" | "error"
   >("idle");
 
+  // Dedicated smooth scroll function ensuring fixed navbar offset (72px)
+  const scrollToSection = (e?: React.MouseEvent, targetId?: string) => {
+    if (e) e.preventDefault();
+    const id = (targetId || "explore").replace(/^#/, "");
+    const el = document.getElementById(id);
+    if (el) {
+      const navOffset = 72;
+      const elementPosition = el.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - navOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: "smooth",
+      });
+      window.history.pushState(null, "", `#${id}`);
+      setActiveSection(id);
+    }
+  };
+
+  // Scroll to hash target on initial load / hashchange with navbar offset
+  useEffect(() => {
+    const handleInitialHash = () => {
+      const hash = window.location.hash;
+      if (hash) {
+        const id = hash.replace(/^#/, "");
+        const el = document.getElementById(id);
+        if (el) {
+          const timer = setTimeout(() => {
+            const navOffset = 72;
+            const elementPosition = el.getBoundingClientRect().top;
+            const offsetPosition =
+              elementPosition + window.pageYOffset - navOffset;
+            window.scrollTo({
+              top: Math.max(0, offsetPosition),
+              behavior: "smooth",
+            });
+            setActiveSection(id);
+          }, 100);
+          return () => clearTimeout(timer);
+        }
+      }
+    };
+
+    handleInitialHash();
+    window.addEventListener("hashchange", handleInitialHash);
+    return () => window.removeEventListener("hashchange", handleInitialHash);
+  }, []);
+
   // Intersection observer for active nav
   useEffect(() => {
     const sections = ["home", "explore", "about", "resources", "contact"];
@@ -214,7 +261,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="landing-page min-h-screen bg-white text-[#38240D] overflow-x-hidden selection-orange">
+    <div className="landing-page min-h-screen bg-white text-[#38240D] overflow-x-clip selection-orange">
       {/* ── Subtle organic background blobs — CSS only, not images ── */}
       <div
         aria-hidden="true"
@@ -236,9 +283,9 @@ export default function LandingPage() {
       />
 
       {/* ═══════════════════════════════════════════════════════════
-          NAVBAR
+          NAVBAR (Locked / Fixed at Top)
       ═══════════════════════════════════════════════════════════ */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]/80">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-[#EBEBEB]/80 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all">
         <div
           className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 h-18 flex items-center justify-between gap-6"
           style={{ height: "72px" }}
@@ -262,7 +309,7 @@ export default function LandingPage() {
 
           {/* Desktop nav */}
           <nav
-            className="hidden md:flex items-center gap-8 lg:gap-10"
+            className="hidden md:flex items-center gap-6 lg:gap-8"
             aria-label="Main navigation"
           >
             {navLinks.map(({ href, label }) => {
@@ -272,16 +319,12 @@ export default function LandingPage() {
                 <a
                   key={href}
                   href={href}
-                  className="text-[14px] font-medium transition-colors duration-120"
-                  style={{ color: active ? "#D47E30" : "#6B6B6B" }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "#D47E30")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = active
-                      ? "#D47E30"
-                      : "#6B6B6B")
-                  }
+                  onClick={(e) => scrollToSection(e, sectionId)}
+                  className={`text-[14px] font-medium transition-all duration-150 px-3.5 py-1.5 rounded-full ${
+                    active
+                      ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
+                      : "text-[#6B6B6B] hover:text-[#D47E30] hover:bg-[#FDF5EE]/60"
+                  }`}
                   aria-current={active ? "page" : undefined}
                 >
                   {label}
@@ -333,8 +376,15 @@ export default function LandingPage() {
               <a
                 key={href}
                 href={href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center py-3 text-[15px] font-medium text-[#3D3D3D] hover:text-[#D47E30] transition-colors"
+                onClick={(e) => {
+                  setMobileMenuOpen(false);
+                  scrollToSection(e, href.slice(1));
+                }}
+                className={`flex items-center py-2.5 px-3 rounded-lg text-[15px] font-medium transition-colors ${
+                  activeSection === href.slice(1)
+                    ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
+                    : "text-[#3D3D3D] hover:text-[#D47E30]"
+                }`}
               >
                 {label}
               </a>
@@ -356,7 +406,7 @@ export default function LandingPage() {
       ═══════════════════════════════════════════════════════════ */}
       <section
         id="home"
-        className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-16 pb-24 lg:pt-24 lg:pb-32"
+        className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-28 pb-24 lg:pt-36 lg:pb-32"
       >
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* Left */}
@@ -401,6 +451,7 @@ export default function LandingPage() {
               </Link>
               <a
                 href="#explore"
+                onClick={(e) => scrollToSection(e, "explore")}
                 className="inline-flex items-center gap-2 text-[#3D3D3D] text-[15px] font-medium px-7 py-3.5 rounded-full bg-white border border-[#EBEBEB] hover:border-[#D47E30] hover:text-[#D47E30] transition-all duration-120 shadow-soft"
               >
                 Try It <ArrowRight size={15} />
@@ -549,17 +600,20 @@ export default function LandingPage() {
       {/* ═══════════════════════════════════════════════════════════
           EXPLORE — Physical Card Deck
       ═══════════════════════════════════════════════════════════ */}
-      <section id="explore" className="py-24 lg:py-32 bg-white">
+      <section
+        id="explore"
+        className="pt-8 pb-20 sm:pt-9 sm:pb-24 lg:pt-10 lg:pb-28 bg-white scroll-mt-[72px]"
+      >
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16">
           {/* Section header */}
-          <div className="text-center mb-16">
-            <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-3">
+          <div className="text-center mb-6 sm:mb-8">
+            <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-2.5">
               Material Library
             </p>
-            <h2 className="text-4xl sm:text-5xl font-headline font-bold text-[#1A1A1A] tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
               Explore Materials
             </h2>
-            <p className="text-base text-[#6B6B6B] max-w-xl mx-auto">
+            <p className="text-sm sm:text-base text-[#6B6B6B] max-w-xl mx-auto leading-relaxed">
               Browse key battery and energy materials — each with structural,
               electronic, and thermodynamic properties.
             </p>
@@ -749,7 +803,7 @@ export default function LandingPage() {
       ═══════════════════════════════════════════════════════════ */}
       <section
         id="about"
-        className="py-24 lg:py-32 bg-white border-y border-[#EBEBEB]"
+        className="py-24 lg:py-32 bg-white border-y border-[#EBEBEB] scroll-mt-[72px]"
       >
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
@@ -977,16 +1031,19 @@ export default function LandingPage() {
       {/* ═══════════════════════════════════════════════════════════
           RESOURCES — Scientific Databases
       ═══════════════════════════════════════════════════════════ */}
-      <section id="resources" className="py-24 lg:py-32 bg-white">
+      <section
+        id="resources"
+        className="pt-8 pb-20 sm:pt-9 sm:pb-24 lg:pt-10 lg:pb-28 bg-white scroll-mt-[72px]"
+      >
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="text-center mb-16">
-            <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-3">
+          <div className="text-center mb-6 sm:mb-8">
+            <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-2.5">
               Connected Sources
             </p>
-            <h2 className="text-4xl sm:text-5xl font-headline font-bold text-[#1A1A1A] tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
               Scientific Databases
             </h2>
-            <p className="text-base text-[#6B6B6B] max-w-xl mx-auto">
+            <p className="text-sm sm:text-base text-[#6B6B6B] max-w-xl mx-auto leading-relaxed">
               IndianMatter federates across the world's leading open-access
               computational materials databases.
             </p>
@@ -1049,26 +1106,26 @@ export default function LandingPage() {
       ═══════════════════════════════════════════════════════════ */}
       <section
         id="contact"
-        className="py-24 lg:py-32 bg-white border-t border-[#EBEBEB]"
+        className="pt-8 pb-16 sm:pt-9 sm:pb-20 lg:pt-10 lg:pb-24 bg-white border-t border-[#EBEBEB] scroll-mt-[72px]"
       >
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-start">
             {/* Left info */}
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-7">
               <div>
-                <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-3">
+                <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-2.5">
                   Get in Touch
                 </p>
-                <h2 className="text-4xl sm:text-5xl font-headline font-bold text-[#1A1A1A] tracking-tight mb-4">
+                <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
                   Contact
                 </h2>
-                <p className="text-base text-[#6B6B6B] leading-relaxed max-w-md">
+                <p className="text-sm sm:text-base text-[#6B6B6B] leading-relaxed max-w-md">
                   For research partnerships, questions about the platform, or
                   collaboration opportunities — we'd love to hear from you.
                 </p>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {[
                   {
                     icon: Mail,
@@ -1082,13 +1139,13 @@ export default function LandingPage() {
                     value: "Open to research partnerships",
                   },
                 ].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="flex items-center gap-4">
+                  <div key={label} className="flex items-center gap-3.5">
                     <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                       style={{ backgroundColor: "#FBF0E6" }}
                     >
                       <Icon
-                        size={17}
+                        size={16}
                         style={{ color: "#D47E30" }}
                         strokeWidth={1.8}
                       />
@@ -1106,12 +1163,12 @@ export default function LandingPage() {
               </div>
 
               {/* Crystal decoration */}
-              <div className="pt-4 pointer-events-none select-none opacity-60">
+              <div className="pt-2 pointer-events-none select-none opacity-60">
                 <img
                   src="/assets/contact_crystal.png"
                   alt=""
                   aria-hidden="true"
-                  className="w-24 h-auto object-contain"
+                  className="w-20 h-auto object-contain"
                   style={{
                     filter: "drop-shadow(0 4px 8px rgba(141,90,43,0.15))",
                   }}
@@ -1123,15 +1180,15 @@ export default function LandingPage() {
             <div>
               <form
                 onSubmit={handleContactSubmit}
-                className="bg-[#FAFAF8] rounded-3xl p-8 border border-[#EBEBEB] space-y-5"
+                className="bg-[#FAFAF8] rounded-3xl p-6 sm:p-7 border border-[#EBEBEB] space-y-4"
                 aria-label="Contact form"
                 noValidate
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label
                       htmlFor="contact-name"
-                      className="block text-[12px] font-medium text-[#3D3D3D] mb-1.5"
+                      className="block text-[12px] font-medium text-[#3D3D3D] mb-1"
                     >
                       Name <span className="text-[#D47E30]">*</span>
                     </label>
@@ -1144,13 +1201,13 @@ export default function LandingPage() {
                         setContactForm({ ...contactForm, name: e.target.value })
                       }
                       placeholder="Your full name"
-                      className="w-full bg-white border border-[#EBEBEB] rounded-xl px-4 py-3 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8]"
+                      className="w-full bg-white border border-[#EBEBEB] rounded-xl px-3.5 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8]"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="contact-email"
-                      className="block text-[12px] font-medium text-[#3D3D3D] mb-1.5"
+                      className="block text-[12px] font-medium text-[#3D3D3D] mb-1"
                     >
                       Email <span className="text-[#D47E30]">*</span>
                     </label>
@@ -1166,7 +1223,7 @@ export default function LandingPage() {
                         })
                       }
                       placeholder="you@institution.edu"
-                      className="w-full bg-white border border-[#EBEBEB] rounded-xl px-4 py-3 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8]"
+                      className="w-full bg-white border border-[#EBEBEB] rounded-xl px-3.5 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8]"
                     />
                   </div>
                 </div>
@@ -1174,7 +1231,7 @@ export default function LandingPage() {
                 <div>
                   <label
                     htmlFor="contact-subject"
-                    className="block text-[12px] font-medium text-[#3D3D3D] mb-1.5"
+                    className="block text-[12px] font-medium text-[#3D3D3D] mb-1"
                   >
                     Subject
                   </label>
@@ -1189,21 +1246,21 @@ export default function LandingPage() {
                       })
                     }
                     placeholder="Research collaboration / Query / Other"
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl px-4 py-3 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8]"
+                    className="w-full bg-white border border-[#EBEBEB] rounded-xl px-3.5 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8]"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="contact-message"
-                    className="block text-[12px] font-medium text-[#3D3D3D] mb-1.5"
+                    className="block text-[12px] font-medium text-[#3D3D3D] mb-1"
                   >
                     Message <span className="text-[#D47E30]">*</span>
                   </label>
                   <textarea
                     id="contact-message"
                     required
-                    rows={5}
+                    rows={4}
                     value={contactForm.message}
                     onChange={(e) =>
                       setContactForm({
@@ -1212,7 +1269,7 @@ export default function LandingPage() {
                       })
                     }
                     placeholder="Tell us about your research interest or question..."
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl px-4 py-3 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8] resize-none"
+                    className="w-full bg-white border border-[#EBEBEB] rounded-xl px-3.5 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#D47E30] transition-colors placeholder:text-[#DDDBD8] resize-none"
                   />
                 </div>
 
@@ -1226,7 +1283,7 @@ export default function LandingPage() {
                   <button
                     type="submit"
                     disabled={contactState === "loading"}
-                    className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-full text-white text-sm font-medium transition-all duration-120 active:scale-[0.98] disabled:opacity-70"
+                    className="w-full flex items-center justify-center gap-2.5 py-3 rounded-full text-white text-sm font-medium transition-all duration-120 active:scale-[0.98] disabled:opacity-70"
                     style={{ backgroundColor: "#D47E30" }}
                     onMouseEnter={(e) => {
                       if (contactState !== "loading")

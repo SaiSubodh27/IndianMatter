@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
-import { Search, Bell, ChevronDown, LogOut, Settings, Bookmark } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, Bell, ChevronDown, LogOut, Settings, Bookmark, Menu } from "lucide-react";
 
-export default function TopHeader() {
+interface TopHeaderProps {
+  onToggleMobileMenu?: () => void;
+}
+
+export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,26 +43,62 @@ export default function TopHeader() {
   }, [dropdownOpen]);
 
   return (
-    <header className="h-16 w-full flex items-center justify-between px-6 sm:px-8 bg-white/70 backdrop-blur-md border-b border-im-border sticky top-0 z-30">
-      {/* ── Search Bar ── */}
-      <form onSubmit={handleSearch} className="relative w-72 sm:w-[380px]">
-        <Search
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-im-textMuted pointer-events-none"
-          size={15}
-          aria-hidden="true"
-        />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search materials, structures, tools…"
-          aria-label="Search materials"
-          className="w-full bg-im-surfaceAlt border border-im-border rounded-full py-2 pl-10 pr-14 text-xs text-im-text outline-none focus:border-[#D47E30] focus:bg-white transition-all placeholder:text-im-textMuted"
-        />
-        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-im-textMuted bg-white border border-im-border px-1.5 py-0.5 rounded pointer-events-none">
-          ⌘K
-        </kbd>
-      </form>
+    <header className="h-16 w-full flex items-center justify-between px-4 sm:px-6 bg-white/95 backdrop-blur-md border-b border-[#EDE8E2] fixed top-0 left-0 right-0 z-50">
+      {/* ── Left: Brand & Search Bar with minimal distance ── */}
+      <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+        {/* Mobile menu trigger */}
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            onClick={onToggleMobileMenu}
+            className="md:hidden p-1.5 rounded-lg text-im-textLight hover:text-im-text hover:bg-im-surfaceAlt transition-colors shrink-0"
+            aria-label="Open navigation menu"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
+        {/* IndianMatter Brand in top left corner */}
+        <Link
+          to="/app"
+          className="flex items-center gap-2.5 shrink-0 group select-none mr-1"
+          aria-label="IndianMatter Home"
+        >
+          <img
+            src="/mi-icon-mark.png"
+            alt="IndianMatter"
+            className="w-7 h-7 object-contain transition-transform duration-200 group-hover:scale-105"
+          />
+          <div className="flex flex-col">
+            <span className="font-headline font-bold text-[15px] sm:text-[16px] text-im-text leading-none tracking-tight">
+              Indian<span style={{ color: "var(--im-orange)" }}>Matter</span>
+            </span>
+            <span className="text-[9px] text-im-textMuted font-normal tracking-wider uppercase mt-0.5 hidden sm:block">
+              Materials Platform
+            </span>
+          </div>
+        </Link>
+
+        {/* Search Bar beside logo with minimal distance */}
+        <form onSubmit={handleSearch} className="relative w-56 sm:w-72 md:w-84 lg:w-96">
+          <Search
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-im-textMuted pointer-events-none"
+            size={14}
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search materials, structures, tools…"
+            aria-label="Search materials"
+            className="w-full bg-im-surfaceAlt border border-im-border rounded-full py-1.5 pl-9 pr-12 text-xs text-im-text outline-none focus:border-[#D47E30] focus:bg-white transition-all placeholder:text-im-textMuted"
+          />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-im-textMuted bg-white border border-im-border px-1.5 py-0.5 rounded pointer-events-none hidden sm:inline-block">
+            ⌘K
+          </kbd>
+        </form>
+      </div>
 
       {/* ── Right Controls ── */}
       <div className="flex items-center gap-3">
