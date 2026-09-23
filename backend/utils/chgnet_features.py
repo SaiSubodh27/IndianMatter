@@ -1,25 +1,48 @@
 import os
 import warnings
-import torch
 import numpy as np
 from pymatgen.core import Structure
-from pymatgen.io.ase import AseAtomsAdaptor
-from chgnet.model.dynamics import CHGNetCalculator
 
 # Suppress annoying loading warnings in the terminal
 warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------
-# 1. GLOBALLY INITIALIZE CHGNET ONCE
+# 1. LAZY-INITIALIZE CHGNET ON FIRST USE
+#    Allows the server to start even if chgnet is installed
+#    system-wide (conda) rather than inside the active venv.
 # ---------------------------------------------------------
-print("Initializing CHGNet Calculator globally (this should only happen once)...")
-try:
-    # CHGNetCalculator wraps CHGNet.load() and attaches it to ASE
-    # It will automatically detect CUDA if available
-    GLOBAL_CALCULATOR = CHGNetCalculator()
-except Exception as e:
-    print(f"Failed to initialize global CHGNet calculator: {e}")
-    GLOBAL_CALCULATOR = None
+_GLOBAL_CALCULATOR = None
+_CHGNET_INIT_ATTEMPTED = False
+_CHGNET_AVAILABLE = False
+
+
+def _ensure_chgnet_calculator():
+    """Lazily import chgnet and build the calculator on first call."""
+    global _GLOBAL_CALCULATOR, _CHGNET_INIT_ATTEMPTED, _CHGNET_AVAILABLE
+
+    if _CHGNET_INIT_ATTEMPTED:
+        return _GLOBAL_CALCULATOR
+
+    _CHGNET_INIT_ATTEMPTED = True
+
+    try:
+        from chgnet.model.dynamics import CHGNetCalculator  # noqa: F811
+        print("Initializing CHGNet Calculator (first use, this should only happen once)...")
+        _GLOBAL_CALCULATOR = CHGNetCalculator()
+        _CHGNET_AVAILABLE = True
+        print("CHGNet Calculator initialized successfully.")
+    except ImportError:
+        print(
+            "WARNING: 'chgnet' package not found in the current Python environment. "
+            "CHGNet-based feature extraction will be unavailable. "
+            "Install it with: pip install chgnet"
+        )
+        _GLOBAL_CALCULATOR = None
+    except Exception as e:
+        print(f"WARNING: Failed to initialize CHGNet calculator: {e}")
+        _GLOBAL_CALCULATOR = None
+
+    return _GLOBAL_CALCULATOR
 
 
 def extract_mechanical_features(structure: Structure) -> dict:
@@ -29,17 +52,24 @@ def extract_mechanical_features(structure: Structure) -> dict:
     
     Does NOT calculate or derive K, G, E, or nu.
     """
-    if GLOBAL_CALCULATOR is None:
-        raise RuntimeError("Global CHGNet calculator failed to initialize on startup.")
+    calculator = _ensure_chgnet_calculator()
+    if calculator is None:
+        raise RuntimeError(
+            "CHGNet calculator is not available. "
+            "Make sure the 'chgnet' package is installed: pip install chgnet"
+        )
 
     num_atoms = len(structure)
     if num_atoms == 0:
         raise ValueError("Structure contains zero atoms.")
 
+    # Lazy import — only needed when CHGNet is available
+    from pymatgen.io.ase import AseAtomsAdaptor
+
     # 2. ATTACH THE GLOBAL CALCULATOR (Fast inference)
     adaptor = AseAtomsAdaptor()
     atoms = adaptor.get_atoms(structure)
-    atoms.calc = GLOBAL_CALCULATOR
+    atoms.calc = calculator
 
     energy_eV = float(atoms.get_potential_energy())
     forces = np.array(atoms.get_forces()) # N x 3 array
