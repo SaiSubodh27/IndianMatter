@@ -539,13 +539,21 @@ def classify_material(composition: str, structure=None) -> dict:
 
 
 def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
-    if v5_base_models is None or v5_meta_model is None or v5_model_a is None:
+    global v5_base_models, v5_meta_model, v5_model_a, ioncast_models
+    if v5_base_models is None or ioncast_models is None:
+        try:
+            load_models()
+        except Exception as lm_e:
+            print(f"[model_service WARN] Auto load_models failed: {lm_e}")
+
+    if (v5_base_models is None or v5_meta_model is None or v5_model_a is None) and ioncast_models is None:
         return {
             "status": "model_not_loaded",
             "error": "Models not loaded. Check server startup logs.",
             "Ea": 0.0, "logA": 0.0, "conductivity": 0.0,
             "composition": "Unknown", "classification": "Unknown"
         }
+
 
     if not MATMINER_AVAILABLE:
         return {

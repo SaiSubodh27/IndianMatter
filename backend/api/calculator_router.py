@@ -172,27 +172,48 @@ async def predict_properties(
                     else:
                         calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "unavailable"}
 
-                elif key in ["ionic_conductivity", "ionic_conductivity_activation_energy", "activation_energy_eV"]:
+                elif key in ["ionic_conductivity", "ionic_conductivity_activation_energy", "activation_energy_eV", "activation_energy", "Ea"]:
                     if IONIC_LOADED:
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".cif") as tmp:
                             tmp.write(content)
                             tmp_path = tmp.name
-                        res = predict_from_cif(tmp_path, temperature)
-                        if os.path.exists(tmp_path):
-                            os.remove(tmp_path)
+                        try:
+                            res = predict_from_cif(tmp_path, temperature)
+                        finally:
+                            if os.path.exists(tmp_path):
+                                os.remove(tmp_path)
                         
-                        val = res.get("conductivity") if "conductivity" in key else res.get("Ea")
-                        unit = "mS/cm" if "conductivity" in key else "eV"
+                        if "conductivity" in key and "activation" not in key:
+                            cond_s_cm = float(res.get("conductivity", 0.0))
+                            val = cond_s_cm * 1000.0  # Convert S/cm -> mS/cm to match UI display
+                            unit = "mS/cm"
+                        else:
+                            val = float(res.get("Ea", 0.0))
+                            unit = "eV"
+
                         calculated_properties[key] = {
                             "property_key": key,
-                            "value": round(float(val), 4) if val is not None else None,
+                            "value": float(f"{val:.6g}"),
                             "unit": unit,
-                            "status": "calculated"
+                            "status": "calculated",
+                            "raw_details": {
+                                "conductivity_S_per_cm": float(res.get("conductivity", 0.0)),
+                                "base_conductivity_S_per_cm": float(res.get("base_conductivity", 0.0)),
+                                "corrected_conductivity_S_per_cm": float(res.get("corrected_conductivity", 0.0)),
+                                "activation_energy_eV": float(res.get("Ea", 0.0)),
+                                "logA": float(res.get("logA", 0.0)),
+                                "corrector_applied": bool(res.get("corrector_applied")),
+                                "corrector_log10_delta": float(res.get("corrector_log10_delta", 0.0)),
+                                "feature_coverage": res.get("feature_coverage"),
+                                "hes_score": res.get("hes_score"),
+                                "hes_rating": res.get("hes_rating"),
+                            }
                         }
                     else:
-                        calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "unavailable"}
+                        calculated_properties[key] = {"property_key": key, "value": None, "unit": "mS/cm", "status": "unavailable"}
             except Exception as prop_err:
                 calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "failed", "warnings": [str(prop_err)]}
+
 
         return {
             "status": "success",
