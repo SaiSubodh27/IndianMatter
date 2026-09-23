@@ -17,8 +17,9 @@ lithium_dataset_full_cleaned.csv
 trial_uploads/
 
 # Backup
-IonCastBackup/
-IonCast/
+/IonCastBackup/
+/IonCast/
+!backend/ioncast/
 
 # Temp files
 temp_features_train.txt

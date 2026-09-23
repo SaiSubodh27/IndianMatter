@@ -1,59 +1,62 @@
 # Prediction Pipeline Guide
 
-## IonCast v5/v6 Pipeline (Ionic Conductivity)
+## IonCast v7 Physics-Informed Pipeline (Ionic Conductivity & Activation Energy)
 
 ### Full Pipeline Flow
 
 ```text
 CIF file
   ↓
-pymatgen.Structure.from_str(cif_text, fmt="cif")
+pymatgen.Structure.from_file(cif_path)
   ↓
-cif_descriptors.compute_descriptors(structure)
-  → ~135 compositional + structural features
+extract_obliex_style_features(cif_path)
+  → 260-330 physical, structural, coordination & compositional features
   ↓
-Feature normalization (_normalize_feature_name)
-  ↓
-Feature alignment with canonical_cols
-  → missing features imputed/reconstructed
-  → extra features dropped
+Feature alignment with model schemas
+  → training-median imputation for unavailable simulation/database columns
+  → exact, normalized, canonical, and fuzzy name matching
   ↓
 v5_quantile_transformer.transform(features)
   ↓
-┌────────────────────────────────────┐
-│  v5_base_models.predict(features)  │  ← Stacking ensemble
-│  v5_mlp_models.predict(features)   │  ← MLP ensemble
-└────────────┬───────────────────────┘
-             ↓
-    Base prediction vector
-             ↓
+┌────────────────────────────────────────────────────────┐
+│  v5_base_models (LightGBM, XGBoost, CatBoost, HGB, ET) │  ← Stacking ensemble
+│  v5_mlp_models (Neural Network MLPs)                   │  ← MLP ensemble
+└───────────────────────────┬────────────────────────────┘
+                            ↓
+                   Base prediction vector
+                            ↓
 v5_meta_model.predict(base_predictions)
   → Ea_raw (log1p-scaled)
-             ↓
+                            ↓
 Inverse transform: expm1(Ea_raw) / 10.0
   → Ea (eV), clipped to [0.005, 5.0]
-             ↓
+                            ↓
 v5_model2_A.predict(features)
-  → logA (Arrhenius prefactor)
-             ↓
-v6_corrector_model.predict(features)
-  → residual correction (Δlog10σ)
-             ↓
-Arrhenius equation:
-  σ(T) = 10^(logA) · exp(-Ea / (kB · T))
-  σ_corrected = σ_base · 10^(Δlog10σ)
-             ↓
-API Response
+  → log10(A) (Arrhenius prefactor)
+                            ↓
+Base single-crystal Arrhenius conductivity:
+  σ_base = 10^(log10(A)) · exp(-Ea / (kB · T))
+                            ↓
+v6 OBLiEx Physics-Informed Residual Corrector:
+  residual = corrector_model.predict(corr_features)
+  σ_corrected(298K) = 10^(-3.5849668 + residual)
+  Arrhenius temperature shift to target T:
+  Δ_T = -(Ea / (kB · ln(10))) · (1/T - 1/298.15)
+  σ_final(T) = 10^(log10(σ_corrected(298K)) + Δ_T)
+                            ↓
+Rich API Response (Ea, logA, Base Sigma, Final Sigma, HES score, Temperature Series)
 ```
 
-### Key Constants
+### Key Constants & Anchors
 
 ```python
-MODEL_VERSION = "IonCast-v5-stacking-Ea+A + v6-residual-corrector"
+MODEL_VERSION = "IonCast-v7-OBLiEx-Physics-Informed"
 TARGET_SCALE = 10.0
 EA_CLIP_EV = (0.005, 5.0)
 SUPPORTED_TEMPERATURE_RANGE_K = (250, 1000)
+OBLIEX_BASE_ANCHOR = -3.5849667990023195  # 0.26 mS/cm training domain baseline at 298.15 K
 ```
+
 
 ### Temperature Handling
 

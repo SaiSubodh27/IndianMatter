@@ -12,9 +12,16 @@ def resolve_pretrained_models_dir(required_filename: str = "v5_base_models.pkl")
         PROJECT_ROOT / "pretrained_models",
         BACKEND_DIR / "pretrained_models",
         PROJECT_ROOT / "final_models" / "pretrained_models",
+        BACKEND_DIR / "final_models" / "pretrained_models",
         PROJECT_ROOT / "IonCastBackup" / "pretrained_models",
         BACKEND_DIR / "IonCastBackup" / "pretrained_models",
+        Path(r"C:\Users\saisu\Downloads\Surrogate_models\Surrogate_models\final_models\pretrained_models"),
     ]
+
+    # Check environment variable override
+    env_models_dir = os.environ.get("PRETRAINED_MODELS_DIR") or os.environ.get("SURROGATE_MODELS_DIR")
+    if env_models_dir:
+        candidate_dirs.insert(0, Path(env_models_dir))
 
     for candidate in candidate_dirs:
         if (candidate / required_filename).exists():
@@ -24,3 +31,4 @@ def resolve_pretrained_models_dir(required_filename: str = "v5_base_models.pkl")
     raise FileNotFoundError(
         f"Could not find {required_filename} in any known pretrained model directory:{os.linesep}{searched}"
     )
+

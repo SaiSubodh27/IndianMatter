@@ -38,19 +38,21 @@ and extracts 21 numerical features:
 
 **Lazy loading**: CHGNet is imported on first use, not at module load time.
 
-### Pipeline 2: IonCast 135-Descriptor Set
+### Pipeline 2: IonCast v7 280+ Physics-Informed Descriptor Set
 
-**Source**: `backend/cif_descriptors.py`
-**Used by**: IonCast v5/v6 models (ionic conductivity)
+**Source**: `backend/ioncast/predict_ionic_conductivity.py` (`extract_obliex_style_features`)
+**Used by**: IonCast v5/v6/v7 models (ionic conductivity & activation energy)
 
-Extracts ~135 structural and compositional descriptors from a CIF file using
-pymatgen and matminer:
+Computes 260–330 real physical, structural, and compositional descriptors per CIF file:
 
-- **Compositional**: elemental fractions, atomic properties (mass, radius,
-  electronegativity), statistical aggregations (mean, std, min, max, range)
-- **Structural**: lattice parameters, volume, density, space group, number of
-  sites, coordination statistics
-- **Matminer Magpie**: Element property statistics from the Magpie preset
+1. **Stoichiometry & Composition**: Matminer `Stoichiometry`, `ElementProperty` (Magpie preset), `ValenceOrbital`, `IonProperty`, element abundance/toxicity tables.
+2. **Local Coordination & Near-Neighbors**: Pymatgen `CrystalNN` coordination numbers (`cn_mu`, `cn_sd`), bond lengths (`bl_mu`, `bl_sd`, `short_bonds`, `long_bonds`).
+3. **Li-Ion Sublattice Environment**: Li-site coordination (`li_cn_mu`, `li_cn_min`), Li-anion bond lengths (`li_anion_bl_mu`), distortion indices (`li_distortion_mu`, `li_distortion_max`), and shortest Li–Li jump distance (`li_dmin`).
+4. **Li Percolation Dimensionality (Larsen Algorithm)**: Pymatgen 3D structure graph analysis to determine 0D/1D/2D/3D interconnected ion transport channels (`li_dim`, `li_dim_1d/2d/3d`).
+5. **Crystallographic Symmetry & Wyckoff Statistics**: Spglib spacegroup datasets, spacegroup numbers (`cif_spacegroup`, `sg`), and Wyckoff site multiplicities (`li_wyckoff_mu`, `li_wyckoff_max`).
+6. **Lattice & Packing Geometry**: Density features, packing fractions, anisotropy ratios (`ani_ab`, `ani_ac`, `ani_bc`), volume per atom (`vpa`, `vol_per_atom_sq`), angle deviations.
+7. **Training-Median Imputation & Quantile Normalization**: Uncomputable database/simulation features are filled using empirical training-distribution medians extracted from `v5_quantile_transformer.pkl` instead of zero-filling, maintaining numerical stability.
+
 
 ## Feature Consistency Rules
 
