@@ -171,26 +171,47 @@ async def predict_properties(
                         }
                     else:
                         calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "unavailable"}
-
                 elif key in ["ionic_conductivity", "ionic_conductivity_activation_energy", "activation_energy_eV"]:
                     if IONIC_LOADED:
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".cif") as tmp:
                             tmp.write(content)
                             tmp_path = tmp.name
-                        res = predict_from_cif(tmp_path, temperature)
+                        
+                        try:
+                            res = predict_from_cif(tmp_path, temperature)
+                        except Exception as inner_ex:
+                            res = {"status": "error", "error": str(inner_ex)}
+                            
                         if os.path.exists(tmp_path):
                             os.remove(tmp_path)
                         
-                        val = res.get("conductivity") if "conductivity" in key else res.get("Ea")
-                        unit = "mS/cm" if "conductivity" in key else "eV"
+                        if res.get("status") == "success":
+                            is_conductivity = "conductivity" in key
+                            val = res.get("conductivity") if is_conductivity else res.get("Ea")
+                            unit = "mS/cm" if is_conductivity else "eV"
+                            calculated_properties[key] = {
+                                "property_key": key,
+                                "value": round(float(val), 4) if val is not None else None,
+                                "unit": unit,
+                                "status": "calculated"
+                            }
+                        else:
+                            calculated_properties[key] = {
+                                "property_key": key,
+                                "value": None,
+                                "unit": "mS/cm" if "conductivity" in key else "eV",
+                                "status": "failed",
+                                "warnings": [res.get("error", "IonCast prediction failed")]
+                            }
+                    else:
                         calculated_properties[key] = {
                             "property_key": key,
-                            "value": round(float(val), 4) if val is not None else None,
-                            "unit": unit,
-                            "status": "calculated"
+                            "value": None,
+                            "unit": "",
+                            "status": "unavailable",
+                            "warnings": ["IonCast models not loaded on server"]
                         }
-                    else:
-                        calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "unavailable"}
+           
             except Exception as prop_err:
                 calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "failed", "warnings": [str(prop_err)]}
 
