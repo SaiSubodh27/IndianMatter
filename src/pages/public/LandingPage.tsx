@@ -170,7 +170,6 @@ export default function LandingPage() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState("home");
   const [exploreIdx, setExploreIdx] = useState(2); // LiCoO2 centered
-  const [resourceIdx, setResourceIdx] = useState(0);
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -625,171 +624,138 @@ export default function LandingPage() {
       </header>
 
       {/* ═══════════════════════════════════════════════════════════
-          HERO
+          HERO — Large Background Crystal Visual Layer (No Container / No Card)
+      ═══════════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════════
+          HERO — Balanced Left Content & Controlled Right Video Visual
+      ═══════════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════════
+          HERO — Integrated Background Video Visual Layer (No Container / No Circle)
       ═══════════════════════════════════════════════════════════ */}
       <section
         id="home"
-        className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-28 pb-24 lg:pt-36 lg:pb-32"
+        className="relative max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-20 pb-14 lg:pt-28 lg:pb-18 min-h-[540px] lg:min-h-[600px] flex items-center overflow-hidden"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          {/* Left */}
-          <div className="lg:col-span-7 space-y-7">
-            <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline">
-              Materials for a Better Tomorrow
-            </p>
+        {/* Soft atmospheric background glow */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-[650px] h-[650px] pointer-events-none -z-10"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(253,251,212,0.65) 0%, rgba(212,126,48,0.12) 45%, transparent 70%)",
+          }}
+        />
 
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-[#1A1A1A] tracking-tight leading-[1.02]">
-              Indian<span style={{ color: "#D47E30" }}>Matter</span>
-            </h1>
+        {/* Integrated Background Video Layer (4-Edge Seamless Fade & Natural Left-to-Right Emergence) */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-0 bottom-0 w-full md:w-[68%] lg:w-[60%] xl:w-[56%] h-full pointer-events-none select-none z-0 overflow-hidden flex items-center justify-center"
+          style={{
+            maskImage:
+              "linear-gradient(to right, transparent 0%, transparent 6%, rgba(0,0,0,0.15) 20%, rgba(0,0,0,0.50) 38%, rgba(0,0,0,0.85) 58%, black 76%, rgba(0,0,0,0.8) 88%, rgba(0,0,0,0.3) 95%, transparent 100%), linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 6%, black 18%, black 82%, rgba(0,0,0,0.4) 94%, transparent 100%)",
+            WebkitMaskImage:
+              "linear-gradient(to right, transparent 0%, transparent 6%, rgba(0,0,0,0.15) 20%, rgba(0,0,0,0.50) 38%, rgba(0,0,0,0.85) 58%, black 76%, rgba(0,0,0,0.8) 88%, rgba(0,0,0,0.3) 95%, transparent 100%), linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 6%, black 18%, black 82%, rgba(0,0,0,0.4) 94%, transparent 100%)",
+            maskComposite: "intersect",
+            WebkitMaskComposite: "source-in",
+          }}
+        >
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover object-center lg:object-right-center"
+            style={{
+              filter:
+                "drop-shadow(0 20px 40px rgba(212,126,48,0.18))",
+            }}
+          >
+            <source src="/videos/create_a_background_video_whic.mp4" type="video/mp4" />
+            <source src="/create_a_background_video_whic.mp4" type="video/mp4" />
+            <source src="/assets/create_a_background_video_whic.mp4" type="video/mp4" />
+          </video>
 
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-headline font-light text-[#6B6B6B] tracking-wide">
-              Predict. Explore. Accelerate.
-            </h2>
+          {/* Left-edge smooth gradient dissolver (0% opacity on left behind text) */}
+          <div className="absolute inset-y-0 left-0 w-52 sm:w-64 bg-gradient-to-r from-white via-white/80 to-transparent pointer-events-none z-10" />
+          {/* Right-edge smooth gradient dissolver (eliminates vertical right cut) */}
+          <div className="absolute inset-y-0 right-0 w-32 sm:w-44 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none z-10" />
+          {/* Top gentle fade under navbar */}
+          <div className="absolute top-0 inset-x-0 h-20 sm:h-24 bg-gradient-to-b from-white via-white/75 to-transparent pointer-events-none z-10" />
+          {/* Bottom gentle fade into feature section */}
+          <div className="absolute bottom-0 inset-x-0 h-24 sm:h-28 bg-gradient-to-t from-white via-white/75 to-transparent pointer-events-none z-10" />
+        </div>
 
-            <p className="text-base lg:text-[17px] text-[#6B6B6B] max-w-[520px] leading-relaxed">
-              AI-driven insights for next-generation materials discovery,
-              designed for a sustainable tomorrow.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (isAuthenticated) {
-                    navigate("/app");
-                  } else {
-                    navigate("/signin?redirect=/app");
-                  }
-                }}
-                className="inline-flex items-center gap-2.5 text-white text-[15px] font-medium px-8 py-3.5 rounded-full transition-all duration-120 active:scale-95 cursor-pointer"
-                style={{
-                  backgroundColor: "#D47E30",
-                  boxShadow: "0 10px 28px rgba(212,126,48,0.32)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#B8671E";
-                  e.currentTarget.style.boxShadow =
-                    "0 14px 36px rgba(212,126,48,0.40)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "#D47E30";
-                  e.currentTarget.style.boxShadow =
-                    "0 10px 28px rgba(212,126,48,0.32)";
-                }}
-              >
-                Start Your Research <ArrowRight size={16} />
-              </button>
-              <a
-                href="#explore"
-                onClick={(e) => scrollToSection(e, "explore")}
-                className="inline-flex items-center gap-2 text-[#3D3D3D] text-[15px] font-medium px-7 py-3.5 rounded-full bg-white border border-[#EBEBEB] hover:border-[#D47E30] hover:text-[#D47E30] transition-all duration-120 shadow-soft"
-              >
-                Try It <ArrowRight size={15} />
-              </a>
-            </div>
-
-            {/* Micro social proof */}
-            <div className="flex items-center gap-4 pt-4 text-[12px] text-[#9A9A9A]">
-              <span className="flex items-center gap-1.5">
-                <Database size={13} style={{ color: "#D47E30" }} />5 Scientific
-                Databases
-              </span>
-              <span className="w-1 h-1 rounded-full bg-[#DDDBD8]" />
-              <span className="flex items-center gap-1.5">
-                <Atom size={13} style={{ color: "#D47E30" }} />
-                ML Property Prediction
-              </span>
-              <span className="hidden sm:flex items-center gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-[#DDDBD8]" />
-                DFT Validation
-              </span>
-            </div>
+        {/* Hero Left Content */}
+        <div className="relative z-10 max-w-[580px] space-y-7 py-4">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FDFBD4] border border-[#EDE8E2] text-[11px] font-bold tracking-[0.2em] uppercase text-[#8D5A2B] font-headline shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D47E30] animate-pulse" />
+            Materials for a Better Tomorrow
           </div>
 
-          {/* Right — hero visual */}
-          <div className="lg:col-span-5 relative flex items-center justify-center min-h-[340px] lg:min-h-[440px]">
-            {/* Glowing ring behind molecule */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 rounded-full pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(circle at 55% 50%, rgba(212,126,48,0.10) 0%, rgba(253,251,212,0.25) 40%, transparent 70%)",
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-[#1A1A1A] tracking-tight leading-[1.02]">
+            Indian<span style={{ color: "#D47E30" }}>Matter</span>
+          </h1>
+
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-headline font-light text-[#6B6B6B] tracking-wide">
+            Predict. Explore. Accelerate.
+          </h2>
+
+          <p className="text-base lg:text-[17px] text-[#6B6B6B] max-w-[500px] leading-relaxed">
+            AI-driven insights for next-generation materials discovery,
+            designed for a sustainable tomorrow.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-4 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (isAuthenticated) {
+                  navigate("/app");
+                } else {
+                  navigate("/signin?redirect=/app");
+                }
               }}
-            />
-            {/* Rotating lattice ring SVG */}
-            <svg
-              aria-hidden="true"
-              className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
-              viewBox="0 0 400 400"
+              className="inline-flex items-center gap-2.5 text-white text-[15px] font-medium px-8 py-3.5 rounded-full transition-all duration-120 active:scale-95 cursor-pointer"
+              style={{
+                backgroundColor: "#D47E30",
+                boxShadow: "0 10px 28px rgba(212,126,48,0.32)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#B8671E";
+                e.currentTarget.style.boxShadow =
+                  "0 14px 36px rgba(212,126,48,0.40)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "#D47E30";
+                e.currentTarget.style.boxShadow =
+                  "0 10px 28px rgba(212,126,48,0.32)";
+              }}
             >
-              <circle
-                cx="200"
-                cy="200"
-                r="160"
-                fill="none"
-                stroke="#D47E30"
-                strokeWidth="0.5"
-                strokeDasharray="6 8"
-              />
-              <circle
-                cx="200"
-                cy="200"
-                r="120"
-                fill="none"
-                stroke="#8D5A2B"
-                strokeWidth="0.4"
-                strokeDasharray="4 6"
-              />
-              <circle
-                cx="200"
-                cy="200"
-                r="80"
-                fill="none"
-                stroke="#D47E30"
-                strokeWidth="0.3"
-                strokeDasharray="3 5"
-              />
-            </svg>
+              Start Your Research <ArrowRight size={16} />
+            </button>
+            <a
+              href="#explore"
+              onClick={(e) => scrollToSection(e, "explore")}
+              className="inline-flex items-center gap-2 text-[#3D3D3D] text-[15px] font-medium px-7 py-3.5 rounded-full bg-white border border-[#EBEBEB] hover:border-[#D47E30] hover:text-[#D47E30] transition-all duration-120 shadow-soft"
+            >
+              Try It <ArrowRight size={15} />
+            </a>
+          </div>
 
-            {/* Annotation tags — CSS positioned */}
-            <span
-              className="absolute top-[18%] right-[12%] text-[10px] font-mono text-[#8D5A2B] bg-[#FDFBD4] border border-[#EDE8E2] px-2.5 py-1 rounded-full shadow-soft pointer-events-none"
-              aria-hidden="true"
-            >
-              LiCoO₂
+          {/* Micro social proof */}
+          <div className="flex items-center gap-4 pt-4 text-[12px] text-[#9A9A9A]">
+            <span className="flex items-center gap-1.5">
+              <Database size={13} style={{ color: "#D47E30" }} />5 Scientific
+              Databases
             </span>
-            <span
-              className="absolute bottom-[22%] left-[8%] text-[10px] font-mono text-[#8D5A2B] bg-[#FDFBD4] border border-[#EDE8E2] px-2.5 py-1 rounded-full shadow-soft pointer-events-none"
-              aria-hidden="true"
-            >
-              R -3 m
+            <span className="w-1 h-1 rounded-full bg-[#DDDBD8]" />
+            <span className="flex items-center gap-1.5">
+              <Atom size={13} style={{ color: "#D47E30" }} />
+              ML Property Prediction
             </span>
-            <span
-              className="absolute top-[42%] left-[4%] text-[10px] font-mono text-[#9A9A9A] bg-white border border-[#EBEBEB] px-2.5 py-1 rounded-full shadow-soft pointer-events-none"
-              aria-hidden="true"
-            >
-              Band Gap: 2.45 eV
-            </span>
-
-            {/* Main molecule image */}
-            <div className="relative w-[260px] sm:w-[300px] lg:w-[340px]">
-              <img
-                src="/assets/hero_molecule_clean.png"
-                alt="Crystal molecular structure visualization"
-                className="w-full h-auto object-contain drop-shadow-[0_24px_48px_rgba(141,90,43,0.18)]"
-                style={{
-                  filter: "drop-shadow(0 24px 40px rgba(212,126,48,0.15))",
-                }}
-              />
-            </div>
-
-            {/* Cursive annotation */}
-            <span
-              className="absolute bottom-[8%] right-[10%] font-handwriting text-[#825E34] text-2xl leading-tight rotate-[-6deg] pointer-events-none select-none"
-              aria-hidden="true"
-            >
-              Crystal Paradigm
+            <span className="hidden sm:flex items-center gap-1.5">
+              <span className="w-1 h-1 rounded-full bg-[#DDDBD8]" />
+              DFT Validation
             </span>
           </div>
         </div>

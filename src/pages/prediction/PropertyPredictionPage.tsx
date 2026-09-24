@@ -42,6 +42,37 @@ const exponential =
   (digits: number) => (v: PropertyResult["value"], unit: string) =>
     typeof v === "number" ? `${v.toExponential(digits)} ${unit}` : "N/A";
 
+const scientific =
+  (digits: number) => (v: PropertyResult["value"], unit: string) => {
+    if (typeof v !== "number") return "N/A";
+    const [base, exponent] = v.toExponential(digits).split("e");
+    
+    const superscripts: Record<string, string> = {
+      "-": "⁻",
+      "+": "",
+      "0": "⁰",
+      "1": "¹",
+      "2": "²",
+      "3": "³",
+      "4": "⁴",
+      "5": "⁵",
+      "6": "⁶",
+      "7": "⁷",
+      "8": "⁸",
+      "9": "⁹"
+    };
+    
+    let formattedExponent = "";
+    // Remove leading zeros from exponent (e.g., "-04" to "-4")
+    const expNum = parseInt(exponent, 10).toString();
+    for (const char of expNum) {
+      if (char === '+') continue;
+      formattedExponent += superscripts[char] || char;
+    }
+    
+    return `${base} × 10${formattedExponent} ${unit}`;
+  };
+
 const ALL_PROPERTIES: PropertyOption[] = [
   // --- Mechanical (strain-response, GNN) ---
   {
@@ -82,7 +113,7 @@ const ALL_PROPERTIES: PropertyOption[] = [
     category: "Mechanical",
     unit: "GPa⁻¹",
     requiresModel: "gnn",
-    format: exponential(3),
+    format: scientific(3),
   },
   {
     key: "elastic_anisotropy",
@@ -142,9 +173,9 @@ const ALL_PROPERTIES: PropertyOption[] = [
     key: "ionic_conductivity",
     title: "Ionic Conductivity",
     category: "Ionic Transport",
-    unit: "mS/cm",
+    unit: "S/cm",
     requiresModel: "base",
-    format: numeric(3),
+    format: scientific(3),
   },
   {
     key: "ionic_conductivity_activation_energy",

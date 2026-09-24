@@ -123,12 +123,12 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="shrink-0 pointer-events-none select-none opacity-80">
-          <img
+          {/* <img
             src="/assets/dash_mountains.png"
             alt=""
             aria-hidden="true"
             className="w-44 sm:w-52 h-auto object-contain"
-          />
+          /> */}
         </div>
       </div>
 
@@ -168,12 +168,12 @@ export default function DashboardPage() {
           {/* Center: Crystal visual */}
           <div className="lg:col-span-3 flex items-center justify-center pointer-events-none select-none">
             <div className="w-48 sm:w-56">
-              <img
+              {/* <img
                 src="/assets/dash_c1_crystal.png"
                 alt="DFT crystal specimen"
                 className="w-full h-auto object-contain"
                 style={{ filter: "drop-shadow(0 12px 28px rgba(141,90,43,0.20))" }}
-              />
+              /> */}
             </div>
           </div>
 
@@ -200,13 +200,13 @@ export default function DashboardPage() {
                 <line x1="0" y1="36" x2="240" y2="36" stroke="#F2F2F0" strokeDasharray="3,3" />
                 <line x1="0" y1="54" x2="240" y2="54" stroke="#F2F2F0" strokeDasharray="3,3" />
                 <path d="M 0 18 Q 60 44 120 54 T 240 60" fill="none" stroke="#D47E30" strokeWidth="2" strokeLinecap="round" />
-                {[0,60,120,180,240].map((x,i) => {
-                  const ys = [18,44,54,58,60];
+                {[0, 60, 120, 180, 240].map((x, i) => {
+                  const ys = [18, 44, 54, 58, 60];
                   return <circle key={i} cx={x} cy={ys[i]} r="3" fill="#D47E30" />;
                 })}
                 <path d="M 0 28 Q 60 48 120 56 T 240 59" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" />
-                {[0,60,120,180,240].map((x,i) => {
-                  const ys = [28,48,56,58,59];
+                {[0, 60, 120, 180, 240].map((x, i) => {
+                  const ys = [28, 48, 56, 58, 59];
                   return <circle key={i} cx={x} cy={ys[i]} r="3" fill="#3B82F6" />;
                 })}
               </svg>
@@ -317,7 +317,7 @@ export default function DashboardPage() {
             <div className="bg-[#FAFAF8] rounded-2xl p-4 border border-[#EBEBEB]">
               <span className="text-xs font-bold text-[#1A1A1A] block mb-2">CIF Preview</span>
               <pre className="text-[10px] font-mono text-[#6B6B6B] leading-relaxed overflow-x-auto">
-{`data_${cifFormula}
+                {`data_${cifFormula}
 _symmetry_space_group_name_H-M  "P2_1/c"
 _cell_length_a  8.693
 _cell_length_b  10.222
@@ -331,12 +331,12 @@ _cell_angle_beta  90.000
           {/* Center: Crystal visual — lg:order-2 */}
           <div className="lg:col-span-3 flex items-center justify-center pointer-events-none select-none lg:order-2">
             <div className="w-48 sm:w-52">
-              <img
+              {/* <img
                 src="/assets/dash_c2_crystal.png"
                 alt="CIF crystal specimen"
                 className="w-full h-auto object-contain"
                 style={{ filter: "drop-shadow(0 12px 28px rgba(37,99,235,0.15))" }}
-              />
+              /> */}
             </div>
           </div>
 
@@ -421,12 +421,12 @@ _cell_angle_beta  90.000
               Predict<br />Accelerate<br />Innovate
             </p>
             <div className="w-44">
-              <img
+              {/* <img
                 src="/assets/hero_molecule_clean.png"
                 alt="Property prediction molecules"
                 className="w-full h-auto object-contain"
                 style={{ filter: "drop-shadow(0 8px 20px rgba(5,150,105,0.14))" }}
-              />
+              /> */}
             </div>
           </div>
 
@@ -443,7 +443,7 @@ _cell_angle_beta  90.000
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#059669]" />Predicted</span>
               </div>
               <svg viewBox="0 0 240 72" className="w-full h-16">
-                {[[30,38],[60,48],[90,36],[120,52],[150,44],[180,40],[210,46]].map(([x, y], i) => (
+                {[[30, 38], [60, 48], [90, 36], [120, 52], [150, 44], [180, 40], [210, 46]].map(([x, y], i) => (
                   <g key={i}>
                     <circle cx={x} cy={y} r="3.5" fill="#D47E30" opacity="0.75" />
                     <circle cx={x + 5} cy={y + (i % 2 === 0 ? -3 : 3)} r="3.5" fill="#059669" opacity="0.75" />
@@ -550,12 +550,12 @@ _cell_angle_beta  90.000
           {/* Center visual */}
           <div className="lg:col-span-3 flex items-center justify-center pointer-events-none select-none lg:order-2">
             <div className="w-52 sm:w-56">
-              <img
+              {/* <img
                 src="/assets/about_lattice.png"
                 alt="3D unit cell visualization"
                 className="w-full h-auto object-contain"
                 style={{ filter: "drop-shadow(0 12px 28px rgba(124,58,237,0.15))" }}
-              />
+              /> */}
             </div>
           </div>
 

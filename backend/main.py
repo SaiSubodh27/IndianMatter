@@ -18,6 +18,7 @@ from routes import (
     indianmatter,
     cif_routes,
     materials_routes,
+    transport_router,
 )
 from model_service import load_models
 
@@ -67,6 +68,7 @@ app.include_router(indianmatter.router, prefix="/api/indianmatter", tags=["India
 # CALCULATIONS ROUTER
 # ---------------------------------------------------------
 app.include_router(calculator_router)
+app.include_router(transport_router.router, prefix="/api/calculations")
 
 
 @app.get("/")
