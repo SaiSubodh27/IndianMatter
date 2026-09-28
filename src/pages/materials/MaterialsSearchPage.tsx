@@ -1,5 +1,5 @@
 // src/pages/materials/MaterialsSearchPage.tsx
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Columns3, Download, Filter, RotateCcw, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import PeriodicTable from "../../components/PeriodicTable";
@@ -260,6 +260,11 @@ export default function MaterialsSearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const shouldScrollToResultsRef = useRef(false);
+  const [searchNonce, setSearchNonce] = useState(0);
+
   const [hiddenColumns, setHiddenColumns] = useState<Set<ColumnKey>>(new Set());
   const [showColumnsPanel, setShowColumnsPanel] = useState(false);
   const [openFilterColumn, setOpenFilterColumn] = useState<ColumnKey | null>(
@@ -318,7 +323,22 @@ export default function MaterialsSearchPage() {
     minHull,
     maxHull,
     page,
+    searchNonce,
   ]);
+
+  // Smooth-scroll to results only after search operation completes and results render
+  useEffect(() => {
+    if (!loading && shouldScrollToResultsRef.current && submitted) {
+      shouldScrollToResultsRef.current = false;
+      const timer = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, submitted, materials]);
 
   const handleElementClick = (symbol: string) => {
     if (selectionMode === "include") {
@@ -344,6 +364,7 @@ export default function MaterialsSearchPage() {
 
   const runSearch = (event: FormEvent) => {
     event.preventDefault();
+    shouldScrollToResultsRef.current = true;
     const next = new URLSearchParams();
     if (query.trim()) next.set("q", query.trim());
     includeElements.forEach((element) => next.append("elements", element));
@@ -353,12 +374,15 @@ export default function MaterialsSearchPage() {
     setParams(next);
     setPage(1);
     setSubmitted(true);
+    setSearchNonce((n) => n + 1);
   };
 
   const resetAll = () => {
+    shouldScrollToResultsRef.current = false;
     setQuery("");
     setIncludeElements([]);
     setExcludeElements([]);
+    setSelectionMode("include");
     setMinBandGap("");
     setMaxBandGap("");
     setMinHull("");
@@ -494,29 +518,65 @@ export default function MaterialsSearchPage() {
 
       <section className="bg-white rounded-[2rem] p-5 sm:p-7 shadow-card border border-[#EFE5DC] space-y-5">
         <form onSubmit={runSearch} className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+          <div
+            onClick={() => searchInputRef.current?.focus()}
+            className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5 bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl py-2 px-3 text-sm focus-within:border-[#F1641D] transition-colors min-h-[46px] cursor-text"
+          >
             <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8C929C]"
+              className="text-[#8C929C] shrink-0 ml-1 mr-0.5"
               size={17}
             />
+            {selectedElements.map(({ element, mode }) => (
+              <span
+                key={`${mode}-${element}`}
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold select-none shadow-xs transition-all ${
+                  mode === "exclude"
+                    ? "bg-[#713600] text-white"
+                    : "bg-[#FBE8D8] text-[#F1641D] border border-[#F1641D]/30"
+                }`}
+              >
+                <span>{mode === "exclude" ? `− ${element}` : element}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleElementClick(element);
+                  }}
+                  aria-label={`Remove ${element}`}
+                  className={`hover:opacity-100 p-0.5 rounded cursor-pointer transition-opacity flex items-center justify-center ${
+                    mode === "exclude"
+                      ? "text-white/80 hover:text-white"
+                      : "text-[#F1641D]/80 hover:text-[#F1641D]"
+                  }`}
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
+              </span>
+            ))}
             <input
+              ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search formula or material ID (e.g., Li7La3Zr2O12)"
+              placeholder={
+                selectedElements.length > 0
+                  ? "Search formula or material ID..."
+                  : "Search formula or material ID (e.g., Li7La3Zr2O12)"
+              }
               aria-label="Search materials"
-              className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl py-3 pl-11 pr-4 text-sm outline-none focus:border-[#F1641D]"
+              className="flex-1 min-w-[160px] bg-transparent border-none py-1 px-1.5 text-sm outline-none text-[#1E2227] placeholder:text-[#8C929C]"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-3 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F]"
+            className="px-6 py-3 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] shrink-0 transition-colors cursor-pointer"
           >
             Search Materials
           </button>
           <button
             type="button"
             onClick={resetAll}
-            className="px-4 py-3 border border-[#E9DFD4] rounded-xl text-xs font-medium text-[#5F6771] hover:bg-[#FAF4EE] flex items-center gap-1.5"
+            className="px-4 py-3 border border-[#E9DFD4] rounded-xl text-xs font-medium text-[#5F6771] hover:bg-[#FAF4EE] flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
           >
             <RotateCcw size={13} /> Reset
           </button>
@@ -527,10 +587,10 @@ export default function MaterialsSearchPage() {
           <button
             type="button"
             onClick={() => setSelectionMode("include")}
-            className={`px-3 py-1.5 rounded-lg ${
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
               selectionMode === "include"
                 ? "bg-[#FBE8D8] text-[#F1641D]"
-                : "bg-[#FAF4EE] text-[#6C737E]"
+                : "bg-[#FAF4EE] text-[#6C737E] hover:bg-[#F2E7DC]"
             }`}
           >
             Include
@@ -538,39 +598,14 @@ export default function MaterialsSearchPage() {
           <button
             type="button"
             onClick={() => setSelectionMode("exclude")}
-            className={`px-3 py-1.5 rounded-lg ${
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
               selectionMode === "exclude"
                 ? "bg-[#713600] text-white"
-                : "bg-[#FAF4EE] text-[#6C737E]"
+                : "bg-[#FAF4EE] text-[#6C737E] hover:bg-[#F2E7DC]"
             }`}
           >
             Exclude
           </button>
-
-          {selectedElements.length > 0 && (
-            <span className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[#8C929C]">·</span>
-              {selectedElements.map(({ element, mode }) => (
-                <span
-                  key={`${mode}-${element}`}
-                  className={`inline-flex items-center gap-1 font-mono text-[11px] font-semibold ${
-                    mode === "exclude" ? "text-[#713600]" : "text-[#F1641D]"
-                  }`}
-                >
-                  {mode === "exclude" ? "−" : "+"}
-                  {element}
-                  <button
-                    type="button"
-                    onClick={() => handleElementClick(element)}
-                    aria-label={`Remove ${element}`}
-                    className="text-[#8C929C] hover:text-[#1E2227]"
-                  >
-                    <X size={10} />
-                  </button>
-                </span>
-              ))}
-            </span>
-          )}
 
           <span className="ml-auto text-[#8C929C]">
             Database: IndianMatter dataset
@@ -592,7 +627,10 @@ export default function MaterialsSearchPage() {
       )}
 
       {submitted && (
-        <section className="bg-white rounded-2xl border border-[#EFE5DC] overflow-hidden shadow-card">
+        <section
+          ref={resultsRef}
+          className="bg-white rounded-2xl border border-[#EFE5DC] overflow-hidden shadow-card scroll-mt-6"
+        >
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3 p-4 border-b border-[#F2E7DC] bg-[#FAF4EE]/40">
             <button
@@ -670,180 +708,187 @@ export default function MaterialsSearchPage() {
 
           {!loading && !error && visibleRows.length > 0 && (
             <>
-              <div className="overflow-x-auto relative">
-                <table className="w-full text-xs border-separate border-spacing-0">
+              <div className="w-full overflow-x-auto relative results-table-container">
+                <table className="w-max min-w-full text-xs border-separate border-spacing-0">
                 <thead>
                   <tr className="bg-[#1E2227]">
                     {COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
-                      (col, index, array) => (
-                        <th
-                          key={col.key}
-                          className="relative px-3.5 py-3 text-left font-semibold text-[#E9DFD4] whitespace-nowrap border-b border-[#333842]"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSort((current) => ({
-                                  key: col.key,
-                                  dir:
-                                    current?.key === col.key &&
-                                    current.dir === "asc"
-                                      ? "desc"
-                                      : "asc",
-                                }))
-                              }
-                              className="hover:text-white transition-colors"
-                            >
-                              {col.label}
-                              {sort?.key === col.key
-                                ? sort.dir === "asc"
-                                  ? " ▲"
-                                  : " ▼"
-                                : ""}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpenFilterColumn((current) =>
-                                  current === col.key ? null : col.key,
-                                )
-                              }
-                              aria-label={`Filter ${col.label}`}
-                              className={`${
-                                (col.type === "text" && textFilters[col.key]) ||
-                                (col.type === "number" &&
-                                  numericFilters[col.key]?.value)
-                                  ? "text-[#F1641D]"
-                                  : "text-[#8C929C]"
-                              } hover:text-white transition-colors`}
-                            >
-                              <Filter size={12} />
-                            </button>
-                          </div>
-
-                          {openFilterColumn === col.key && (
-                            <div
-                              className={`absolute top-full mt-1.5 w-60 bg-white border border-[#E9DFD4] rounded-xl shadow-2xl p-3.5 z-50 text-left font-normal normal-case text-[#1E2227] ${
-                                index > array.length - 3 ? "right-0" : "left-0"
-                              }`}
-                            >
-                              {col.type === "text" ? (
-                                <>
-                                  <p className="text-[10px] text-[#8C929C] mb-1 font-semibold uppercase tracking-wider">
-                                    Contains Text
-                                  </p>
-                                  <input
-                                    value={textFilters[col.key] ?? ""}
-                                    onChange={(e) =>
-                                      setTextFilters((current) => ({
-                                        ...current,
-                                        [col.key]: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="Filter..."
-                                    className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D]"
-                                  />
-                                </>
-                              ) : (
-                                <>
-                                  <p className="text-[10px] text-[#8C929C] mb-1 font-semibold uppercase tracking-wider">
-                                    {col.backendFilter
-                                      ? "Filter Range (Backend Query)"
-                                      : "Numeric Comparator"}
-                                  </p>
-                                  <select
-                                    defaultValue=">="
-                                    id={`comp-${col.key}`}
-                                    className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2 py-1.5 text-xs outline-none mb-2"
-                                  >
-                                    <option value=">=">
-                                      Greater than or equal (≥)
-                                    </option>
-                                    <option value="<=">
-                                      Less than or equal (≤)
-                                    </option>
-                                    {!col.backendFilter && (
-                                      <>
-                                        <option value="=">Equal to (=)</option>
-                                        <option value=">">
-                                          Strictly greater (&gt;)
-                                        </option>
-                                        <option value="<">
-                                          Strictly less (&lt;)
-                                        </option>
-                                      </>
-                                    )}
-                                  </select>
-                                  <input
-                                    id={`val-${col.key}`}
-                                    type="number"
-                                    step="any"
-                                    placeholder="Threshold value..."
-                                    defaultValue={
-                                      col.backendFilter
-                                        ? undefined
-                                        : (numericFilters[col.key]?.value ?? "")
-                                    }
-                                    className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D] mb-2.5"
-                                  />
-                                  <div className="flex gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const comparator = (
-                                          document.getElementById(
-                                            `comp-${col.key}`,
-                                          ) as HTMLSelectElement
-                                        ).value as Comparator;
-                                        const value = (
-                                          document.getElementById(
-                                            `val-${col.key}`,
-                                          ) as HTMLInputElement
-                                        ).value;
-                                        if (
-                                          col.backendFilter &&
-                                          (col.key === "e_hull" ||
-                                            col.key === "band_gap")
-                                        ) {
-                                          applyBackendNumericFilter(
-                                            col.key,
-                                            comparator,
-                                            value,
-                                          );
-                                        } else {
-                                          setNumericFilters((current) => ({
-                                            ...current,
-                                            [col.key]: { comparator, value },
-                                          }));
-                                        }
-                                        setOpenFilterColumn(null);
-                                      }}
-                                      className="flex-1 py-1.5 bg-[#F1641D] text-white rounded-lg text-xs font-semibold hover:bg-[#D9520F]"
-                                    >
-                                      Apply
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setNumericFilters((current) => {
-                                          const next = { ...current };
-                                          delete next[col.key];
-                                          return next;
-                                        });
-                                        setOpenFilterColumn(null);
-                                      }}
-                                      className="px-2.5 py-1.5 border border-[#E9DFD4] rounded-lg text-xs font-medium text-[#5F6771] hover:bg-[#FAF4EE]"
-                                    >
-                                      Clear
-                                    </button>
-                                  </div>
-                                </>
-                              )}
+                      (col, index, array) => {
+                        const isSticky = index === 0 && col.key === "mv_id";
+                        return (
+                          <th
+                            key={col.key}
+                            className={`relative px-4 py-3 text-left font-semibold text-[#E9DFD4] whitespace-nowrap border-b border-[#333842] ${
+                              isSticky
+                                ? "sticky left-0 z-20 bg-[#1E2227] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.3)] border-r border-[#333842]"
+                                : ""
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSort((current) => ({
+                                    key: col.key,
+                                    dir:
+                                      current?.key === col.key &&
+                                      current.dir === "asc"
+                                        ? "desc"
+                                        : "asc",
+                                  }))
+                                }
+                                className="hover:text-white transition-colors"
+                              >
+                                {col.label}
+                                {sort?.key === col.key
+                                  ? sort.dir === "asc"
+                                    ? " ▲"
+                                    : " ▼"
+                                  : ""}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenFilterColumn((current) =>
+                                    current === col.key ? null : col.key,
+                                  )
+                                }
+                                aria-label={`Filter ${col.label}`}
+                                className={`${
+                                  (col.type === "text" && textFilters[col.key]) ||
+                                  (col.type === "number" &&
+                                    numericFilters[col.key]?.value)
+                                    ? "text-[#F1641D]"
+                                    : "text-[#8C929C]"
+                                } hover:text-white transition-colors`}
+                              >
+                                <Filter size={12} />
+                              </button>
                             </div>
-                          )}
-                        </th>
-                      ),
+
+                            {openFilterColumn === col.key && (
+                              <div
+                                className={`absolute top-full mt-1.5 w-60 bg-white border border-[#E9DFD4] rounded-xl shadow-2xl p-3.5 z-50 text-left font-normal normal-case text-[#1E2227] ${
+                                  index > array.length - 3 ? "right-0" : "left-0"
+                                }`}
+                              >
+                                {col.type === "text" ? (
+                                  <>
+                                    <p className="text-[10px] text-[#8C929C] mb-1 font-semibold uppercase tracking-wider">
+                                      Contains Text
+                                    </p>
+                                    <input
+                                      value={textFilters[col.key] ?? ""}
+                                      onChange={(e) =>
+                                        setTextFilters((current) => ({
+                                          ...current,
+                                          [col.key]: e.target.value,
+                                        }))
+                                      }
+                                      placeholder="Filter..."
+                                      className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D]"
+                                    />
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="text-[10px] text-[#8C929C] mb-1 font-semibold uppercase tracking-wider">
+                                      {col.backendFilter
+                                        ? "Filter Range (Backend Query)"
+                                        : "Numeric Comparator"}
+                                    </p>
+                                    <select
+                                      defaultValue=">="
+                                      id={`comp-${col.key}`}
+                                      className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2 py-1.5 text-xs outline-none mb-2"
+                                    >
+                                      <option value=">=">
+                                        Greater than or equal (≥)
+                                      </option>
+                                      <option value="<=">
+                                        Less than or equal (≤)
+                                      </option>
+                                      {!col.backendFilter && (
+                                        <>
+                                          <option value="=">Equal to (=)</option>
+                                          <option value=">">
+                                            Strictly greater (&gt;)
+                                          </option>
+                                          <option value="<">
+                                            Strictly less (&lt;)
+                                          </option>
+                                        </>
+                                      )}
+                                    </select>
+                                    <input
+                                      id={`val-${col.key}`}
+                                      type="number"
+                                      step="any"
+                                      placeholder="Threshold value..."
+                                      defaultValue={
+                                        col.backendFilter
+                                          ? undefined
+                                          : (numericFilters[col.key]?.value ?? "")
+                                      }
+                                      className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D] mb-2.5"
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const comparator = (
+                                            document.getElementById(
+                                              `comp-${col.key}`,
+                                            ) as HTMLSelectElement
+                                          ).value as Comparator;
+                                          const value = (
+                                            document.getElementById(
+                                              `val-${col.key}`,
+                                            ) as HTMLInputElement
+                                          ).value;
+                                          if (
+                                            col.backendFilter &&
+                                            (col.key === "e_hull" ||
+                                              col.key === "band_gap")
+                                          ) {
+                                            applyBackendNumericFilter(
+                                              col.key,
+                                              comparator,
+                                              value,
+                                            );
+                                          } else {
+                                            setNumericFilters((current) => ({
+                                              ...current,
+                                              [col.key]: { comparator, value },
+                                            }));
+                                          }
+                                          setOpenFilterColumn(null);
+                                        }}
+                                        className="flex-1 py-1.5 bg-[#F1641D] text-white rounded-lg text-xs font-semibold hover:bg-[#D9520F]"
+                                      >
+                                        Apply
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNumericFilters((current) => {
+                                            const next = { ...current };
+                                            delete next[col.key];
+                                            return next;
+                                          });
+                                          setOpenFilterColumn(null);
+                                        }}
+                                        className="px-2.5 py-1.5 border border-[#E9DFD4] rounded-lg text-xs font-medium text-[#5F6771] hover:bg-[#FAF4EE]"
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </th>
+                        );
+                      },
                     )}
                   </tr>
                 </thead>
@@ -851,29 +896,38 @@ export default function MaterialsSearchPage() {
                   {visibleRows.map((m, i) => (
                     <tr
                       key={m.mv_id ?? i}
-                      className={`${
+                      className={`group ${
                         i % 2 === 0 ? "bg-white" : "bg-[#FDF9F4]"
                       } border-b border-[#F2E7DC] hover:bg-[#FBE8D8]/40 transition-colors`}
                     >
                       {COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
-                        (col) => (
-                          <td
-                            key={col.key}
-                            className="px-3.5 py-2.5 whitespace-nowrap"
-                          >
-                            {col.colorScale ? (
-                              <span
-                                className={`${badgeClasses(col, m)} font-mono`}
-                              >
-                                {col.format(m)}
-                              </span>
-                            ) : (
-                              <span className="text-[#1E2227] font-mono">
-                                {col.format(m)}
-                              </span>
-                            )}
-                          </td>
-                        ),
+                        (col, colIndex) => {
+                          const isSticky = colIndex === 0 && col.key === "mv_id";
+                          return (
+                            <td
+                              key={col.key}
+                              className={`px-4 py-2.5 whitespace-nowrap ${
+                                isSticky
+                                  ? `sticky left-0 z-10 ${
+                                      i % 2 === 0 ? "bg-white" : "bg-[#FDF9F4]"
+                                    } group-hover:bg-[#FAF0E6] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] border-r border-[#F2E7DC]`
+                                  : ""
+                              }`}
+                            >
+                              {col.colorScale ? (
+                                <span
+                                  className={`${badgeClasses(col, m)} font-mono`}
+                                >
+                                  {col.format(m)}
+                                </span>
+                              ) : (
+                                <span className="text-[#1E2227] font-mono">
+                                  {col.format(m)}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        },
                       )}
                     </tr>
                   ))}

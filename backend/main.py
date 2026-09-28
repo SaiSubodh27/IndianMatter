@@ -3,6 +3,15 @@ import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+# Compatibility shim for newer ASE versions where ExpCellFilter moved to ase.filters
+try:
+    import ase.filters
+    import ase.constraints
+    if not hasattr(ase.constraints, "ExpCellFilter") and hasattr(ase.filters, "ExpCellFilter"):
+        ase.constraints.ExpCellFilter = ase.filters.ExpCellFilter
+except Exception:
+    pass
+
 from api.calculator_router import router as calculator_router
 
 # Ensure the backend directory is in the system path

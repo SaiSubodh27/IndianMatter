@@ -7,7 +7,7 @@ import {
   CheckSquare,
   Square,
   Layers,
-  Cpu,
+  ArrowLeft,
 } from "lucide-react";
 import {
   predictFromCifFile,
@@ -16,14 +16,12 @@ import {
 } from "../../lib/materialsPredictionApi";
 
 // ---------------------------------------------------------------------------
-// Property catalogue — one entry per REAL backend property key.
-// `requiresModel` is informational only (shown as a badge); the unified
-// backend endpoint resolves the right model adapter per key internally,
-// so mechanical/thermal/electronic/ionic properties can all be requested
-// together in a single call.
+// Property catalogue — one entry per supported property key.
+// Organized by physical categories: Energy, Mechanical, Thermal,
+// Electronic, Ionic Transport.
 // ---------------------------------------------------------------------------
 
-type ModelRequirement = "gnn" | "base";
+type ModelRequirement = "gnn" | "base" | "structural";
 
 interface PropertyOption {
   key: string;
@@ -35,12 +33,28 @@ interface PropertyOption {
 }
 
 const numeric =
-  (digits: number) => (v: PropertyResult["value"], unit: string) =>
-    typeof v === "number" ? `${v.toFixed(digits)} ${unit}` : "N/A";
+  (digits: number) => (v: PropertyResult["value"], unit: string) => {
+    if (typeof v === "number" && !isNaN(v)) {
+      return unit ? `${v.toFixed(digits)} ${unit}` : `${v.toFixed(digits)}`;
+    }
+    if (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) {
+      const n = Number(v);
+      return unit ? `${n.toFixed(digits)} ${unit}` : `${n.toFixed(digits)}`;
+    }
+    return "N/A";
+  };
 
 const exponential =
-  (digits: number) => (v: PropertyResult["value"], unit: string) =>
-    typeof v === "number" ? `${v.toExponential(digits)} ${unit}` : "N/A";
+  (digits: number) => (v: PropertyResult["value"], unit: string) => {
+    if (typeof v === "number" && !isNaN(v)) {
+      return unit ? `${v.toExponential(digits)} ${unit}` : `${v.toExponential(digits)}`;
+    }
+    if (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) {
+      const n = Number(v);
+      return unit ? `${n.toExponential(digits)} ${unit}` : `${n.toExponential(digits)}`;
+    }
+    return "N/A";
+  };
 
 const scientific =
   (digits: number) => (v: PropertyResult["value"], unit: string) => {
@@ -74,7 +88,43 @@ const scientific =
   };
 
 const ALL_PROPERTIES: PropertyOption[] = [
-  // --- Mechanical (strain-response, GNN) ---
+  // --- Energy ---
+  {
+    key: "potential_energy",
+    title: "Potential Energy per Atom",
+    category: "Energy",
+    unit: "eV/atom",
+    requiresModel: "gnn",
+    format: numeric(4),
+  },
+
+  // --- Structural (CIF / Material Geometry) ---
+  {
+    key: "num_sites",
+    title: "Number of Sites",
+    category: "Structural",
+    unit: "",
+    requiresModel: "structural",
+    format: (v) => (typeof v === "number" ? String(v) : "N/A"),
+  },
+  {
+    key: "volume",
+    title: "Volume",
+    category: "Structural",
+    unit: "Å³",
+    requiresModel: "structural",
+    format: numeric(2),
+  },
+  {
+    key: "density",
+    title: "Density",
+    category: "Structural",
+    unit: "g/cm³",
+    requiresModel: "structural",
+    format: numeric(2),
+  },
+
+  // --- Mechanical (strain-response, GNN, EOS) ---
   {
     key: "bulk_modulus",
     title: "Bulk Modulus (K_VRH)",
@@ -123,16 +173,16 @@ const ALL_PROPERTIES: PropertyOption[] = [
     requiresModel: "gnn",
     format: (v) => (typeof v === "number" ? v.toFixed(4) : "N/A"),
   },
-
-  // --- Thermal (EOS, GNN) ---
   {
     key: "thermal",
     title: "EOS Bulk Modulus (B0)",
-    category: "Thermal",
+    category: "Mechanical",
     unit: "GPa",
     requiresModel: "gnn",
     format: numeric(2),
   },
+
+  // --- Thermal (GNN) ---
   {
     key: "debye_temperature",
     title: "Debye Temperature",
@@ -168,7 +218,7 @@ const ALL_PROPERTIES: PropertyOption[] = [
     format: (v) => (typeof v === "string" ? v : "N/A"),
   },
 
-  // --- Ionic transport (base surrogate model, NOT a GNN potential) ---
+  // --- Ionic Transport (base surrogate model) ---
   {
     key: "ionic_conductivity",
     title: "Ionic Conductivity",
@@ -192,6 +242,8 @@ const PROPERTY_MAP: Record<string, PropertyOption> = Object.fromEntries(
 );
 
 const CATEGORY_ORDER = [
+  "Energy",
+  "Structural",
   "Mechanical",
   "Thermal",
   "Electronic",
@@ -201,7 +253,88 @@ const CATEGORY_ORDER = [
 const MODEL_BADGE: Record<ModelRequirement, string> = {
   gnn: "GNN",
   base: "Ionic Surrogate",
+  structural: "Structural",
 };
+
+/**
+ * Extracts value, unit, status, and warnings for a property key from the API response.
+ * Safely resolves Potential Energy per Atom, Structural geometry, and ML properties.
+ */
+function getPropertyValue(
+  key: string,
+  result: DirectPredictionResponse,
+): {
+  value: PropertyResult["value"];
+  unit: string;
+  status?: string;
+  warning?: string;
+} {
+  if (key === "potential_energy") {
+    const rawVal =
+      result.base_outputs?.energy_per_atom?.value ??
+      result.properties?.[key]?.value;
+    const numVal =
+      typeof rawVal === "number"
+        ? rawVal
+        : typeof rawVal === "string" && !isNaN(Number(rawVal))
+          ? Number(rawVal)
+          : null;
+
+    return {
+      value: numVal,
+      unit: "eV/atom",
+      status: typeof numVal === "number" ? "calculated" : "unavailable",
+    };
+  }
+
+  if (key === "num_sites") {
+    const val = result.material_metadata?.num_sites;
+    return {
+      value: typeof val === "number" ? val : null,
+      unit: "",
+      status: typeof val === "number" ? "calculated" : "unavailable",
+    };
+  }
+
+  if (key === "volume") {
+    const val = result.material_metadata?.volume_A3;
+    return {
+      value: typeof val === "number" ? val : null,
+      unit: "Å³",
+      status: typeof val === "number" ? "calculated" : "unavailable",
+    };
+  }
+
+  if (key === "density") {
+    const val = result.material_metadata?.density_g_cm3;
+    return {
+      value: typeof val === "number" ? val : null,
+      unit: "g/cm³",
+      status: typeof val === "number" ? "calculated" : "unavailable",
+    };
+  }
+
+  const prop = result.properties?.[key];
+  if (!prop) {
+    return {
+      value: null,
+      unit: PROPERTY_MAP[key]?.unit ?? "",
+      status: "unavailable",
+    };
+  }
+
+  return {
+    value: prop.value,
+    unit: prop.unit || PROPERTY_MAP[key]?.unit || "",
+    status: prop.status,
+    warning:
+      prop.status === "estimated" ||
+        prop.status === "calculated_with_warnings" ||
+        prop.status === "failed"
+        ? prop.warnings?.[0]
+        : undefined,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // 3D structure viewer (3Dmol.js), rendering the actual uploaded CIF —
@@ -357,15 +490,15 @@ function StructureViewer({ cifText }: { cifText: string | null }) {
 }
 
 // ---------------------------------------------------------------------------
-// Page
+// Page Component
 // ---------------------------------------------------------------------------
 
 export default function PropertyPredictionPage() {
+  const [viewMode, setViewMode] = useState<"predict" | "results">("predict");
   const [file, setFile] = useState<File | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([
     "bulk_modulus",
     "shear_modulus",
-    "thermal",
   ]);
   const [result, setResult] = useState<DirectPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -386,21 +519,23 @@ export default function PropertyPredictionPage() {
       return;
     }
     if (selectedKeys.length === 0) {
-      setError("Select at least one property to compute.");
+      setError("Select at least one property to generate predictions.");
       return;
     }
 
     setLoading(true);
     setError(null);
-    setResult(null);
 
     try {
-      // The unified backend endpoint resolves whichever model adapters
-      // (mechanical / thermal / electrical / ionic) each requested
-      // property needs — no client-side model routing required.
+      // Pass selected properties to backend endpoint
       const res = await predictFromCifFile(file, selectedKeys);
       setResult(res);
+      // STEP 6: Once prediction completes successfully:
+      // AUTOMATICALLY NAVIGATE TO THE DEDICATED RESULTS PAGE.
+      setViewMode("results");
     } catch (requestError) {
+      // If prediction fails: DO NOT navigate to the Results page.
+      // Remain on the Property Prediction page and show an appropriate error message.
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -411,52 +546,215 @@ export default function PropertyPredictionPage() {
     }
   };
 
+  if (viewMode === "results" && result) {
+    return (
+      <DedicatedResultsPage
+        result={result}
+        cifText={cifText}
+        selectedKeys={selectedKeys}
+        onBack={() => setViewMode("predict")}
+      />
+    );
+  }
+
   return (
-    <div className="w-full max-w-[1550px] mx-auto space-y-8 px-4 sm:px-8 py-6">
+    <div className="w-full max-w-[1100px] mx-auto space-y-8 px-4 sm:px-8 py-6">
       <PageHeader />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-5">
-          <form
-            onSubmit={handlePredict}
-            className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-card border border-[#EFE5DC] space-y-6"
-          >
-            <h2 className="font-headline font-bold text-lg text-[#1E2227]">
-              Prediction Inputs
-            </h2>
-
-            <FileInput file={file} onChange={setFile} />
-
-            <PropertyChecklist
-              selectedKeys={selectedKeys}
-              onToggle={toggleProperty}
-            />
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#F1641D] text-white py-3 rounded-xl text-xs font-semibold hover:bg-[#D9520F] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
-            >
-              {loading
-                ? "Running Model Inference & Property Calculators..."
-                : "Run Property Prediction"}
-              <Play size={14} />
-            </button>
-
-            {error && (
-              <div
-                role="alert"
-                className="flex gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-xs text-red-700"
-              >
-                <AlertCircle size={15} className="shrink-0" />
-                {error}
-              </div>
-            )}
-          </form>
+      <form
+        onSubmit={handlePredict}
+        className="bg-white rounded-[2rem] p-6 sm:p-10 shadow-card border border-[#EFE5DC] space-y-8"
+      >
+        <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-4">
+          <h2 className="font-headline font-bold text-xl text-[#1E2227]">
+            Prediction Inputs
+          </h2>
+          <span className="text-xs text-[#8C929C]">Step 1 of 2</span>
         </div>
 
-        <div className="lg:col-span-7">
-          <ResultsPanel result={result} loading={loading} cifText={cifText} />
+        <FileInput file={file} onChange={setFile} />
+
+        <PropertyChecklist
+          selectedKeys={selectedKeys}
+          onToggle={toggleProperty}
+        />
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#F1641D] text-white py-3.5 rounded-xl text-sm font-semibold hover:bg-[#D9520F] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Running Model Inference & Property Calculators...
+              </>
+            ) : (
+              <>
+                Run Property Prediction
+                <Play size={15} />
+              </>
+            )}
+          </button>
+        </div>
+
+        {error && (
+          <div
+            role="alert"
+            className="flex gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 items-start"
+          >
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dedicated Results Page View
+// ---------------------------------------------------------------------------
+
+function DedicatedResultsPage({
+  result,
+  cifText,
+  selectedKeys,
+  onBack,
+}: {
+  result: DirectPredictionResponse;
+  cifText: string | null;
+  selectedKeys: string[];
+  onBack: () => void;
+}) {
+  const { material_metadata } = result;
+
+  // Selected properties mapped and ordered
+  const selectedProps = selectedKeys
+    .map((k) => PROPERTY_MAP[k])
+    .filter((p): p is PropertyOption => Boolean(p));
+
+  // Only render categories that have at least one selected property
+  const visibleCategories = CATEGORY_ORDER.filter((cat) =>
+    selectedProps.some((p) => p.category === cat),
+  );
+
+  return (
+    <div className="w-full max-w-[1550px] mx-auto space-y-6 px-4 sm:px-8 py-6">
+      {/* Top Navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-xs font-semibold text-[#1E2227] hover:text-[#F1641D] bg-white hover:bg-[#FAF4EE] px-4 py-2.5 rounded-xl border border-[#EFE5DC] shadow-sm transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={15} className="text-[#F1641D]" /> Back to Property Prediction
+        </button>
+        <div className="flex items-center gap-2 text-xs font-medium text-[#6C737E]">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          Prediction Complete
+        </div>
+      </div>
+
+      {/* Two Equal-Sized Main Panels: Equal Width & Equal Height */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-stretch">
+        {/* LEFT PANEL: CIF / Crystal Structure (Stable) */}
+        <div className="bg-white rounded-[2rem] p-6 sm:p-7 shadow-card border border-[#EFE5DC] flex flex-col h-[540px] md:h-[640px] lg:h-[680px]">
+          <div className="border-b border-[#F2E7DC] pb-4 shrink-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8C929C] mb-1">
+              Material Structure
+            </span>
+            <h2 className="font-headline font-bold text-2xl sm:text-3xl text-[#1E2227] break-words">
+              {material_metadata.formula || "Predicted Structure"}
+            </h2>
+          </div>
+
+          <div className="bg-[#FAF4EE] rounded-2xl p-4 border border-[#EFE5DC] flex flex-col flex-1 min-h-0 mt-4 space-y-3">
+            <div className="flex justify-between items-center shrink-0">
+              <span className="text-xs font-bold text-[#1E2227] uppercase tracking-wider">
+                Crystal Lattice Visualization
+              </span>
+              <span className="text-[10px] text-[#8C929C]">
+                Interactive 3D Unit Cell
+              </span>
+            </div>
+            <div className="w-full flex-1 min-h-0 bg-white rounded-xl border border-[#EFE5DC] overflow-hidden relative flex items-center justify-center">
+              <StructureViewer cifText={cifText} />
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: Property Results (Equal outer dimensions, scrolls internally) */}
+        <div className="bg-white rounded-[2rem] p-6 sm:p-7 shadow-card border border-[#EFE5DC] flex flex-col h-[540px] md:h-[640px] lg:h-[680px]">
+          {/* Stable Right Header */}
+          <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-4 shrink-0">
+            <div>
+              <h3 className="font-headline font-bold text-xl sm:text-2xl text-[#1E2227]">
+                Property Results
+              </h3>
+
+            </div>
+            <span className="text-xs font-bold text-[#F1641D] bg-[#FAF4EE] px-3 py-1 rounded-full border border-[#EFE5DC] shrink-0">
+              {selectedProps.length} {selectedProps.length === 1 ? "property" : "properties"}
+            </span>
+          </div>
+
+          {/* Independently Scrollable Container for Results */}
+          <div className="overflow-y-auto pr-2 mt-4 space-y-6 flex-1 min-h-0">
+            {visibleCategories.length === 0 ? (
+              <div className="bg-[#FAF4EE] rounded-2xl p-8 border border-[#EFE5DC] text-center space-y-1.5 my-auto">
+                <p className="font-headline font-bold text-sm text-[#1E2227]">
+                  No properties selected
+                </p>
+                <p className="text-xs text-[#6C737E]">
+                  Select at least one target property to generate predictions.
+                </p>
+              </div>
+            ) : (
+              visibleCategories.map((category) => {
+                const propsInCategory = selectedProps.filter(
+                  (p) => p.category === category,
+                );
+
+                return (
+                  <div key={category} className="space-y-3">
+                    {/* Category Heading (displayed once above its selected properties) */}
+                    <div className="border-b border-[#F2E7DC] pb-2 flex items-center justify-between">
+                      <h4 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-[#8C929C]">
+                        {category}
+                      </h4>
+                      <span className="text-[10px] font-semibold text-[#F1641D] bg-[#FAF4EE] px-2 py-0.5 rounded-full border border-[#EFE5DC]">
+                        {propsInCategory.length}{" "}
+                        {propsInCategory.length === 1 ? "property" : "properties"}
+                      </span>
+                    </div>
+
+                    {/* Full-width horizontal property blocks (one per row) */}
+                    <div className="space-y-2.5">
+                      {propsInCategory.map((prop) => {
+                        const { value, unit, status, warning } = getPropertyValue(
+                          prop.key,
+                          result,
+                        );
+                        const formattedValue = prop.format(value, unit);
+
+                        return (
+                          <PropertyResultBlock
+                            key={prop.key}
+                            title={prop.title}
+                            value={formattedValue}
+                            status={status}
+                            warning={warning}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -515,31 +813,42 @@ function PropertyChecklist({
   onToggle: (key: string) => void;
 }) {
   return (
-    <div className="space-y-3">
-      <span className="block text-xs font-semibold text-[#1E2227]">
-        Target Properties
-      </span>
-      <div className="max-h-80 overflow-y-auto pr-1 space-y-4">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-3">
+        <span className="block text-sm font-bold text-[#1E2227]">
+          Target Properties
+        </span>
+        <span className="text-xs font-semibold text-[#F1641D] bg-[#FAF4EE] px-3 py-1 rounded-full border border-[#EFE5DC]">
+          {selectedKeys.length} selected
+        </span>
+      </div>
+
+      {/* Complete property list with normal page scrolling (no internal scrollbar) */}
+      <div className="space-y-6">
         {CATEGORY_ORDER.map((category) => {
           const props = ALL_PROPERTIES.filter((p) => p.category === category);
+          if (props.length === 0) return null;
+
           return (
-            <div key={category} className="space-y-1.5">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8C929C]">
+            <div key={category} className="space-y-2.5">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[#8C929C]">
                 {category}
               </span>
-              <div className="space-y-1.5">
+
+              {/* Two-column responsive grid on desktop/tablet, single-column on mobile */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {props.map((prop) => {
                   const isChecked = selectedKeys.includes(prop.key);
                   return (
                     <div
                       key={prop.key}
                       onClick={() => onToggle(prop.key)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all cursor-pointer ${isChecked
-                        ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227]"
-                        : "border-[#E9DFD4] text-[#6C737E] hover:border-[#F1641D]"
+                      className={`flex items-center justify-between p-3.5 rounded-xl border text-xs transition-all cursor-pointer select-none ${isChecked
+                          ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227] shadow-sm ring-1 ring-[#F1641D]/20"
+                          : "border-[#E9DFD4] bg-white text-[#6C737E] hover:border-[#F1641D] hover:bg-[#FAF4EE]/20"
                         }`}
                     >
-                      <div className="flex items-center gap-2 truncate">
+                      <div className="flex items-center gap-2.5 min-w-0 mr-2">
                         {isChecked ? (
                           <CheckSquare
                             size={16}
@@ -551,15 +860,12 @@ function PropertyChecklist({
                             className="text-gray-400 shrink-0"
                           />
                         )}
-                        <span className="font-medium truncate">
+                        <span className="font-medium text-[#1E2227] truncate">
                           {prop.title}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[9px] uppercase tracking-wider text-[#8C929C] bg-white/70 px-1.5 py-0.5 rounded border border-[#EFE5DC]">
-                          {MODEL_BADGE[prop.requiresModel]}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-wider text-[#8C929C] bg-white/70 px-2 py-0.5 rounded border border-[#EFE5DC]">
+                      <div className="flex items-center shrink-0">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#8C929C] bg-white px-2 py-0.5 rounded border border-[#EFE5DC]">
                           {prop.unit || "—"}
                         </span>
                       </div>
@@ -575,170 +881,40 @@ function PropertyChecklist({
   );
 }
 
-function ResultsPanel({
-  result,
-  loading,
-  cifText,
-}: {
-  result: DirectPredictionResponse | null;
-  loading: boolean;
-  cifText: string | null;
-}) {
-  if (loading) {
-    return (
-      <div className="bg-white rounded-[2rem] p-12 text-center shadow-card border border-[#EFE5DC] text-sm text-[#6C737E] space-y-3">
-        <div className="animate-spin w-8 h-8 border-4 border-[#F1641D] border-t-transparent rounded-full mx-auto" />
-        <p>Executing model inference and property calculators...</p>
-      </div>
-    );
-  }
-
-  if (!result) {
-    return (
-      <div className="bg-white rounded-[2rem] p-12 text-center shadow-card border border-[#EFE5DC] text-sm text-[#6C737E]">
-        Awaiting CIF prediction request. Select a structure file and target
-        properties to begin calculation.
-      </div>
-    );
-  }
-
-  return <PredictionResultView result={result} cifText={cifText} />;
-}
-
-function PredictionResultView({
-  result,
-  cifText,
-}: {
-  result: DirectPredictionResponse;
-  cifText: string | null;
-}) {
-  const { material_metadata, base_outputs, properties, model_used } = result;
-  const energyPerAtom = base_outputs?.energy_per_atom?.value;
-  const returnedKeys = Object.keys(properties ?? {});
-
-  return (
-    <section
-      className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-card border border-[#EFE5DC] space-y-6"
-      aria-label="Prediction result"
-    >
-      {/* Header Info */}
-      <div className="border-b border-[#F2E7DC] pb-4 flex justify-between items-start">
-        <div>
-          <h2 className="font-headline font-bold text-2xl text-[#1E2227]">
-            {material_metadata.formula || "Predicted Structure"}
-          </h2>
-          <p className="text-xs text-[#8C929C] mt-1 flex items-center gap-2">
-            <Cpu size={12} className="text-[#F1641D]" />
-            Pipeline:{" "}
-            <span className="uppercase font-semibold text-[#1E2227]">
-              {model_used}
-            </span>{" "}
-            · Sites: {material_metadata.num_sites} · Volume:{" "}
-            {material_metadata.volume_A3.toFixed(2)} Å³
-          </p>
-        </div>
-        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[#FAF4EE] text-[#F1641D] border border-[#EFE5DC]">
-          Density: {material_metadata.density_g_cm3.toFixed(2)} g/cm³
-        </span>
-      </div>
-
-      {/* 3D Crystal Structure Display Section — renders the actual uploaded CIF */}
-      <div className="bg-[#FAF4EE] rounded-2xl p-5 border border-[#EFE5DC] space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-bold text-[#1E2227] uppercase tracking-wider">
-            Crystal Lattice Visualization
-          </span>
-          <span className="text-[10px] text-[#8C929C]">
-            Interactive 3D Unit Cell
-          </span>
-        </div>
-        <div className="w-full h-72 bg-white rounded-xl border border-[#EFE5DC] overflow-hidden relative flex items-center justify-center">
-          <StructureViewer cifText={cifText} />
-        </div>
-      </div>
-
-      {/* Potential Energy Banner */}
-      {typeof energyPerAtom === "number" && (
-        <div className="bg-[#FAF4EE] rounded-2xl p-4 border border-[#EFE5DC] flex justify-between items-center">
-          <div>
-            <span className="block text-xs font-bold text-[#8C929C] uppercase">
-              Potential Energy Per Atom
-            </span>
-            <span className="text-xl font-headline font-bold text-[#1E2227]">
-              {energyPerAtom.toFixed(4)} eV/atom
-            </span>
-          </div>
-          <Layers className="text-[#F1641D] opacity-80" size={24} />
-        </div>
-      )}
-
-      {/* Predicted Properties Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {returnedKeys.map((key) => {
-          const prop = properties[key];
-          const display = PROPERTY_MAP[key];
-          if (!prop || !display) return null;
-
-          return (
-            <PropertyCard
-              key={key}
-              title={display.title}
-              category={display.category}
-              value={display.format(prop.value, prop.unit)}
-              status={prop.status}
-              warning={
-                prop.status === "estimated" ||
-                  prop.status === "calculated_with_warnings" ||
-                  prop.status === "failed"
-                  ? prop.warnings?.[0]
-                  : undefined
-              }
-            />
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function PropertyCard({
+/**
+ * Full-width horizontal property block displaying Property Name and prominent Value + Unit.
+ */
+function PropertyResultBlock({
   title,
   value,
-  category,
   status,
   warning,
 }: {
   title: string;
   value: string;
-  category: string;
   status?: string;
   warning?: string;
 }) {
   return (
-    <div className="bg-[#FAF4EE] rounded-2xl p-5 border border-[#EFE5DC] flex flex-col justify-between">
-      <div>
-        <div className="flex items-center justify-between">
-          <span className="block text-[10px] font-bold text-[#8C929C] uppercase tracking-wider">
-            {category}
-          </span>
-          {status && status !== "calculated" && (
-            <span className="text-[9px] uppercase tracking-wider text-[#F1641D] bg-white px-1.5 py-0.5 rounded border border-[#EFE5DC]">
-              {status.replace(/_/g, " ")}
-            </span>
-          )}
-        </div>
-        <span className="block text-xs font-bold text-[#1E2227] mt-1">
+    <div className="w-full bg-[#FAF4EE] rounded-2xl p-4 sm:p-4.5 border border-[#EFE5DC] space-y-1 transition-all hover:border-[#F1641D]/40">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] sm:text-xs font-semibold text-[#6C737E]">
           {title}
         </span>
-        <span className="block mt-2 text-2xl font-headline font-bold text-[#1E2227] break-words">
-          {value}
-        </span>
-        {warning && (
-          <span className="block mt-2 text-[10px] text-[#8C929C] leading-snug">
-            {warning}
+        {status && status !== "calculated" && (
+          <span className="text-[9px] uppercase tracking-wider text-[#F1641D] bg-white px-2 py-0.5 rounded border border-[#EFE5DC]">
+            {status.replace(/_/g, " ")}
           </span>
         )}
       </div>
+      <div className="text-[19px] sm:text-[20px] leading-tight font-headline font-bold text-[#1E2227] tracking-tight">
+        {value}
+      </div>
+      {warning && (
+        <p className="text-[10px] sm:text-[11px] text-[#8C929C] leading-snug pt-0.5">
+          {warning}
+        </p>
+      )}
     </div>
   );
 }

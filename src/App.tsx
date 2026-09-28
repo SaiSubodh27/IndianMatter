@@ -141,7 +141,8 @@ export default function App() {
           <Route index element={<HelpPage />} />
         </Route>
 
-        {/* Global Fallback */}
+        {/* Direct Shortcuts & Global Fallback */}
+        <Route path="/predict" element={<Navigate to="/app/predict" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

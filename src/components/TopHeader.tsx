@@ -76,24 +76,7 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
         </Link>
 
         {/* Search Bar beside logo with minimal distance */}
-        <form onSubmit={handleSearch} className="relative w-56 sm:w-72 md:w-84 lg:w-96">
-          <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-im-textMuted pointer-events-none"
-            size={14}
-            aria-hidden="true"
-          />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search materials, structures, tools…"
-            aria-label="Search materials"
-            className="w-full bg-im-surfaceAlt border border-im-border rounded-full py-1.5 pl-9 pr-12 text-xs text-im-text outline-none focus:border-[#D47E30] focus:bg-white transition-all placeholder:text-im-textMuted"
-          />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-im-textMuted bg-white border border-im-border px-1.5 py-0.5 rounded pointer-events-none hidden sm:inline-block">
-            ⌘K
-          </kbd>
-        </form>
+
       </div>
 
       {/* ── Right Controls ── */}

@@ -116,6 +116,33 @@
     scrollbar-width: none;
   }
 
+  /* Horizontally scrollable results table container with clear scrollbar */
+  .results-table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #c9bfb5 #f4eee7;
+  }
+
+  .results-table-container::-webkit-scrollbar {
+    height: 9px;
+  }
+
+  .results-table-container::-webkit-scrollbar-track {
+    background: #f4eee7;
+    border-radius: 6px;
+  }
+
+  .results-table-container::-webkit-scrollbar-thumb {
+    background: #c9bfb5;
+    border-radius: 6px;
+  }
+
+  .results-table-container::-webkit-scrollbar-thumb:hover {
+    background: #f1641d;
+  }
+
   /* Text selection */
   .selection-orange ::selection {
     background-color: rgba(212, 126, 48, 0.18);

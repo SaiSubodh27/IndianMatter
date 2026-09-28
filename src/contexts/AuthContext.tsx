@@ -21,13 +21,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const STORAGE_KEY = "userProfile";
 const TOKEN_KEY = "accessToken";
 
+const DEFAULT_DEV_USER: UserProfile = {
+  name: "Dr. Subodh Kumar",
+  email: "researcher@indianmatter.org",
+  provider: "email",
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
+      if (stored) return JSON.parse(stored);
+      // Auto-initialize default researcher user in local development
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DEV_USER));
+      localStorage.setItem(TOKEN_KEY, "dev_token_" + Date.now());
+      return DEFAULT_DEV_USER;
     } catch {
-      return null;
+      return DEFAULT_DEV_USER;
     }
   });
 

@@ -32,4 +32,6 @@ Thumbs.db
 .env.local
 .env.*.local
 backend/.env
+node_modules/
 .env.gpu
+
