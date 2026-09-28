@@ -169,9 +169,6 @@ export default function PeriodicTable({
   excludeElements,
   onElementClick,
 }: PeriodicTableProps) {
-  const [focusedElement, setFocusedElement] = useState<PeriodicElement | null>(
-    null,
-  );
   // NOTE: the periodic table's own search box was removed on purpose — the
   // page above already has a single search bar, and having a second one
   // here read as a duplicate/confusing "third search box". Category chips
@@ -187,6 +184,19 @@ export default function PeriodicTable({
   const fBlock = useMemo(
     () => PERIODIC_ELEMENTS.filter((element) => element.period >= 8),
     [],
+  );
+
+  const selectedSymbols = useMemo(
+    () => [...includeElements, ...excludeElements],
+    [includeElements, excludeElements],
+  );
+
+  const selectedElements = useMemo(
+    () =>
+      selectedSymbols
+        .map((sym) => PERIODIC_ELEMENTS.find((el) => el.symbol === sym))
+        .filter((el): el is PeriodicElement => Boolean(el)),
+    [selectedSymbols],
   );
 
   const matchesFilter = (element: PeriodicElement) =>
@@ -257,7 +267,6 @@ export default function PeriodicTable({
                     : "none"
               }
               onClick={() => {
-                setFocusedElement(element);
                 onElementClick(element.symbol);
               }}
               dimmed={!matchesFilter(element)}
@@ -287,7 +296,6 @@ export default function PeriodicTable({
                     : "none"
               }
               onClick={() => {
-                setFocusedElement(element);
                 onElementClick(element.symbol);
               }}
               dimmed={!matchesFilter(element)}
@@ -296,22 +304,39 @@ export default function PeriodicTable({
         </div>
       </div>
 
-      <div
-        className="min-h-12 rounded-xl bg-[#FDFBD4] px-4 py-3 text-xs text-[#38240D]"
-        aria-live="polite"
-      >
-        {focusedElement ? (
-          <>
-            <strong>{focusedElement.name}</strong> ({focusedElement.symbol}) ·
-            Atomic number {focusedElement.number}
-            {focusedElement.oxidationStates
-              ? ` · Oxidation states ${focusedElement.oxidationStates}`
-              : ""}
-          </>
-        ) : (
-          "Select an element to inspect its identity and add it to the query."
-        )}
-      </div>
+      {selectedElements.length === 0 ? (
+        <div
+          className="min-h-12 rounded-xl bg-[#FDFBD4] px-4 py-3 text-xs text-[#38240D] flex items-center"
+          aria-live="polite"
+        >
+          Select an element to inspect its identity and add it to the query.
+        </div>
+      ) : (
+        <div className="space-y-2.5" aria-live="polite">
+          {selectedElements.map((element) => {
+            const isExcluded = excludeElements.includes(element.symbol);
+            return (
+              <div
+                key={element.symbol}
+                className="min-h-12 rounded-xl bg-[#FDFBD4] px-4 py-3 text-xs text-[#38240D] flex items-center justify-between gap-3 shadow-xs"
+              >
+                <div className="flex-1 min-w-0">
+                  <strong>{element.name}</strong> ({element.symbol}) · Atomic number{" "}
+                  {element.number}
+                  {element.oxidationStates
+                    ? ` · Oxidation states ${element.oxidationStates}`
+                    : ""}
+                </div>
+                {isExcluded && (
+                  <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-[#713600] text-white">
+                    Excluded
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
