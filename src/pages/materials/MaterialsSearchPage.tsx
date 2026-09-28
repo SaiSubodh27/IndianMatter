@@ -708,9 +708,9 @@ export default function MaterialsSearchPage() {
 
           {!loading && !error && visibleRows.length > 0 && (
             <>
-              <div className="w-full overflow-x-auto relative results-table-container">
+              <div className="w-full overflow-auto max-h-[70vh] relative results-table-container">
                 <table className="w-max min-w-full text-xs border-separate border-spacing-0">
-                <thead>
+                <thead className="z-20">
                   <tr className="bg-[#1E2227]">
                     {COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
                       (col, index, array) => {
@@ -718,10 +718,10 @@ export default function MaterialsSearchPage() {
                         return (
                           <th
                             key={col.key}
-                            className={`relative px-4 py-3 text-left font-semibold text-[#E9DFD4] whitespace-nowrap border-b border-[#333842] ${
+                            className={`sticky top-0 px-4 py-3 text-left font-semibold text-[#E9DFD4] whitespace-nowrap border-b border-[#333842] bg-[#1E2227] ${
                               isSticky
-                                ? "sticky left-0 z-20 bg-[#1E2227] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.3)] border-r border-[#333842]"
-                                : ""
+                                ? "left-0 z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.3)] border-r border-[#333842]"
+                                : "z-20"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
