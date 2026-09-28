@@ -15,7 +15,7 @@ from matminer.featurizers.composition import ElementProperty
 from utils.structural_analyzer import calculate_structural_metrics
 from utils.chgnet_features import extract_mechanical_features
 from model_paths import resolve_pretrained_models_dir
-from model_service import predict_from_cif
+from routes.transport_router import predict_conductivity_from_path
 
 # DEFINE ROUTER
 router = APIRouter(prefix="/api/calculations", tags=["Calculations"])
@@ -26,13 +26,7 @@ router = APIRouter(prefix="/api/calculations", tags=["Calculations"])
 MODELS_BASE = resolve_pretrained_models_dir("chgnet_logK_model.pkl")
 IONCAST_MODELS_BASE = MODELS_BASE  
 
-try:
-    ioncast_ea_model = joblib.load(os.path.join(IONCAST_MODELS_BASE, "v5_base_models.pkl"))
-    IONIC_LOADED = True
-    print("IonCast prediction models loaded successfully.")
-except Exception as e:
-    IONIC_LOADED = False
-    print(f"WARNING: IonCast models not loaded from {IONCAST_MODELS_BASE}: {e}")
+
 
 # 1. Mechanical Models
 try:
@@ -64,13 +58,13 @@ except Exception as e:
 
 # 4. Full IonCast Models Stack
 try:
-    ioncast_ea_model = joblib.load(os.path.join(IONCAST_MODELS_BASE, "v5_base_models.pkl"))
-    ioncast_prefactor_model = joblib.load(os.path.join(IONCAST_MODELS_BASE, "v5_model2_A.pkl"))
-    ioncast_meta_model = joblib.load(os.path.join(IONCAST_MODELS_BASE, "v5_meta_model.pkl"))
-    ioncast_mlp_models = joblib.load(os.path.join(IONCAST_MODELS_BASE, "v5_mlp_models.pkl"))
-    ioncast_quantile_transformer = joblib.load(os.path.join(IONCAST_MODELS_BASE, "v5_quantile_transformer.pkl"))
+    try:
+        from predict_ionic_conductivity import load_models
+    except ImportError:
+        from backend.predict_ionic_conductivity import load_models
+    IONIC_MODELS = load_models()
     IONIC_LOADED = True
-    print(f"IonCast prediction models loaded successfully from {IONCAST_MODELS_BASE}.")
+    print(f"IonCast prediction models loaded successfully from {IONCAST_MODELS_BASE} using schema-safe bridge.")
 except Exception as e:
     IONIC_LOADED = False
     print(f"WARNING: IonCast models not loaded from {IONCAST_MODELS_BASE}: {e}")
@@ -173,35 +167,57 @@ async def predict_properties(
                         calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "unavailable"}
                 elif key in ["ionic_conductivity", "ionic_conductivity_activation_energy", "activation_energy_eV"]:
                     if IONIC_LOADED:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".cif") as tmp:
-                            tmp.write(content)
-                            tmp_path = tmp.name
-                        
                         try:
-                            res = predict_from_cif(tmp_path, temperature)
-                        except Exception as inner_ex:
-                            res = {"status": "error", "error": str(inner_ex)}
+                            from properties.ionic_conductivity import IonicConductivityCalculator
+                            calc = IonicConductivityCalculator(key=key)
+                            res = calc.calculate(structure, settings={"temperature_k": temperature})
                             
-                        if os.path.exists(tmp_path):
-                            os.remove(tmp_path)
-                        
-                        if res.get("status") == "success":
-                            is_conductivity = "conductivity" in key
-                            val = res.get("conductivity") if is_conductivity else res.get("Ea")
-                            unit = "mS/cm" if is_conductivity else "eV"
-                            calculated_properties[key] = {
-                                "property_key": key,
-                                "value": round(float(val), 4) if val is not None else None,
-                                "unit": unit,
-                                "status": "calculated"
-                            }
-                        else:
+                            if res.status == "calculated":
+                                is_conductivity = key == "ionic_conductivity"
+                                if is_conductivity:
+                                    if res.raw_details and "conductivity_s_cm" in res.raw_details:
+                                        val = res.raw_details["conductivity_s_cm"]
+                                        unit = "S/cm"
+                                    else:
+                                        val = res.value
+                                        unit = res.unit
+                                else:
+                                    if res.raw_details:
+                                        val = res.raw_details.get("activation_energy_ev")
+                                        unit = "eV"
+                                    else:
+                                        val = res.value
+                                        unit = res.unit
+                                
+                                # Use significant figures instead of fixed decimals
+                                # to preserve precision for very small conductivities
+                                formatted_val = None
+                                if val is not None:
+                                    fval = float(val)
+                                    formatted_val = float(f"{fval:.6g}")
+                                
+                                calculated_properties[key] = {
+                                    "property_key": key,
+                                    "value": formatted_val,
+                                    "unit": unit,
+                                    "status": "calculated",
+                                    "raw_details": res.raw_details if res.raw_details else {}
+                                }
+                            else:
+                                calculated_properties[key] = {
+                                    "property_key": key,
+                                    "value": None,
+                                    "unit": "mS/cm" if "conductivity" in key else "eV",
+                                    "status": "failed",
+                                    "warnings": res.warnings
+                                }
+                        except Exception as inner_ex:
                             calculated_properties[key] = {
                                 "property_key": key,
                                 "value": None,
                                 "unit": "mS/cm" if "conductivity" in key else "eV",
                                 "status": "failed",
-                                "warnings": [res.get("error", "IonCast prediction failed")]
+                                "warnings": [str(inner_ex)]
                             }
                     else:
                         calculated_properties[key] = {
@@ -453,108 +469,4 @@ async def analyze_thermal_properties(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Thermal analysis error: {str(e)}")
 
-
-# ---------------------------------------------------------
-# ENDPOINT 7: IonCast Ionic Conductivity Analysis
-# ---------------------------------------------------------
-def _assert_cif_upload(file: UploadFile) -> None:
-    if not file.filename or not file.filename.lower().endswith(".cif"):
-        raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-
-
-async def _predict_ioncast_from_upload(file: UploadFile, temperature: float) -> Dict[str, Any]:
-    _assert_cif_upload(file)
-
-    temp_path = None
-    try:
-        content = await file.read()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".cif") as tmp:
-            tmp.write(content)
-            temp_path = tmp.name
-
-        result = predict_from_cif(temp_path, temperature)
-        if result.get("status") != "success":
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("error", "IonCast prediction pipeline failed.")
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"IonCast prediction error: {str(e)}")
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
-
-
-def _ionic_analysis_response(file: UploadFile, temperature: float, result: Dict[str, Any]) -> Dict[str, Any]:
-    detailed_structure = result.get("detailed_structure", {})
-    feature_coverage = result.get("feature_coverage", {})
-
-    return {
-        "status": "success",
-        "filename": file.filename,
-        "formula": result.get("composition", "Unknown"),
-        "space_group": detailed_structure.get("space_group", "Unknown"),
-        "temp": temperature,
-        "ionic_predictions": {
-            "activation_energy_eV": round(float(result["Ea"]), 4),
-            "logA": round(float(result.get("logA", 0.0)), 4),
-            "base_ionic_conductivity_S_per_cm": float(result.get("base_conductivity", result["conductivity"])),
-            "corrected_ionic_conductivity_S_per_cm": float(result.get("corrected_conductivity", result["conductivity"])),
-            "ionic_conductivity_S_per_cm": float(result["conductivity"]),
-            "corrector_applied": bool(result.get("corrector_applied", False)),
-            "corrector_log10_delta": float(result.get("corrector_log10_delta", 0.0)),
-            "model_source": result.get("model_version", "IonCast-v5/v6-OBLiEx")
-        },
-        "pipeline_diagnostics": {
-            "descriptors_expected": feature_coverage.get("expected"),
-            "descriptors_extracted": feature_coverage.get("computed"),
-            "descriptors_reconstructed": feature_coverage.get("reconstructed"),
-            "descriptors_imputed": feature_coverage.get("imputed"),
-            "coverage_pct": feature_coverage.get("coverage_pct"),
-            "confidence": result.get("confidence"),
-            "validation_status": result.get("validation_status"),
-            "temperature_range_k": result.get("supported_temperature_range_k"),
-        },
-        "temperature_series": result.get("temperature_series", []),
-        "warnings": result.get("warnings", [])
-    }
-
-
-@router.post("/analyze-ionic")
-@router.post("/ionic-conductivity")
-async def analyze_ionic_conductivity(
-    file: UploadFile = File(...),
-    temperature: float = Form(298.15)
-):
-    result = await _predict_ioncast_from_upload(file, temperature)
-    return _ionic_analysis_response(file, temperature, result)
-
-
-@router.post("/predict")
-async def predict_conductivity(
-    file: UploadFile = File(...),
-    temperature: float = Form(298.15)
-):
-    result = await _predict_ioncast_from_upload(file, temperature)
-    detailed_structure = result.get("detailed_structure", {})
-
-    return {
-        "status": "success",
-        "formula": result.get("composition"),
-        "space_group": detailed_structure.get("space_group", "Unknown"),
-        "volume": detailed_structure.get("volume"),
-        "density": detailed_structure.get("density"),
-        "ea": float(result["Ea"]),
-        "logA": float(result["logA"]),
-        "base_conductivity": float(result.get("base_conductivity", result["conductivity"])),
-        "corrected_conductivity": float(result.get("corrected_conductivity", result["conductivity"])),
-        "conductivity": float(result["conductivity"]),
-        "corrector_applied": bool(result.get("corrector_applied")),
-        "corrector_log10_delta": float(result.get("corrector_log10_delta", 0.0)),
-        "feature_coverage": result.get("feature_coverage"),
-        "warnings": result.get("warnings", []),
-        "temp": temperature,
-    }
+
