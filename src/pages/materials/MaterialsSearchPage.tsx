@@ -245,6 +245,9 @@ export default function MaterialsSearchPage() {
   const [minHull, setMinHull] = useState("");
   const [maxHull, setMaxHull] = useState("");
 
+  const [page, setPage] = useState(1);
+  const limit = 100;
+
   const [submitted, setSubmitted] = useState(
     () =>
       Boolean(params.get("q")) ||
@@ -284,8 +287,8 @@ export default function MaterialsSearchPage() {
       maxBandGap: maxBandGap ? Number(maxBandGap) : undefined,
       minEHull: minHull ? Number(minHull) : undefined,
       maxEHull: maxHull ? Number(maxHull) : undefined,
-      page: 1,
-      limit: 100,
+      page,
+      limit,
     })
       .then((response) => {
         if (!controller.signal.aborted) {
@@ -314,6 +317,7 @@ export default function MaterialsSearchPage() {
     maxBandGap,
     minHull,
     maxHull,
+    page,
   ]);
 
   const handleElementClick = (symbol: string) => {
@@ -347,6 +351,7 @@ export default function MaterialsSearchPage() {
       next.append("exclude_elements", element),
     );
     setParams(next);
+    setPage(1);
     setSubmitted(true);
   };
 
@@ -361,6 +366,7 @@ export default function MaterialsSearchPage() {
     setTextFilters({});
     setNumericFilters({});
     setSort(null);
+    setPage(1);
     setParams(new URLSearchParams());
     setSubmitted(false);
     setMaterials([]);
@@ -380,6 +386,7 @@ export default function MaterialsSearchPage() {
       if (comparator === "<=") setMaxHull(n);
       else setMinHull(n);
     }
+    setPage(1);
     setSubmitted(true);
   };
 
@@ -453,6 +460,22 @@ export default function MaterialsSearchPage() {
       mode: "exclude" as const,
     })),
   ];
+
+  const totalPages = Math.ceil(total / limit);
+  let startPage = Math.max(1, page - 2);
+  let endPage = Math.min(totalPages, page + 2);
+
+  if (page <= 2) {
+    endPage = Math.min(totalPages, 5);
+  }
+  if (page >= totalPages - 1) {
+    startPage = Math.max(1, totalPages - 4);
+  }
+
+  const paginationPages = Array.from(
+    { length: Math.max(0, endPage - startPage + 1) },
+    (_, i) => startPage + i,
+  );
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-7 px-4 sm:px-8 py-6">
@@ -646,8 +669,9 @@ export default function MaterialsSearchPage() {
           )}
 
           {!loading && !error && visibleRows.length > 0 && (
-            <div className="overflow-x-auto relative">
-              <table className="w-full text-xs border-separate border-spacing-0">
+            <>
+              <div className="overflow-x-auto relative">
+                <table className="w-full text-xs border-separate border-spacing-0">
                 <thead>
                   <tr className="bg-[#1E2227]">
                     {COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
@@ -856,6 +880,50 @@ export default function MaterialsSearchPage() {
                 </tbody>
               </table>
             </div>
+            
+            <div className="flex items-center justify-between p-4 border-t border-[#F2E7DC] bg-[#FAF4EE]/40 text-xs">
+              <span className="text-[#6C737E]">
+                Showing {total === 0 ? 0 : (page - 1) * limit + 1} - {Math.min(page * limit, total)} of {total} materials
+              </span>
+              <div className="flex items-center gap-4">
+                {page > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="flex items-center gap-1 text-[#1A0DAB] text-[15px] hover:underline"
+                  >
+                    <span className="text-xl leading-none">‹</span> Previous
+                  </button>
+                )}
+                
+                <div className="flex items-center gap-1 bg-[#F8F9FA] rounded-xl px-2 py-1">
+                  {paginationPages.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-8 h-8 flex items-center justify-center text-[15px] transition-colors ${
+                        page === p
+                          ? "text-[#1E2227] border-b-[2.5px] border-[#1E2227] font-semibold"
+                          : "text-[#1A0DAB] hover:bg-[#E9DFD4]/50 rounded-lg"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                
+                {page < totalPages && (
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => p + 1)}
+                    className="flex items-center gap-1 text-[#1A0DAB] text-[15px] hover:underline"
+                  >
+                    Next <span className="text-xl leading-none">›</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
           )}
         </section>
       )}
