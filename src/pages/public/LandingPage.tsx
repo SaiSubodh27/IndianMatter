@@ -305,6 +305,33 @@ export default function LandingPage() {
     return () => observers.forEach((o) => o.disconnect());
   }, []);
 
+  // Intersection observer for explore materials (scroll-driven)
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = Number(entry.target.getAttribute("data-index"));
+            if (!isNaN(index)) {
+              setExploreIdx(index);
+            }
+          }
+        });
+      },
+      {
+        rootMargin: "-40% 0px -40% 0px",
+        threshold: 0,
+      }
+    );
+
+    exploreMaterials.forEach((_, idx) => {
+      const el = document.getElementById(`material-image-${idx}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setContactState("loading");
@@ -794,213 +821,158 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          EXPLORE — Physical Card Deck
+          EXPLORE — Scroll-Driven Material Library
       ═══════════════════════════════════════════════════════════ */}
       <section
         id="explore"
         className="pt-8 pb-20 sm:pt-9 sm:pb-24 lg:pt-10 lg:pb-28 bg-white scroll-mt-[72px]"
       >
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16">
-          {/* Section header */}
-          <div className="text-center mb-6 sm:mb-8">
+          {/* Section header (visible on mobile only) */}
+          <div className="lg:hidden text-center mb-10">
             <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-2.5">
               Material Library
             </p>
-            <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
+            <h2 className="text-3xl sm:text-4xl font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
               Explore Materials
             </h2>
             <p className="text-sm sm:text-base text-[#6B6B6B] max-w-xl mx-auto leading-relaxed">
-              Browse key battery and energy materials — each with structural,
-              electronic, and thermodynamic properties.
+              Browse key battery and energy materials — each with structural, electronic, and thermodynamic properties.
             </p>
           </div>
 
-          {/* Card deck */}
-          <div
-            className="relative h-[440px] sm:h-[480px] flex items-center justify-center overflow-visible"
-            aria-label="Materials card deck"
-          >
-            {exploreMaterials.map((mat, idx) => {
-              const offset = idx - exploreIdx;
-              const absOffset = Math.abs(offset);
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start relative">
+            {/* Left Content (Sticky) */}
+            <div className="lg:sticky lg:top-[calc(72px+4rem)] space-y-6 lg:pb-32">
+              <div className="hidden lg:block">
+                <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-2.5">
+                  Material Library
+                </p>
+                <h2 className="text-4xl lg:text-[42px] font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
+                  Explore Materials
+                </h2>
+                <p className="text-base text-[#6B6B6B] leading-relaxed">
+                  Browse key battery and energy materials — each with structural, electronic, and thermodynamic properties.
+                </p>
+              </div>
 
-              // Only render ±2 from center
-              if (absOffset > 2) return null;
+              {/* Dynamic Content that changes as user scrolls */}
+              <div className="bg-[#FAFAF8] border border-[#EBEBEB] rounded-[2rem] p-8 mt-6 transition-all duration-300 shadow-sm">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-[#FBF0E6] flex items-center justify-center shrink-0">
+                    <Atom size={24} style={{ color: "#D47E30" }} strokeWidth={1.8} />
+                  </div>
+                  <div>
+                    <h3 className="font-headline font-bold text-3xl text-[#1A1A1A] tracking-tight">
+                      {exploreMaterials[exploreIdx].formula}
+                    </h3>
+                    <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#D47E30] mt-0.5">
+                      {exploreMaterials[exploreIdx].structure}
+                    </p>
+                  </div>
+                </div>
 
-              const scale = offset === 0 ? 1 : absOffset === 1 ? 0.93 : 0.84;
-              const xShift = offset * 200;
-              const rotate = offset * -2.5;
-              const zIndex = 10 - absOffset * 3;
-              const opacity = absOffset > 1 ? 0.55 : 1;
-              const isCenter = offset === 0;
+                <p className="text-[15px] font-medium text-[#3D3D3D] mb-5">
+                  {exploreMaterials[exploreIdx].fullName}
+                </p>
 
-              return (
-                <article
-                  key={mat.id}
-                  onClick={() => !isCenter && setExploreIdx(idx)}
-                  style={{
-                    position: "absolute",
-                    transform: `translateX(${xShift}px) scale(${scale}) rotate(${rotate}deg)`,
-                    zIndex,
-                    opacity,
-                    transition:
-                      "all 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                    cursor: isCenter ? "default" : "pointer",
+                <ul className="space-y-3 mb-8">
+                  {exploreMaterials[exploreIdx].features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-3 text-[14px] text-[#6B6B6B]">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#D47E30]" aria-hidden="true" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = exploreMaterials[exploreIdx].detailsUrl;
+                    if (isAuthenticated) {
+                      navigate(url);
+                    } else {
+                      navigate(`/signin?redirect=${encodeURIComponent(url)}`);
+                    }
                   }}
-                  className="w-[280px] sm:w-[300px]"
-                  aria-label={`${mat.formula} — ${mat.fullName}`}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-white text-[15px] font-medium transition-all duration-120 active:scale-95 cursor-pointer shadow-md"
+                  style={{ backgroundColor: "#D47E30" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#B8671E")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#D47E30")}
                 >
-                  {/* Back frame */}
-                  {isCenter && (
-                    <div
-                      aria-hidden="true"
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        transform: "rotate(2deg) scale(1.02) translateY(10px)",
-                        transformOrigin: "center bottom",
-                        borderRadius: "2.5rem",
-                        background:
-                          "linear-gradient(135deg, #FDF5EE 0%, #FAF0E6 100%)",
-                        border: "1px solid #EDE8E2",
-                        zIndex: -1,
-                      }}
-                    />
-                  )}
+                  View Full Details <ArrowRight size={15} />
+                </button>
+              </div>
 
-                  {/* Card front */}
-                  <div
-                    className="bg-white rounded-[2.5rem] p-6 flex flex-col gap-4"
-                    style={{
-                      boxShadow: isCenter
-                        ? "0 12px 48px rgba(0,0,0,0.10)"
-                        : "0 4px 16px rgba(0,0,0,0.06)",
-                      border: "1px solid #EBEBEB",
+              {/* Progress indicators */}
+              <div className="hidden lg:flex items-center gap-3 mt-8">
+                {exploreMaterials.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      const el = document.getElementById(`material-image-${idx}`);
+                      if (el) {
+                        const navOffset = 72;
+                        const elementPosition = el.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - navOffset - 100;
+                        window.scrollTo({
+                          top: offsetPosition,
+                          behavior: "smooth"
+                        });
+                      }
                     }}
+                    aria-label={`Go to material ${idx + 1}`}
+                    className="w-1.5 rounded-full transition-all duration-300"
+                    style={{
+                      backgroundColor: exploreIdx === idx ? "#D47E30" : "#DDDBD8",
+                      height: "6px",
+                      width: exploreIdx === idx ? "24px" : "6px",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Right side: Scrolling Images */}
+            <div className="space-y-16 lg:space-y-32 py-4 lg:py-16">
+              {exploreMaterials.map((mat, idx) => {
+                const isActive = exploreIdx === idx;
+                return (
+                  <div
+                    key={mat.id}
+                    id={`material-image-${idx}`}
+                    data-index={idx}
+                    className="relative flex items-center justify-center min-h-[300px] lg:min-h-[400px] transition-all duration-500"
                   >
-                    {/* Popular badge */}
-                    {mat.popular && (
-                      <span
-                        className="self-start text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full"
-                        style={{ backgroundColor: "#FBF0E6", color: "#D47E30" }}
-                      >
-                        Popular
-                      </span>
-                    )}
-
-                    {/* Formula & structure */}
-                    <div>
-                      <h3 className="font-headline font-bold text-3xl text-[#1A1A1A] tracking-tight">
-                        {mat.formula}
-                      </h3>
-                      <p className="text-[11px] text-[#9A9A9A] font-medium uppercase tracking-wider mt-0.5">
-                        {mat.structure}
-                      </p>
-                      <p className="text-xs text-[#6B6B6B] mt-1 leading-snug">
-                        {mat.fullName}
-                      </p>
-                    </div>
-
-                    {/* Image */}
-                    <div className="h-32 bg-[#FAFAF8] rounded-2xl flex items-center justify-center border border-[#F2F2F0] overflow-hidden">
+                    <div
+                      className={`relative w-full max-w-[400px] aspect-square rounded-[3rem] p-10 flex items-center justify-center transition-all duration-700
+                        ${isActive 
+                          ? "bg-[#FAFAF8] border border-[#EBEBEB] scale-100 shadow-[0_20px_60px_rgba(0,0,0,0.06)]" 
+                          : "bg-white border-transparent scale-90 opacity-40 blur-[2px]"}`}
+                    >
+                      {/* Popular badge */}
+                      {mat.popular && (
+                        <span
+                          className={`absolute top-8 left-8 text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-full transition-opacity duration-500 delay-200 ${isActive ? 'opacity-100' : 'opacity-0'}`}
+                          style={{ backgroundColor: "#FBF0E6", color: "#D47E30" }}
+                        >
+                          Popular
+                        </span>
+                      )}
+                      
                       <img
                         src={mat.image}
                         alt={`${mat.formula} crystal structure`}
-                        className="max-h-[110px] max-w-full object-contain"
+                        className={`w-full h-full object-contain transition-all duration-700 delay-100 ${isActive ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}
                         style={{
-                          filter: "drop-shadow(0 4px 8px rgba(141,90,43,0.12))",
+                          filter: isActive ? "drop-shadow(0 16px 32px rgba(141,90,43,0.15))" : "none",
                         }}
                       />
                     </div>
-
-                    {/* Features */}
-                    <ul className="space-y-1.5">
-                      {mat.features.map((f) => (
-                        <li
-                          key={f}
-                          className="flex items-center gap-2 text-[12px] text-[#6B6B6B]"
-                        >
-                          <span
-                            className="w-1.5 h-1.5 rounded-full shrink-0"
-                            style={{ backgroundColor: "#D47E30" }}
-                            aria-hidden="true"
-                          />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/* CTA */}
-                    {isCenter && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isAuthenticated) {
-                            navigate(mat.detailsUrl);
-                          } else {
-                            navigate(
-                              `/signin?redirect=${encodeURIComponent(
-                                mat.detailsUrl,
-                              )}`,
-                            );
-                          }
-                        }}
-                        className="mt-1 w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-white text-sm font-medium transition-all duration-120 active:scale-95 cursor-pointer"
-                        style={{ backgroundColor: "#D47E30" }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#B8671E")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#D47E30")
-                        }
-                      >
-                        View Material <ArrowRight size={14} />
-                      </button>
-                    )}
                   </div>
-                </article>
-              );
-            })}
-          </div>
-
-          {/* Deck controls */}
-          <div className="flex items-center justify-center gap-4 mt-8">
-            <button
-              onClick={() => setExploreIdx((p) => Math.max(0, p - 1))}
-              disabled={exploreIdx === 0}
-              aria-label="Previous material"
-              className="w-10 h-10 rounded-full border border-[#EBEBEB] flex items-center justify-center text-[#6B6B6B] hover:border-[#D47E30] hover:text-[#D47E30] disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-120"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="flex items-center gap-2">
-              {exploreMaterials.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setExploreIdx(idx)}
-                  aria-label={`Go to material ${idx + 1}`}
-                  className="w-1.5 h-1.5 rounded-full transition-all duration-200"
-                  style={{
-                    backgroundColor: exploreIdx === idx ? "#D47E30" : "#DDDBD8",
-                    width: exploreIdx === idx ? "20px" : "6px",
-                    height: "6px",
-                    borderRadius: "3px",
-                  }}
-                />
-              ))}
+                );
+              })}
             </div>
-            <button
-              onClick={() =>
-                setExploreIdx((p) =>
-                  Math.min(exploreMaterials.length - 1, p + 1),
-                )
-              }
-              disabled={exploreIdx === exploreMaterials.length - 1}
-              aria-label="Next material"
-              className="w-10 h-10 rounded-full border border-[#EBEBEB] flex items-center justify-center text-[#6B6B6B] hover:border-[#D47E30] hover:text-[#D47E30] disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-120"
-            >
-              <ChevronRight size={18} />
-            </button>
           </div>
         </div>
       </section>
