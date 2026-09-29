@@ -36,6 +36,8 @@ class UserInDB(BaseModel):
     hashed_password: Optional[str] = None
     name: Optional[str] = None
     provider: str = "email"
+    providers: List[str] = ["email"]
+    google_id: Optional[str] = None
     created_at: datetime
     last_login: datetime
     saved_materials: List[SavedMaterial] = []

@@ -9,17 +9,7 @@ import {
   Sun,
   AlertCircle,
 } from "lucide-react";
-import {
-  GoogleOAuthProvider,
-  GoogleLogin,
-  CredentialResponse,
-} from "@react-oauth/google";
 import { useAuth } from "../../contexts/AuthContext";
-
-// Default public Google Client ID or environmental override
-const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  "1084224754546-placeholder.apps.googleusercontent.com";
 
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -35,9 +25,49 @@ export default function SignInPage() {
   const redirectTarget =
     new URLSearchParams(location.search).get("redirect") || "/app";
 
-  // If already authenticated, redirect immediately and replace history so back button never returns to sign in
   useEffect(() => {
-    if (isAuthenticated) {
+    const params = new URLSearchParams(location.search);
+    const err = params.get("error");
+    if (err) {
+      setErrorMsg(`Google login failed (${err}). Please try again.`);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes("token=")) {
+      const token = hash.replace("#token=", "");
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      
+      setLoading(true);
+      fetch("http://localhost:8000/api/users/profile", {
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch profile");
+        return res.json();
+      })
+      .then(profile => {
+        const isGoogle = profile.provider === "google" || profile.providers?.includes("google");
+        const userProfile = {
+           name: profile.name || profile.email,
+           email: profile.email,
+           provider: profile.provider || "google",
+           isGoogle,
+           avatar: isGoogle ? "https://lh3.googleusercontent.com/a/default-user=s96-c" : undefined
+        };
+        localStorage.setItem("accessToken", token);
+        localStorage.setItem("userProfile", JSON.stringify(userProfile));
+        window.location.href = redirectTarget; // Force reload to update AuthContext
+      })
+      .catch(err => {
+        console.error(err);
+        setErrorMsg("Failed to retrieve user profile after login.");
+        setLoading(false);
+      });
+    } else if (isAuthenticated) {
       navigate(redirectTarget, { replace: true });
     }
   }, [isAuthenticated, redirectTarget, navigate]);
@@ -62,38 +92,8 @@ export default function SignInPage() {
     navigate(redirectTarget, { replace: true });
   };
 
-  const handleGoogleSuccess = (credentialResponse: CredentialResponse) => {
-    setLoading(true);
-    setErrorMsg("");
-
-    try {
-      if (credentialResponse.credential) {
-        try {
-          const base64Url = credentialResponse.credential.split(".")[1];
-          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-          const jsonPayload = decodeURIComponent(
-            atob(base64)
-              .split("")
-              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-              .join("")
-          );
-          const payload = JSON.parse(jsonPayload);
-          signInWithGoogle({
-            name: payload.name || "Dr. Subodh Kumar",
-            email: payload.email || "subodh.matter@gmail.com",
-            avatar:
-              payload.picture ||
-              "https://lh3.googleusercontent.com/a/default-user=s96-c",
-          });
-          navigate(redirectTarget, { replace: true });
-          return;
-        } catch {}
-      }
-      signInWithGoogle();
-      navigate(redirectTarget, { replace: true });
-    } finally {
-      setLoading(false);
-    }
+  const handleGoogleSuccess = () => {
+    // Left empty, handled by backend redirect now
   };
 
   const handleGoogleQuickSignIn = () => {
@@ -107,7 +107,7 @@ export default function SignInPage() {
   };
 
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    <>
       <div className="min-h-screen bg-white text-[#1E2227] flex flex-col justify-between relative overflow-x-hidden font-sans selection:bg-[#F1641D]/20 selection:text-[#F1641D]">
         {/* Decorative Organic Wave Shapes on Margins */}
         <div className="fixed top-0 left-[-120px] w-[320px] h-[750px] bg-[#F8DFCB]/40 rounded-[100%] blur-3xl pointer-events-none -z-10 transform -rotate-12" />
@@ -246,15 +246,18 @@ export default function SignInPage() {
 
               {/* Google OAuth & GitHub Login */}
               <div className="space-y-3 mb-6">
-                <div className="w-full flex justify-center">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={handleGoogleQuickSignIn}
-                    theme="outline"
-                    shape="pill"
-                    text="signin_with"
-                    width="320"
-                  />
+                <div className="w-full flex justify-center mb-3">
+                  <a
+                    href="http://localhost:8000/api/auth/google/login"
+                    className="flex items-center justify-center gap-2.5 py-3 w-full border border-[#E9DFD4] rounded-full hover:bg-[#FAF4EE] text-sm font-medium text-[#1E2227] transition-all active:scale-98"
+                  >
+                    <img
+                      src="https://www.svgrepo.com/show/475656/google-color.svg"
+                      alt="Google"
+                      className="w-5 h-5"
+                    />
+                    Sign in with Google
+                  </a>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -401,6 +404,6 @@ export default function SignInPage() {
           <div className="w-10 h-[2px] bg-[#F1641D] mx-auto mt-2" />
         </footer>
       </div>
-    </GoogleOAuthProvider>
+    </>
   );
 }

@@ -3,6 +3,12 @@ import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 # Compatibility shim for newer ASE versions where ExpCellFilter moved to ase.filters
 try:
     import ase.filters
@@ -39,6 +45,15 @@ async def lifespan(app: FastAPI):
     
     mp_key = os.getenv("MP_API_KEY")
     print(f"[startup] MP_API_KEY {'present' if mp_key else 'MISSING — MP endpoints will return 500'}")
+    
+    google_id = os.getenv("GOOGLE_CLIENT_ID")
+    google_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    if not google_id or not google_secret:
+        print("\n" + "="*60)
+        print("ERROR: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing or empty!")
+        print("Please fill them in the backend/.env file to enable Google Sign-In.")
+        print("="*60 + "\n")
+
     yield
     print("[shutdown] Cleaning up resources...")
 
@@ -56,6 +71,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Session Middleware for OAuth state
+session_secret = os.getenv("SESSION_SECRET", "fallback-secret-change-me")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret
 )
 
 # Core & Authentication Routes

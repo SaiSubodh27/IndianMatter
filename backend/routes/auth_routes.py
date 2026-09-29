@@ -1,5 +1,18 @@
+import os
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
+from fastapi.responses import RedirectResponse
+from starlette.config import Config
+from authlib.integrations.starlette_client import OAuth, OAuthError
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded *before* initializing OAuth,
+# because auth_routes.py is imported before main.py executes load_dotenv().
+env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(env_path)
+
+print(f"[startup] auth_routes.py: GOOGLE_CLIENT_ID is {'SET' if os.getenv('GOOGLE_CLIENT_ID') else 'NOT SET'}")
+print(f"[startup] auth_routes.py: GOOGLE_CLIENT_SECRET is {'SET' if os.getenv('GOOGLE_CLIENT_SECRET') else 'NOT SET'}")
 
 from auth import (
     verify_password,
@@ -11,6 +24,16 @@ from db_models import UserCreate, UserLogin, GoogleLogin, Token
 from database import users_collection
 
 router = APIRouter()
+
+config = Config(environ=os.environ)
+oauth = OAuth(config)
+oauth.register(
+    name='google',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 
 def _user_public_dict(user: dict) -> dict:
@@ -93,43 +116,45 @@ def login(payload: UserLogin):
     )
 
 
-@router.post("/google-login", response_model=Token)
-def google_login(payload: GoogleLogin):
-    """
-    Verifies a Google ID token and logs in / auto-registers the user.
-    Requires the `google-auth` package and a GOOGLE_CLIENT_ID configured.
-    """
+@router.get("/google/login")
+async def google_login(request: Request):
+    """Redirects the user to Google's OAuth 2.0 consent screen."""
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@router.get("/google/callback")
+async def google_callback(request: Request):
+    """Handles the callback from Google, verifies the user, and links accounts."""
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
     try:
-        from google.oauth2 import id_token
-        from google.auth.transport import requests as google_requests
-        from core.config import settings
-
-        idinfo = id_token.verify_oauth2_token(
-            payload.token, google_requests.Request(), settings.GOOGLE_CLIENT_ID
-        )
-        email = idinfo.get("email")
-        name = idinfo.get("name")
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid Google token: {str(e)}",
-        )
-
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Google token did not contain an email address.",
-        )
-
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError as error:
+        return RedirectResponse(f"{frontend_url}/signin?error=oauth_error")
+        
+    user_info = token.get('userinfo')
+    if not user_info:
+        return RedirectResponse(f"{frontend_url}/signin?error=missing_user_info")
+        
+    email = user_info.get("email")
+    email_verified = user_info.get("email_verified", False)
+    name = user_info.get("name")
+    google_id = user_info.get("sub")
+    
+    if not email or not email_verified:
+        return RedirectResponse(f"{frontend_url}/signin?error=unverified_email")
+        
     user = users_collection.find_one({"email": email})
     now = datetime.utcnow()
-
+    
     if not user:
         user_doc = {
             "email": email,
             "hashed_password": None,
             "name": name,
             "provider": "google",
+            "providers": ["google"],
+            "google_id": google_id,
             "created_at": now,
             "last_login": now,
             "saved_materials": [],
@@ -139,19 +164,28 @@ def google_login(payload: GoogleLogin):
         user_doc["_id"] = result.inserted_id
         user = user_doc
     else:
+        update_fields = {"last_login": now}
+        
+        providers = user.get("providers", [user.get("provider", "email")])
+        if "google" not in providers:
+            providers.append("google")
+            update_fields["providers"] = providers
+            
+        if not user.get("google_id"):
+            update_fields["google_id"] = google_id
+            
         users_collection.update_one(
             {"_id": user["_id"]},
-            {"$set": {"last_login": now}}
+            {"$set": update_fields}
         )
         user["last_login"] = now
+        user["providers"] = update_fields.get("providers", providers)
+        user["google_id"] = update_fields.get("google_id", google_id)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": email}, expires_delta=access_token_expires
     )
-
-    return Token(
-        access_token=access_token,
-        token_type="bearer",
-        user=_user_public_dict(user),
-    )
+    
+    # Redirect to frontend with token in fragment
+    return RedirectResponse(f"{frontend_url}/signin#token={access_token}")
