@@ -17,7 +17,7 @@ export default function MainLayout() {
 
         {/* Main content — offset by sidebar rail with dividing vertical border */}
         <div className="main-offset flex flex-col flex-1 min-h-[calc(100vh-4rem)] min-w-0 border-l-0 md:border-l md:border-[#EDE8E2]">
-          <main className="flex-1 overflow-auto no-scrollbar">
+          <main className="flex-1 no-scrollbar">
             <Outlet />
           </main>
         </div>
