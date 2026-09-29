@@ -53,6 +53,14 @@ async def lifespan(app: FastAPI):
         print("ERROR: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing or empty!")
         print("Please fill them in the backend/.env file to enable Google Sign-In.")
         print("="*60 + "\n")
+        
+    github_id = os.getenv("GITHUB_CLIENT_ID")
+    github_secret = os.getenv("GITHUB_CLIENT_SECRET")
+    if not github_id or not github_secret:
+        print("\n" + "="*60)
+        print("ERROR: GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET is missing or empty!")
+        print("Please fill them in the backend/.env file to enable GitHub Sign-In.")
+        print("="*60 + "\n")
 
     yield
     print("[shutdown] Cleaning up resources...")

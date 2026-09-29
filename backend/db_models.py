@@ -38,6 +38,7 @@ class UserInDB(BaseModel):
     provider: str = "email"
     providers: List[str] = ["email"]
     google_id: Optional[str] = None
+    github_id: Optional[str] = None
     created_at: datetime
     last_login: datetime
     saved_materials: List[SavedMaterial] = []

@@ -29,7 +29,7 @@ export default function SignInPage() {
     const params = new URLSearchParams(location.search);
     const err = params.get("error");
     if (err) {
-      setErrorMsg(`Google login failed (${err}). Please try again.`);
+      setErrorMsg(`Login failed (${err}). Please try again.`);
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -51,12 +51,14 @@ export default function SignInPage() {
       })
       .then(profile => {
         const isGoogle = profile.provider === "google" || profile.providers?.includes("google");
+        const isGithub = profile.provider === "github" || profile.providers?.includes("github");
         const userProfile = {
            name: profile.name || profile.email,
            email: profile.email,
-           provider: profile.provider || "google",
+           provider: profile.provider || "email",
            isGoogle,
-           avatar: isGoogle ? "https://lh3.googleusercontent.com/a/default-user=s96-c" : undefined
+           isGithub,
+           avatar: isGoogle ? "https://lh3.googleusercontent.com/a/default-user=s96-c" : (isGithub ? `https://avatars.githubusercontent.com/u/${profile.github_id || '0'}` : undefined)
         };
         localStorage.setItem("accessToken", token);
         localStorage.setItem("userProfile", JSON.stringify(userProfile));
@@ -274,16 +276,8 @@ export default function SignInPage() {
                     Quick Google Sign In
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      signIn({
-                        name: "GitHub Researcher",
-                        email: "researcher@github.com",
-                        provider: "github",
-                      });
-                      navigate(redirectTarget, { replace: true });
-                    }}
+                  <a
+                    href="http://localhost:8000/api/auth/github/login"
                     className="flex items-center justify-center gap-2.5 py-2.5 px-4 border border-[#E9DFD4] rounded-xl hover:bg-[#FAF4EE] text-xs font-semibold text-[#1E2227] transition-all active:scale-98"
                   >
                     <img
@@ -292,7 +286,7 @@ export default function SignInPage() {
                       className="w-4 h-4"
                     />
                     Continue with GitHub
-                  </button>
+                  </a>
                 </div>
               </div>
 
