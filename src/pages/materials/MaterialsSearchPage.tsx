@@ -228,6 +228,29 @@ function badgeClasses(col: ColumnDef, m: MaterialRecord): string {
   return `${base} bg-[#FAF4EE] text-[#1E2227]`;
 }
 
+// Standard IUPAC chemical elements for exact chemical formula matching
+const VALID_ELEMENTS = new Set([
+  "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+  "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
+  "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+  "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
+  "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
+  "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
+  "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+  "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+  "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
+  "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
+  "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
+  "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
+]);
+
+function parseElementsFromFormula(formula: string): Set<string> {
+  if (!formula) return new Set();
+  const matches = String(formula).match(/[A-Z][a-z]?/g);
+  if (!matches) return new Set();
+  return new Set(matches.filter((sym) => VALID_ELEMENTS.has(sym)));
+}
+
 export default function MaterialsSearchPage() {
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
@@ -418,10 +441,27 @@ export default function MaterialsSearchPage() {
     let rows = materials;
 
     Object.entries(textFilters).forEach(([key, term]) => {
-      if (!term.trim()) return;
+      const cleanTerm = term.trim();
+      if (!cleanTerm) return;
       const column = COLUMNS.find((c) => c.key === key);
       if (!column) return;
-      const needle = term.trim().toLowerCase();
+
+      if (key === "Formula") {
+        const queryElements = parseElementsFromFormula(cleanTerm);
+        const needle = cleanTerm.toLowerCase();
+        rows = rows.filter((m) => {
+          const formulaStr = String(column.accessor(m) ?? "");
+          if (formulaStr.toLowerCase() === needle) return true;
+          const formulaElements = parseElementsFromFormula(formulaStr);
+          if (queryElements.size > 0) {
+            return Array.from(queryElements).every((el) => formulaElements.has(el));
+          }
+          return formulaStr.toLowerCase().includes(needle);
+        });
+        return;
+      }
+
+      const needle = cleanTerm.toLowerCase();
       rows = rows.filter((m) =>
         String(column.accessor(m) ?? "")
           .toLowerCase()

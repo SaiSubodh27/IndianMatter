@@ -352,6 +352,9 @@ function ElementButton({
   onClick: () => void;
   dimmed: boolean;
 }) {
+  const isSelected = selected === "include";
+  const isExcluded = selected === "exclude";
+
   return (
     <button
       type="button"
@@ -359,8 +362,30 @@ function ElementButton({
       aria-label={`${element.name}, ${element.symbol}, atomic number ${element.number}`}
       title={`${element.name} · ${element.symbol} · Atomic number ${element.number}`}
       onClick={onClick}
-      style={{ gridColumn: element.group, gridRow: element.period }}
-      className={`periodic-element periodic-category-${element.category} periodic-element-${selected} ${dimmed ? "periodic-element-dimmed" : ""}`}
+      style={{
+        gridColumn: element.group,
+        gridRow: element.period,
+        ...(isSelected
+          ? {
+              backgroundColor: "#FBE8D8",
+              borderColor: "#D47E30",
+              color: "#38240D",
+            }
+          : isExcluded
+            ? {
+                backgroundColor: "#713600",
+                borderColor: "#38240D",
+                color: "#ffffff",
+              }
+            : {}),
+      }}
+      className={`periodic-element ${
+        isSelected
+          ? "periodic-element-selected periodic-element-include"
+          : isExcluded
+            ? "periodic-element-excluded periodic-element-exclude"
+            : ""
+      } ${dimmed ? "periodic-element-dimmed" : ""}`}
     >
       <span className="periodic-element-number">{element.number}</span>
       <span className="periodic-element-symbol">{element.symbol}</span>
