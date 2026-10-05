@@ -2,9 +2,13 @@ import os
 import math
 import joblib
 import tempfile
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+import uuid
+import io
+import zipfile
+import csv
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Response
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 # Pymatgen & Matminer
 from pymatgen.core import Structure
@@ -468,5 +472,557 @@ async def analyze_thermal_properties(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Thermal analysis error: {str(e)}")
+
+
+# =========================================================
+# BATCH CIF PREDICTION & CSV EXPORT PIPELINE
+# =========================================================
+
+AVAILABLE_BATCH_PROPERTIES = [
+    {
+        "key": "formula",
+        "name": "Reduced Formula",
+        "category": "Structural",
+        "unit": "",
+        "default": True,
+        "description": "Calculated chemical composition formula from lattice sites."
+    },
+    {
+        "key": "crystal_system",
+        "name": "Crystal System",
+        "category": "Structural",
+        "unit": "",
+        "default": True,
+        "description": "Symmetry classification (Cubic, Tetragonal, Orthorhombic, etc.)."
+    },
+    {
+        "key": "space_group",
+        "name": "Space Group",
+        "category": "Structural",
+        "unit": "",
+        "default": True,
+        "description": "International crystallographic space group symbol and number."
+    },
+    {
+        "key": "density",
+        "name": "Density",
+        "category": "Structural",
+        "unit": "g/cm³",
+        "default": True,
+        "description": "Mass density computed from atomic weights and cell volume."
+    },
+    {
+        "key": "volume",
+        "name": "Cell Volume",
+        "category": "Structural",
+        "unit": "Å³",
+        "default": True,
+        "description": "Lattice unit cell volume in cubic Angstroms."
+    },
+    {
+        "key": "num_sites",
+        "name": "Number of Sites",
+        "category": "Structural",
+        "unit": "atoms",
+        "default": False,
+        "description": "Total number of atomic coordinates in the unit cell."
+    },
+    {
+        "key": "lattice_params",
+        "name": "Lattice Parameters",
+        "category": "Structural",
+        "unit": "Å, deg",
+        "default": False,
+        "description": "Unit cell lengths (a, b, c) and interaxial angles (alpha, beta, gamma)."
+    },
+    {
+        "key": "bulk_modulus",
+        "name": "Bulk Modulus (K_VRH)",
+        "category": "Mechanical",
+        "unit": "GPa",
+        "default": True,
+        "description": "Resistance to uniform hydrostatic compression (CHGNet GNN surrogate)."
+    },
+    {
+        "key": "shear_modulus",
+        "name": "Shear Modulus (G_VRH)",
+        "category": "Mechanical",
+        "unit": "GPa",
+        "default": True,
+        "description": "Resistance to shape deformation without volume change."
+    },
+    {
+        "key": "youngs_modulus",
+        "name": "Young's Modulus (E)",
+        "category": "Mechanical",
+        "unit": "GPa",
+        "default": True,
+        "description": "Tensile stiffness derived from Voigt-Reuss-Hill elastic moduli."
+    },
+    {
+        "key": "poisson_ratio",
+        "name": "Poisson's Ratio (ν)",
+        "category": "Mechanical",
+        "unit": "ratio",
+        "default": True,
+        "description": "Ratio of transverse strain to axial strain."
+    },
+    {
+        "key": "compressibility",
+        "name": "Compressibility",
+        "category": "Mechanical",
+        "unit": "GPa⁻¹",
+        "default": False,
+        "description": "Inverse of bulk modulus (1/K)."
+    },
+    {
+        "key": "pughs_ratio",
+        "name": "Pugh's Ratio (K/G)",
+        "category": "Mechanical",
+        "unit": "ratio",
+        "default": False,
+        "description": "Ductility vs. brittleness index (B/G > 1.75 indicates ductile behaviour)."
+    },
+    {
+        "key": "band_gap",
+        "name": "Electronic Band Gap",
+        "category": "Electronic",
+        "unit": "eV",
+        "default": True,
+        "description": "Forbidden energy gap between valence band maximum and conduction band minimum."
+    },
+    {
+        "key": "electronic_state",
+        "name": "Electronic Nature",
+        "category": "Electronic",
+        "unit": "",
+        "default": True,
+        "description": "Classification into Insulator, Semiconductor, or Metal."
+    },
+    {
+        "key": "thermal_conductivity",
+        "name": "Thermal Conductivity",
+        "category": "Thermal",
+        "unit": "W/m·K",
+        "default": False,
+        "description": "Predicted lattice thermal conductivity via phonon surrogate."
+    },
+    {
+        "key": "debye_temperature",
+        "name": "Debye Temperature",
+        "category": "Thermal",
+        "unit": "K",
+        "default": False,
+        "description": "Characteristic temperature representing highest normal mode of vibration."
+    },
+    {
+        "key": "ionic_conductivity",
+        "name": "Ionic Conductivity (σ)",
+        "category": "Ionic Transport",
+        "unit": "S/cm",
+        "default": True,
+        "description": "Fast-ion transport rate at target temperature (IonCast ML stack)."
+    },
+    {
+        "key": "activation_energy",
+        "name": "Activation Energy (Ea)",
+        "category": "Ionic Transport",
+        "unit": "eV",
+        "default": True,
+        "description": "Arrhenius migration barrier energy for ion hopping."
+    }
+]
+
+# Global store for active and completed batch prediction jobs
+BATCH_JOBS: Dict[str, Dict[str, Any]] = {}
+
+
+def generate_csv_string(records: List[dict]) -> str:
+    """Generates standard CSV content from records with logical column ordering."""
+    if not records:
+        return ""
+    preferred_order = [
+        "filename", "material_id", "formula", "crystal_system", "space_group", "space_group_number",
+        "volume_A3", "density_g_cm3", "num_sites",
+        "lattice_a", "lattice_b", "lattice_c", "alpha", "beta", "gamma",
+        "bulk_modulus_GPa", "shear_modulus_GPa", "youngs_modulus_GPa", "poisson_ratio",
+        "compressibility_GPa_inv", "pughs_ratio", "elastic_anisotropy",
+        "band_gap_eV", "electronic_state",
+        "thermal_conductivity_W_mK", "debye_temperature_K", "phonon_frequency_proxy_cm_inv",
+        "ionic_conductivity_S_cm", "activation_energy_eV",
+        "status", "error_message"
+    ]
+    fieldnames = []
+    for col in preferred_order:
+        if any(col in r for r in records):
+            fieldnames.append(col)
+    for r in records:
+        for k in r.keys():
+            if k not in fieldnames:
+                fieldnames.append(k)
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    for r in records:
+        writer.writerow(r)
+    return output.getvalue()
+
+
+def process_single_cif_record(
+    filename: str,
+    cif_text: str,
+    requested_keys: List[str],
+    temperature: float
+) -> dict:
+    """
+    Parses a single CIF structure string and computes the requested properties.
+    Never raises an uncaught exception; returns error details inside the record if failed.
+    """
+    requested_set = set(requested_keys)
+    base_id = filename.rsplit(".", 1)[0]
+    row: Dict[str, Any] = {
+        "filename": filename,
+        "material_id": base_id,
+        "formula": "Unknown",
+        "status": "success",
+        "error_message": None,
+    }
+
+    try:
+        structure = Structure.from_str(cif_text, fmt="cif")
+        lattice = structure.lattice
+        row["formula"] = structure.composition.reduced_formula
+
+        if "num_sites" in requested_set:
+            row["num_sites"] = len(structure)
+        if "volume" in requested_set:
+            row["volume_A3"] = round(float(lattice.volume), 3)
+        if "density" in requested_set:
+            row["density_g_cm3"] = round(float(structure.density), 3)
+
+        # Space Group & Crystal System
+        if any(k in requested_set for k in ["space_group", "crystal_system", "lattice_params"]):
+            try:
+                sga = SpacegroupAnalyzer(structure, symprec=0.1)
+                if "space_group" in requested_set:
+                    row["space_group"] = sga.get_space_group_symbol()
+                    row["space_group_number"] = sga.get_space_group_number()
+                if "crystal_system" in requested_set:
+                    row["crystal_system"] = sga.get_crystal_system()
+            except Exception:
+                if "space_group" in requested_set:
+                    row["space_group"] = "Unknown"
+                    row["space_group_number"] = None
+                if "crystal_system" in requested_set:
+                    row["crystal_system"] = "Unknown"
+
+            if "lattice_params" in requested_set:
+                row["lattice_a"] = round(float(lattice.a), 3)
+                row["lattice_b"] = round(float(lattice.b), 3)
+                row["lattice_c"] = round(float(lattice.c), 3)
+                row["alpha"] = round(float(lattice.alpha), 2)
+                row["beta"] = round(float(lattice.beta), 2)
+                row["gamma"] = round(float(lattice.gamma), 2)
+
+        # Determine if CHGNet / GNN feature extraction is required
+        mech_keys = {"bulk_modulus", "shear_modulus", "youngs_modulus", "poisson_ratio", "compressibility", "pughs_ratio", "elastic_anisotropy"}
+        elec_keys = {"band_gap", "electronic_state"}
+        therm_keys = {"thermal_conductivity", "debye_temperature", "phonon_frequency_proxy"}
+
+        needs_gnn = bool(requested_set & (mech_keys | elec_keys | therm_keys))
+        feature_vector = None
+        if needs_gnn:
+            try:
+                chgnet_feats = extract_mechanical_features(structure)
+                feature_vector = chgnet_feats.get("feature_vector")
+            except Exception as fe:
+                row["error_message"] = f"GNN feature warning: {str(fe)}"
+
+        # 1. Mechanical Properties
+        if requested_set & mech_keys:
+            if MECHANICAL_LOADED and feature_vector is not None:
+                log_K = float(chgnet_model_K.predict([feature_vector])[0])
+                log_G = float(chgnet_model_G.predict([feature_vector])[0])
+                K = float(10 ** log_K)
+                G = float(10 ** log_G)
+                denom = (3 * K) + G
+                E = (9 * K * G) / denom if denom > 0 else 0.0
+                nu = (3 * K - 2 * G) / (2 * denom) if denom > 0 else 0.0
+                comp = (1.0 / K) if K > 0 else 0.0
+                pugh = (K / G) if G > 0 else 0.0
+
+                if "bulk_modulus" in requested_set: row["bulk_modulus_GPa"] = round(K, 3)
+                if "shear_modulus" in requested_set: row["shear_modulus_GPa"] = round(G, 3)
+                if "youngs_modulus" in requested_set: row["youngs_modulus_GPa"] = round(E, 3)
+                if "poisson_ratio" in requested_set: row["poisson_ratio"] = round(nu, 4)
+                if "compressibility" in requested_set: row["compressibility_GPa_inv"] = round(comp, 6)
+                if "pughs_ratio" in requested_set: row["pughs_ratio"] = round(pugh, 3)
+                if "elastic_anisotropy" in requested_set: row["elastic_anisotropy"] = 1.2
+            else:
+                for k in mech_keys & requested_set:
+                    col_name = f"{k}_GPa" if "modulus" in k else k
+                    row[col_name] = None
+
+        # 2. Electronic Properties
+        if requested_set & elec_keys:
+            if ELECTRICAL_LOADED and feature_vector is not None:
+                bg = float(chgnet_model_bg.predict([feature_vector])[0])
+                bg = max(0.0, bg)
+                if "band_gap" in requested_set:
+                    row["band_gap_eV"] = round(bg, 3)
+                if "electronic_state" in requested_set:
+                    row["electronic_state"] = "Insulator" if bg > 2.0 else ("Semiconductor" if bg > 0.05 else "Metal")
+            else:
+                if "band_gap" in requested_set: row["band_gap_eV"] = None
+                if "electronic_state" in requested_set: row["electronic_state"] = "Unknown"
+
+        # 3. Thermal Properties
+        if requested_set & therm_keys:
+            if THERMAL_LOADED and feature_vector is not None:
+                th = float(chgnet_model_th.predict([feature_vector])[0])
+                if "thermal_conductivity" in requested_set:
+                    row["thermal_conductivity_W_mK"] = round(abs(th) * 0.05, 3)
+                if "debye_temperature" in requested_set:
+                    row["debye_temperature_K"] = round(abs(th) * 1.5, 1)
+                if "phonon_frequency_proxy" in requested_set:
+                    row["phonon_frequency_proxy_cm_inv"] = round(th, 2)
+            else:
+                for k in therm_keys & requested_set:
+                    row[k] = None
+
+        # 4. Ionic Transport Properties
+        ionic_keys = {"ionic_conductivity", "activation_energy"}
+        if requested_set & ionic_keys:
+            if IONIC_LOADED:
+                try:
+                    from properties.ionic_conductivity import IonicConductivityCalculator
+                    calc = IonicConductivityCalculator()
+                    res = calc.calculate(structure, settings={"temperature_k": temperature})
+                    if res.status == "calculated":
+                        raw = res.raw_details or {}
+                        cond = raw.get("conductivity_s_cm", res.value)
+                        ea = raw.get("activation_energy_ev")
+                        if "ionic_conductivity" in requested_set:
+                            row["ionic_conductivity_S_cm"] = float(f"{float(cond):.6g}") if cond is not None else None
+                        if "activation_energy" in requested_set:
+                            row["activation_energy_eV"] = round(float(ea), 4) if ea is not None else None
+                    else:
+                        row["status"] = "warning"
+                        if "ionic_conductivity" in requested_set: row["ionic_conductivity_S_cm"] = None
+                        if "activation_energy" in requested_set: row["activation_energy_eV"] = None
+                except Exception as ie:
+                    row["status"] = "warning"
+                    if "ionic_conductivity" in requested_set: row["ionic_conductivity_S_cm"] = None
+                    if "activation_energy" in requested_set: row["activation_energy_eV"] = None
+            else:
+                if "ionic_conductivity" in requested_set: row["ionic_conductivity_S_cm"] = None
+                if "activation_energy" in requested_set: row["activation_energy_eV"] = None
+
+    except Exception as e:
+        row["status"] = "failed"
+        row["error_message"] = str(e)
+
+    return row
+
+
+def run_batch_prediction_worker(
+    job_id: str,
+    cif_items: List[Tuple[str, str]],
+    requested_keys: List[str],
+    temperature: float
+):
+    """Background worker executing batch property predictions."""
+    job = BATCH_JOBS.get(job_id)
+    if not job:
+        return
+
+    total = len(cif_items)
+    results = []
+
+    for idx, (filename, cif_text) in enumerate(cif_items):
+        job["current_file"] = filename
+        job["completed"] = idx
+        job["progress"] = int((idx / total) * 100) if total > 0 else 0
+
+        row = process_single_cif_record(filename, cif_text, requested_keys, temperature)
+        results.append(row)
+        job["results"] = results
+
+    successful = sum(1 for r in results if r.get("status") == "success")
+    failed = sum(1 for r in results if r.get("status") == "failed")
+    warnings_count = sum(1 for r in results if r.get("status") == "warning")
+
+    csv_str = generate_csv_string(results)
+
+    job["completed"] = total
+    job["progress"] = 100
+    job["status"] = "completed"
+    job["current_file"] = "Complete"
+    job["csv_content"] = csv_str
+    job["summary"] = {
+        "total": total,
+        "successful": successful,
+        "warnings": warnings_count,
+        "failed": failed
+    }
+
+
+@router.get("/batch-properties")
+def get_batch_properties():
+    """Returns the list of available properties and categories for batch prediction."""
+    return {"properties": AVAILABLE_BATCH_PROPERTIES}
+
+
+@router.get("/batch-sample-cifs")
+def get_batch_sample_cifs():
+    """Returns sample CIF filenames and contents for fast testing."""
+    sample_files = []
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    for name in ["test_curr.cif", "test2.cif"]:
+        path = os.path.join(base_dir, name)
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    sample_files.append({"filename": name, "content": f.read()})
+            except Exception:
+                pass
+    return {"samples": sample_files}
+
+
+@router.post("/batch-predict")
+async def start_batch_prediction(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    properties: str = Form(default="formula,crystal_system,space_group,density,bulk_modulus,shear_modulus,band_gap,ionic_conductivity,activation_energy"),
+    temperature: float = Form(298.15)
+):
+    """
+    Accepts uploaded .zip archive(s) or multiple .cif files, extracts structures,
+    and launches background batch prediction according to selected properties routing.
+    """
+    cif_items: List[Tuple[str, str]] = []
+
+    for f in files:
+        fname = f.filename or "unknown"
+        data = await f.read()
+
+        if fname.lower().endswith(".zip"):
+            try:
+                with zipfile.ZipFile(io.BytesIO(data)) as z:
+                    for name in z.namelist():
+                        base = os.path.basename(name)
+                        if base.lower().endswith(".cif") and not name.startswith("__MACOSX") and not base.startswith("._"):
+                            try:
+                                text = z.read(name).decode("utf-8", errors="replace")
+                                if text.strip():
+                                    cif_items.append((base, text))
+                            except Exception:
+                                pass
+            except Exception as ze:
+                raise HTTPException(status_code=400, detail=f"Failed to read zip archive '{fname}': {str(ze)}")
+        elif fname.lower().endswith(".cif"):
+            try:
+                text = data.decode("utf-8", errors="replace")
+                if text.strip():
+                    cif_items.append((os.path.basename(fname), text))
+            except Exception as ce:
+                raise HTTPException(status_code=400, detail=f"Failed to read CIF file '{fname}': {str(ce)}")
+        else:
+            # Check if file has CIF headers
+            try:
+                text = data.decode("utf-8", errors="replace")
+                if "data_" in text or "_cell_length_" in text:
+                    cif_items.append((os.path.basename(fname), text))
+            except Exception:
+                pass
+
+    if not cif_items:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid .cif files found. Please upload a .zip containing .cif files, or one or more .cif files."
+        )
+
+    job_id = str(uuid.uuid4())
+    requested_keys = [k.strip() for k in properties.split(",") if k.strip()]
+
+    BATCH_JOBS[job_id] = {
+        "job_id": job_id,
+        "status": "processing",
+        "progress": 0,
+        "total": len(cif_items),
+        "completed": 0,
+        "current_file": cif_items[0][0] if cif_items else "",
+        "results": [],
+        "csv_content": "",
+        "summary": {}
+    }
+
+    background_tasks.add_task(
+        run_batch_prediction_worker,
+        job_id,
+        cif_items,
+        requested_keys,
+        temperature
+    )
+
+    return {
+        "job_id": job_id,
+        "status": "processing",
+        "total": len(cif_items),
+        "message": f"Successfully loaded {len(cif_items)} CIF structure(s). Batch prediction started."
+    }
+
+
+@router.get("/batch-predict/status/{job_id}")
+def get_batch_prediction_status(job_id: str):
+    """Returns current progress and execution status of a batch prediction job."""
+    job = BATCH_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Batch prediction job not found.")
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "progress": job["progress"],
+        "total": job["total"],
+        "completed": job["completed"],
+        "current_file": job["current_file"],
+        "error": job.get("error")
+    }
+
+
+@router.get("/batch-predict/results/{job_id}")
+def get_batch_prediction_results(job_id: str):
+    """Returns the full results array and summary stats of a batch prediction job."""
+    job = BATCH_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Batch prediction job not found.")
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "total": job["total"],
+        "completed": job["completed"],
+        "results": job["results"],
+        "summary": job.get("summary", {})
+    }
+
+
+@router.get("/batch-predict/download/{job_id}")
+def download_batch_prediction_csv(job_id: str):
+    """Streams the calculated properties of the batch prediction as a CSV download."""
+    job = BATCH_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Batch prediction job not found.")
+    csv_content = job.get("csv_content", "")
+    if not csv_content and job.get("results"):
+        csv_content = generate_csv_string(job["results"])
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=materials_batch_predictions_{job_id[:8]}.csv"
+        }
+    )
 
 
