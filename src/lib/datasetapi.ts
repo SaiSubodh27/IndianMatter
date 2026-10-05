@@ -12,9 +12,10 @@ export interface MaterialRecord {
 }
 
 export interface SearchParams {
+  database?: string;
   elements?: string[];
   excludeElements?: string[];
-  matchMode?: "contains" | "exact";
+  matchMode?: "contains" | "exact" | "any" | "all";
   formula?: string;
   minBandGap?: number;
   maxBandGap?: number;
@@ -52,12 +53,21 @@ export async function searchDatasetMaterials(
   const query = new URLSearchParams();
 
   if (params.elements && params.elements.length > 0) {
-    params.elements.forEach((elem) => query.append("elements", elem));
+    if (params.database && params.database !== "dataset" && params.database !== "indianmatter") {
+      // Other databases usually expect comma-separated string
+      query.append("elements", params.elements.join(","));
+    } else {
+      params.elements.forEach((elem) => query.append("elements", elem));
+    }
   }
   if (params.excludeElements && params.excludeElements.length > 0) {
-    params.excludeElements.forEach((elem) =>
-      query.append("exclude_elements", elem),
-    );
+    if (params.database && params.database !== "dataset" && params.database !== "indianmatter") {
+      query.append("exclude_elements", params.excludeElements.join(","));
+    } else {
+      params.excludeElements.forEach((elem) =>
+        query.append("exclude_elements", elem),
+      );
+    }
   }
   if (params.matchMode) query.append("match_mode", params.matchMode);
   if (params.formula) query.append("formula", params.formula);
@@ -73,10 +83,17 @@ export async function searchDatasetMaterials(
   if (params.limit !== undefined)
     query.append("limit", params.limit.toString());
 
+  let endpoint = "/api/dataset/search";
+  if (params.database === "indianmatter") endpoint = "/api/indianmatter/explore";
+  else if (params.database === "materials_project") endpoint = "/api/materials/explore";
+  else if (params.database === "oqmd") endpoint = "/api/oqmd/explore";
+  else if (params.database === "jarvis") endpoint = "/api/jarvis/explore";
+  else if (params.database === "aflow") endpoint = "/api/aflow/explore";
+
   let response: Response;
   try {
     response = await fetch(
-      `${API_BASE_URL}/api/dataset/search?${query.toString()}`,
+      `${API_BASE_URL}${endpoint}?${query.toString()}`,
     );
   } catch {
     throw new Error(
@@ -84,10 +101,26 @@ export async function searchDatasetMaterials(
     );
   }
   if (!response.ok) {
-    throw new Error(`Dataset search failed with status ${response.status}`);
+    throw new Error(`${params.database || 'dataset'} search failed with status ${response.status}`);
   }
 
-  return response.json();
+  let data = await response.json();
+  if (Array.isArray(data)) {
+    return {
+      total: data.length,
+      page: params.page || 1,
+      limit: params.limit || 100,
+      results: data.map((item: any) => ({
+        ...item,
+        mv_id: item.mv_id || item.material_id || item.auid || item.entry_id,
+        Formula: item.Formula || item.formula,
+        "Band Gap E_g (eV)": item.band_gap ?? item["Band Gap E_g (eV)"],
+        "Form. Energy E_f (eV/atom)": item.formation_energy ?? item["Form. Energy E_f (eV/atom)"],
+        "E_hull-m (eV/atom)": item.e_hull ?? item.ehull ?? item["E_hull-m (eV/atom)"],
+      }))
+    };
+  }
+  return data;
 }
 
 export async function exploreIndianMatter(params: {
