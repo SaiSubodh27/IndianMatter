@@ -72,7 +72,7 @@ export default function CrystalViewerCanvas({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xfdfbf8);
-    scene.fog = new THREE.Fog(0xfdfbf8, 18, 44);
+    // Fog will be updated after maxDim is calculated
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -116,8 +116,10 @@ export default function CrystalViewerCanvas({
       vectors.c.length(),
       5,
     );
+    const camDist = maxDim * 2.8;
     camera.position.set(maxDim * 1.7, maxDim * 1.2, maxDim * 2.15);
     camera.lookAt(0, 0, 0);
+    scene.fog = new THREE.Fog(0xfdfbf8, camDist * 0.8, camDist * 2);
 
     const group = new THREE.Group();
     scene.add(group);

@@ -60,7 +60,7 @@ const scientific =
   (digits: number) => (v: PropertyResult["value"], unit: string) => {
     if (typeof v !== "number") return "N/A";
     const [base, exponent] = v.toExponential(digits).split("e");
-    
+
     const superscripts: Record<string, string> = {
       "-": "⁻",
       "+": "",
@@ -75,7 +75,7 @@ const scientific =
       "8": "⁸",
       "9": "⁹"
     };
-    
+
     let formattedExponent = "";
     // Remove leading zeros from exponent (e.g., "-04" to "-4")
     const expNum = parseInt(exponent, 10).toString();
@@ -83,7 +83,7 @@ const scientific =
       if (char === '+') continue;
       formattedExponent += superscripts[char] || char;
     }
-    
+
     return `${base} × 10${formattedExponent} ${unit}`;
   };
 
@@ -844,8 +844,8 @@ function PropertyChecklist({
                       key={prop.key}
                       onClick={() => onToggle(prop.key)}
                       className={`flex items-center justify-between p-3.5 rounded-xl border text-xs transition-all cursor-pointer select-none ${isChecked
-                          ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227] shadow-sm ring-1 ring-[#F1641D]/20"
-                          : "border-[#E9DFD4] bg-white text-[#6C737E] hover:border-[#F1641D] hover:bg-[#FAF4EE]/20"
+                        ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227] shadow-sm ring-1 ring-[#F1641D]/20"
+                        : "border-[#E9DFD4] bg-white text-[#6C737E] hover:border-[#F1641D] hover:bg-[#FAF4EE]/20"
                         }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 mr-2">

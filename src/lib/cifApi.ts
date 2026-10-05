@@ -35,38 +35,46 @@ export async function parseCifFile(file: File): Promise<ParsedStructure> {
     .map((line) => line.trim())
     .filter(Boolean);
   const atoms: ParsedStructure["atoms"] = [];
-  const loopStart = lines.findIndex((line) => line.toLowerCase() === "loop_");
-  if (loopStart >= 0) {
-    const headers: string[] = [];
-    let index = loopStart + 1;
-    while (index < lines.length && lines[index].startsWith("_"))
-      headers.push(lines[index++]);
-    const speciesIndex = headers.findIndex((header) =>
-      /type_symbol|label/i.test(header),
-    );
-    const xIndex = headers.findIndex((header) => /fract_x/i.test(header));
-    const yIndex = headers.findIndex((header) => /fract_y/i.test(header));
-    const zIndex = headers.findIndex((header) => /fract_z/i.test(header));
-    while (
-      index < lines.length &&
-      !lines[index].startsWith("loop_") &&
-      !lines[index].startsWith("_") &&
-      !lines[index].startsWith("data_")
-    ) {
-      const values = lines[index].split(/\s+/);
-      if (speciesIndex >= 0 && xIndex >= 0 && yIndex >= 0 && zIndex >= 0) {
-        const x = Number.parseFloat(values[xIndex]);
-        const y = Number.parseFloat(values[yIndex]);
-        const z = Number.parseFloat(values[zIndex]);
-        if ([x, y, z].every(Number.isFinite))
-          atoms.push({
-            species: values[speciesIndex],
-            fractional_coordinates: [x, y, z],
-          });
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase() === "loop_") {
+      const headers: string[] = [];
+      let index = i + 1;
+      while (index < lines.length && lines[index].startsWith("_")) {
+        headers.push(lines[index++]);
       }
-      index += 1;
+      const speciesIndex = headers.findIndex((header) =>
+        /type_symbol|label/i.test(header),
+      );
+      const xIndex = headers.findIndex((header) => /fract_x/i.test(header));
+      const yIndex = headers.findIndex((header) => /fract_y/i.test(header));
+      const zIndex = headers.findIndex((header) => /fract_z/i.test(header));
+      
+      if (speciesIndex >= 0 && xIndex >= 0 && yIndex >= 0 && zIndex >= 0) {
+        while (
+          index < lines.length &&
+          !lines[index].startsWith("loop_") &&
+          !lines[index].startsWith("_") &&
+          !lines[index].startsWith("data_")
+        ) {
+          const values = lines[index].split(/\s+/);
+          if (values.length >= headers.length) {
+            const x = Number.parseFloat(values[xIndex]);
+            const y = Number.parseFloat(values[yIndex]);
+            const z = Number.parseFloat(values[zIndex]);
+            if ([x, y, z].every(Number.isFinite)) {
+              atoms.push({
+                species: values[speciesIndex].replace(/[\d+.-]/g, ""),
+                fractional_coordinates: [x, y, z],
+              });
+            }
+          }
+          index += 1;
+        }
+      }
+      i = index - 1; // Advance the outer loop
     }
   }
+
   if (!atoms.length)
     throw new Error("No fractional atom coordinates were found in this CIF.");
   const formula =

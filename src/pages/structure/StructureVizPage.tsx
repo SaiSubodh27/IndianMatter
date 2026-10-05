@@ -12,8 +12,21 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import CrystalViewerCanvas from "./CrystalViewerCanvas";
+import StructureViewer from "../../components/StructureViewer";
 import { parseCifFile, ParsedStructure } from "../../lib/cifApi";
+
+function presetToCif(preset: Preset): string {
+  const { a, b, c, alpha, beta, gamma } = preset.lattice;
+  let cif = `data_${preset.id}\n`;
+  cif += `_cell_length_a ${a}\n_cell_length_b ${b}\n_cell_length_c ${c}\n`;
+  cif += `_cell_angle_alpha ${alpha}\n_cell_angle_beta ${beta}\n_cell_angle_gamma ${gamma}\n`;
+  cif += `_symmetry_space_group_name_H-M 'P 1'\n`;
+  cif += `loop_\n_atom_site_label\n_atom_site_type_symbol\n_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n`;
+  preset.atoms.forEach((atom, idx) => {
+    cif += `${atom.species}${idx + 1} ${atom.species} ${atom.fractional_coordinates.join(" ")}\n`;
+  });
+  return cif;
+}
 
 type AtomRecord = {
   species: string;
@@ -96,6 +109,7 @@ export default function StructureVizPage() {
   const [selectedId, setSelectedId] = useState("LiCoO2");
   const [parsedStructure, setParsedStructure] =
     useState<ParsedStructure | null>(null);
+  const [uploadedCifText, setUploadedCifText] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(true);
@@ -105,13 +119,13 @@ export default function StructureVizPage() {
   const atoms = (parsedStructure?.atoms ?? current.atoms) as AtomRecord[];
   const lattice = parsedStructure
     ? {
-        a: Number.parseFloat(parsedStructure.lattice.a) || 5,
-        b: Number.parseFloat(parsedStructure.lattice.b) || 5,
-        c: Number.parseFloat(parsedStructure.lattice.c) || 5,
-        alpha: 90,
-        beta: 90,
-        gamma: 90,
-      }
+      a: Number.parseFloat(parsedStructure.lattice.a) || 5,
+      b: Number.parseFloat(parsedStructure.lattice.b) || 5,
+      c: Number.parseFloat(parsedStructure.lattice.c) || 5,
+      alpha: 90,
+      beta: 90,
+      gamma: 90,
+    }
     : current.lattice;
   const formula = parsedStructure?.formula ?? current.formula;
   const source = parsedStructure
@@ -122,14 +136,21 @@ export default function StructureVizPage() {
     [atoms],
   );
 
+  const activeCifText = parsedStructure && uploadedCifText
+    ? uploadedCifText
+    : presetToCif(current);
+
   const handleUpload = async (file?: File) => {
     if (!file) return;
     setIsParsing(true);
     setParseError(null);
     try {
+      const text = await file.text();
+      setUploadedCifText(text);
       setParsedStructure(await parseCifFile(file));
     } catch (error) {
       setParsedStructure(null);
+      setUploadedCifText(null);
       setParseError(
         error instanceof Error ? error.message : "CIF parsing failed.",
       );
@@ -163,6 +184,7 @@ export default function StructureVizPage() {
                 type="file"
                 accept=".cif"
                 className="hidden"
+                onClick={(e) => { e.currentTarget.value = ""; }}
                 onChange={(event) => handleUpload(event.target.files?.[0])}
               />
             </label>
@@ -196,11 +218,10 @@ export default function StructureVizPage() {
                       setSelectedId(preset.id);
                       setParsedStructure(null);
                     }}
-                    className={`w-full rounded-2xl border p-3.5 text-left transition-all ${
-                      isSelected
+                    className={`w-full rounded-2xl border p-3.5 text-left transition-all ${isSelected
                         ? "border-[#D47E30] bg-[#FDF5EE] shadow-sm"
                         : "border-[#EDE8E2] bg-white hover:border-[#D47E30]/40 hover:bg-[#FAF4EE]/40"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-sm font-bold text-[#1E2227]">
@@ -266,13 +287,8 @@ export default function StructureVizPage() {
                   <ShieldCheck size={14} /> Validated geometry
                 </div>
               </div>
-              <div className="p-3 sm:p-4 bg-[#FDFBF8]/60 min-h-[500px]">
-                <CrystalViewerCanvas
-                  atoms={atoms}
-                  lattice={lattice}
-                  materialLabel={formula}
-                  sourceLabel={source}
-                />
+              <div className="p-3 sm:p-4 bg-white h-[500px] xl:h-[600px] rounded-b-[2rem]">
+                <StructureViewer cifText={activeCifText} />
               </div>
             </div>
             {isParsing && (

@@ -287,6 +287,20 @@ export default function MaterialsSearchPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const shouldScrollToResultsRef = useRef(false);
   const [searchNonce, setSearchNonce] = useState(0);
+  const columnsPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        columnsPanelRef.current &&
+        !columnsPanelRef.current.contains(event.target as Node)
+      ) {
+        setShowColumnsPanel(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const [hiddenColumns, setHiddenColumns] = useState<Set<ColumnKey>>(new Set());
   const [showColumnsPanel, setShowColumnsPanel] = useState(false);
@@ -685,7 +699,7 @@ export default function MaterialsSearchPage() {
                 ? "Searching…"
                 : `${visibleRows.length} of ${total} materials`}
             </span>
-            <div className="relative ml-auto">
+            <div ref={columnsPanelRef} className="relative ml-auto">
               <button
                 type="button"
                 onClick={() => setShowColumnsPanel((v) => !v)}
