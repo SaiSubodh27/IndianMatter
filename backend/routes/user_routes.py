@@ -15,6 +15,8 @@ def get_profile(current_user: dict = Depends(get_current_user)):
         "email": current_user.get("email"),
         "name": current_user.get("name"),
         "provider": current_user.get("provider"),
+        "providers": current_user.get("providers", [current_user.get("provider")]),
+        "github_id": current_user.get("github_id"),
         "created_at": current_user.get("created_at"),
         "last_login": current_user.get("last_login")
     }

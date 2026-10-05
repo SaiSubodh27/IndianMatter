@@ -315,27 +315,13 @@
     justify-content: center;
     transition:
       background-color 120ms ease,
-      border-color 120ms ease,
-      transform 120ms ease;
+      border-color 120ms ease;
   }
 
   .periodic-element:hover,
   .periodic-element:focus-visible {
-    background: #f5e8c4;
-    border-color: #c05800;
-    transform: translateY(-1px);
-  }
-
-  .periodic-element-include {
-    background: #c05800;
-    border-color: #713600;
-    color: white;
-  }
-
-  .periodic-element-exclude {
-    background: #713600;
-    border-color: #38240d;
-    color: white;
+    background: #fbf0e6;
+    border-color: rgba(212, 126, 48, 0.45);
   }
 
   .periodic-element-dimmed {
@@ -343,51 +329,72 @@
     filter: saturate(0.45);
   }
 
+  .periodic-legend-swatch.periodic-category-alkali,
   .periodic-category-alkali {
     background: #f6c9ad;
   }
+  .periodic-legend-swatch.periodic-category-alkaline,
   .periodic-category-alkaline {
     background: #f5dcaa;
   }
+  .periodic-legend-swatch.periodic-category-transition,
   .periodic-category-transition {
     background: #c9dff2;
   }
+  .periodic-legend-swatch.periodic-category-post-transition,
   .periodic-category-post-transition {
     background: #d9d6f0;
   }
+  .periodic-legend-swatch.periodic-category-metalloid,
   .periodic-category-metalloid {
     background: #c7e8d4;
   }
+  .periodic-legend-swatch.periodic-category-nonmetal,
   .periodic-category-nonmetal {
     background: #bfe7df;
   }
+  .periodic-legend-swatch.periodic-category-halogen,
   .periodic-category-halogen {
     background: #f3dfa2;
   }
+  .periodic-legend-swatch.periodic-category-noble,
   .periodic-category-noble {
     background: #d7cff0;
   }
+  .periodic-legend-swatch.periodic-category-lanthanide,
   .periodic-category-lanthanide {
     background: #f7d38e;
   }
+  .periodic-legend-swatch.periodic-category-actinide,
   .periodic-category-actinide {
     background: #f3be71;
   }
 
+  .periodic-element-selected,
   .periodic-element-include {
-    background: #c05800 !important;
-    border-color: #713600;
-    color: white;
-    opacity: 1;
-    filter: none;
+    background-color: #fbe8d8 !important;
+    border-color: #d47e30 !important;
+    color: #38240d !important;
+    opacity: 1 !important;
+    filter: none !important;
   }
 
+  .periodic-element-selected:hover,
+  .periodic-element-include:hover,
+  .periodic-element-selected:focus-visible,
+  .periodic-element-include:focus-visible {
+    background-color: #fbe8d8 !important;
+    border-color: #d47e30 !important;
+    color: #38240d !important;
+  }
+
+  .periodic-element-excluded,
   .periodic-element-exclude {
-    background: #713600 !important;
-    border-color: #38240d;
-    color: white;
-    opacity: 1;
-    filter: none;
+    background-color: #713600 !important;
+    border-color: #38240d !important;
+    color: white !important;
+    opacity: 1 !important;
+    filter: none !important;
   }
 
   .periodic-search-toolbar {
