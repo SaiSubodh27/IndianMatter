@@ -38,7 +38,20 @@ def extract_mechanical_features(structure: Structure) -> dict:
 
     # 2. ATTACH THE GLOBAL CALCULATOR (Fast inference)
     adaptor = AseAtomsAdaptor()
-    atoms = adaptor.get_atoms(structure)
+    if not structure.is_ordered:
+        # Order the structure for ASE by selecting the dominant species at each site
+        ordered_species = []
+        for site in structure:
+            if hasattr(site, "species") and site.species:
+                dom = max(site.species.items(), key=lambda x: x[1])[0]
+                ordered_species.append(dom)
+            else:
+                ordered_species.append(site.specie)
+        structure_to_use = Structure(structure.lattice, ordered_species, structure.frac_coords)
+    else:
+        structure_to_use = structure
+
+    atoms = adaptor.get_atoms(structure_to_use)
     atoms.calc = GLOBAL_CALCULATOR
 
     energy_eV = float(atoms.get_potential_energy())

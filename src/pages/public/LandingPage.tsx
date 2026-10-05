@@ -10,7 +10,6 @@ import {
   ChevronRight,
   ChevronDown,
   LogOut,
-  Zap,
   Mail,
   MapPin,
   Users,
@@ -21,6 +20,7 @@ import {
   Search,
   CheckCircle2,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -170,6 +170,7 @@ export default function LandingPage() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState("home");
   const [exploreIdx, setExploreIdx] = useState(2); // LiCoO2 centered
+  const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -305,32 +306,22 @@ export default function LandingPage() {
     return () => observers.forEach((o) => o.disconnect());
   }, []);
 
-  // Intersection observer for explore materials (scroll-driven)
+  // Automatic scrolling from left to right: card to card with pause-on-hover
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const index = Number(entry.target.getAttribute("data-index"));
-            if (!isNaN(index)) {
-              setExploreIdx(index);
-            }
-          }
-        });
-      },
-      {
-        rootMargin: "-40% 0px -40% 0px",
-        threshold: 0,
-      }
-    );
+    if (isCarouselHovered) return;
+    const interval = setInterval(() => {
+      setExploreIdx((prev) => (prev + 1) % exploreMaterials.length);
+    }, 3800);
+    return () => clearInterval(interval);
+  }, [isCarouselHovered]);
 
-    exploreMaterials.forEach((_, idx) => {
-      const el = document.getElementById(`material-image-${idx}`);
-      if (el) observer.observe(el);
-    });
+  const nextMaterial = () => {
+    setExploreIdx((prev) => (prev + 1) % exploreMaterials.length);
+  };
 
-    return () => observer.disconnect();
-  }, []);
+  const prevMaterial = () => {
+    setExploreIdx((prev) => (prev - 1 + exploreMaterials.length) % exploreMaterials.length);
+  };
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -821,159 +812,313 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          EXPLORE — Scroll-Driven Material Library
+          EXPLORE — Auto-Scrolling 3D Card Library
       ═══════════════════════════════════════════════════════════ */}
       <section
         id="explore"
-        className="pt-8 pb-20 sm:pt-9 sm:pb-24 lg:pt-10 lg:pb-28 bg-white scroll-mt-[72px]"
+        className="py-16 sm:py-20 lg:py-24 bg-[#FAFAF8] border-y border-[#EBEBEB] scroll-mt-[72px] overflow-hidden relative"
       >
-        <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16">
-          {/* Section header (visible on mobile only) */}
-          <div className="lg:hidden text-center mb-10">
-            <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-2.5">
-              Material Library
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12">
+          {/* Section header */}
+          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FBF0E6] text-[#D47E30] text-[11px] font-bold tracking-[0.2em] uppercase font-headline mb-3">
+              <Atom size={14} /> Material Library
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
               Explore Materials
             </h2>
-            <p className="text-sm sm:text-base text-[#6B6B6B] max-w-xl mx-auto leading-relaxed">
-              Browse key battery and energy materials — each with structural, electronic, and thermodynamic properties.
+            <p className="text-sm sm:text-base text-[#6B6B6B] leading-relaxed">
+              Browse key battery and energy materials in our computational repository — automatically rotating through atomic structures and verified predictions.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start relative">
-            {/* Left Content (Sticky) */}
-            <div className="lg:sticky lg:top-[calc(72px+4rem)] space-y-6 lg:pb-32">
-              <div className="hidden lg:block">
-                <p className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#9A9A9A] font-headline mb-2.5">
-                  Material Library
-                </p>
-                <h2 className="text-4xl lg:text-[42px] font-headline font-bold text-[#1A1A1A] tracking-tight mb-3">
-                  Explore Materials
-                </h2>
-                <p className="text-base text-[#6B6B6B] leading-relaxed">
-                  Browse key battery and energy materials — each with structural, electronic, and thermodynamic properties.
-                </p>
-              </div>
+          {/* Cards Carousel: Auto-scrolling left-to-right with front & back card depth and transition effects */}
+          <div
+            className="relative w-full max-w-6xl mx-auto h-[540px] sm:h-[570px] flex items-center justify-center select-none"
+            style={{ perspective: "1200px" }}
+            onMouseEnter={() => setIsCarouselHovered(true)}
+            onMouseLeave={() => setIsCarouselHovered(false)}
+          >
+            {exploreMaterials.map((mat, idx) => {
+              const total = exploreMaterials.length;
+              let offset = idx - exploreIdx;
+              if (offset > total / 2) offset -= total;
+              if (offset < -total / 2) offset += total;
 
-              {/* Dynamic Content that changes as user scrolls */}
-              <div className="bg-[#FAFAF8] border border-[#EBEBEB] rounded-[2rem] p-8 mt-6 transition-all duration-300 shadow-sm">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[#FBF0E6] flex items-center justify-center shrink-0">
-                    <Atom size={24} style={{ color: "#D47E30" }} strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <h3 className="font-headline font-bold text-3xl text-[#1A1A1A] tracking-tight">
-                      {exploreMaterials[exploreIdx].formula}
-                    </h3>
-                    <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#D47E30] mt-0.5">
-                      {exploreMaterials[exploreIdx].structure}
-                    </p>
-                  </div>
-                </div>
+              const isActive = offset === 0;
 
-                <p className="text-[15px] font-medium text-[#3D3D3D] mb-5">
-                  {exploreMaterials[exploreIdx].fullName}
-                </p>
+              // Style and depth transforms based on relative distance to active front card
+              const getCardTransform = () => {
+                if (offset === 0) {
+                  return {
+                    transform: "translate3d(-50%, -50%, 50px) scale(1.02) rotateY(0deg)",
+                    zIndex: 30,
+                    opacity: 1,
+                  };
+                }
+                if (offset === 1) {
+                  return {
+                    transform: "translate3d(calc(-50% + min(320px, 30vw)), -50%, -70px) scale(0.86) rotateY(-10deg)",
+                    zIndex: 20,
+                    opacity: 0.65,
+                  };
+                }
+                if (offset === -1) {
+                  return {
+                    transform: "translate3d(calc(-50% - min(320px, 30vw)), -50%, -70px) scale(0.86) rotateY(10deg)",
+                    zIndex: 20,
+                    opacity: 0.65,
+                  };
+                }
+                if (offset === 2) {
+                  return {
+                    transform: "translate3d(calc(-50% + min(560px, 56vw)), -50%, -150px) scale(0.72) rotateY(-16deg)",
+                    zIndex: 10,
+                    opacity: 0.28,
+                  };
+                }
+                if (offset === -2) {
+                  return {
+                    transform: "translate3d(calc(-50% - min(560px, 56vw)), -50%, -150px) scale(0.72) rotateY(16deg)",
+                    zIndex: 10,
+                    opacity: 0.28,
+                  };
+                }
+                return {
+                  transform: "translate3d(-50%, -50%, -200px) scale(0.6)",
+                  zIndex: 5,
+                  opacity: 0,
+                };
+              };
 
-                <ul className="space-y-3 mb-8">
-                  {exploreMaterials[exploreIdx].features.map((f, i) => (
-                    <li key={i} className="flex items-center gap-3 text-[14px] text-[#6B6B6B]">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#D47E30]" aria-hidden="true" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+              const cardStyle = getCardTransform();
 
-                <button
-                  type="button"
+              return (
+                <div
+                  key={mat.id}
                   onClick={() => {
-                    const url = exploreMaterials[exploreIdx].detailsUrl;
-                    if (isAuthenticated) {
-                      navigate(url);
-                    } else {
-                      navigate(`/signin?redirect=${encodeURIComponent(url)}`);
-                    }
+                    if (!isActive) setExploreIdx(idx);
                   }}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-white text-[15px] font-medium transition-all duration-120 active:scale-95 cursor-pointer shadow-md"
-                  style={{ backgroundColor: "#D47E30" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#B8671E")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#D47E30")}
+                  className={`absolute top-1/2 left-1/2 w-[295px] sm:w-[360px] md:w-[390px] transition-all duration-750 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${
+                    isActive ? "cursor-default" : "cursor-pointer"
+                  } ${Math.abs(offset) >= 2 ? "max-sm:hidden" : ""}`}
+                  style={{
+                    transform: cardStyle.transform,
+                    zIndex: cardStyle.zIndex,
+                    opacity: cardStyle.opacity,
+                    transformStyle: "preserve-3d",
+                  }}
                 >
-                  View Full Details <ArrowRight size={15} />
-                </button>
-              </div>
-
-              {/* Progress indicators */}
-              <div className="hidden lg:flex items-center gap-3 mt-8">
-                {exploreMaterials.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      const el = document.getElementById(`material-image-${idx}`);
-                      if (el) {
-                        const navOffset = 72;
-                        const elementPosition = el.getBoundingClientRect().top;
-                        const offsetPosition = elementPosition + window.pageYOffset - navOffset - 100;
-                        window.scrollTo({
-                          top: offsetPosition,
-                          behavior: "smooth"
-                        });
-                      }
-                    }}
-                    aria-label={`Go to material ${idx + 1}`}
-                    className="w-1.5 rounded-full transition-all duration-300"
-                    style={{
-                      backgroundColor: exploreIdx === idx ? "#D47E30" : "#DDDBD8",
-                      height: "6px",
-                      width: exploreIdx === idx ? "24px" : "6px",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Right side: Scrolling Images */}
-            <div className="space-y-16 lg:space-y-32 py-4 lg:py-16">
-              {exploreMaterials.map((mat, idx) => {
-                const isActive = exploreIdx === idx;
-                return (
-                  <div
-                    key={mat.id}
-                    id={`material-image-${idx}`}
-                    data-index={idx}
-                    className="relative flex items-center justify-center min-h-[300px] lg:min-h-[400px] transition-all duration-500"
-                  >
+                  {/* Glowing ambient aura behind the active front card */}
+                  {isActive && (
                     <div
-                      className={`relative w-full max-w-[400px] aspect-square rounded-[3rem] p-10 flex items-center justify-center transition-all duration-700
-                        ${isActive 
-                          ? "bg-[#FAFAF8] border border-[#EBEBEB] scale-100 shadow-[0_20px_60px_rgba(0,0,0,0.06)]" 
-                          : "bg-white border-transparent scale-90 opacity-40 blur-[2px]"}`}
-                    >
-                      {/* Popular badge */}
+                      key={`aura-${mat.id}`}
+                      className="absolute -inset-4 sm:-inset-6 -z-10 rounded-[3rem] bg-gradient-to-tr from-[#D47E30]/25 via-[#F1641D]/15 to-transparent blur-2xl animate-pulse-glow pointer-events-none"
+                      style={{ transform: "translateZ(-30px)" }}
+                      aria-hidden="true"
+                    />
+                  )}
+
+                  <div
+                    className={`relative w-full bg-white rounded-[2rem] border transition-all duration-500 overflow-hidden flex flex-col ${
+                      isActive
+                        ? "border-[#D47E30] shadow-[0_28px_60px_-15px_rgba(212,126,48,0.28),0_16px_32px_-8px_rgba(0,0,0,0.08)] ring-2 ring-[#D47E30]/40"
+                        : "border-[#E8E8E6] shadow-[0_12px_30px_-10px_rgba(0,0,0,0.06)] hover:border-[#D47E30]/40"
+                    }`}
+                  >
+                    {/* Shimmer light-beam sweep effect on card change */}
+                    {isActive && (
+                      <div
+                        key={`shimmer-${exploreIdx}`}
+                        className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2rem] z-20"
+                        aria-hidden="true"
+                      >
+                        <div className="absolute -inset-full bg-gradient-to-r from-transparent via-white/50 to-transparent skew-x-[-25deg] animate-card-shimmer" />
+                      </div>
+                    )}
+
+                    {/* Card Top / Header */}
+                    <div className="p-5 sm:p-6 pb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-500 ${
+                            isActive ? "bg-[#FBF0E6] scale-105" : "bg-stone-100 scale-100"
+                          }`}
+                        >
+                          <Atom
+                            size={20}
+                            style={{ color: isActive ? "#D47E30" : "#888" }}
+                            strokeWidth={2}
+                          />
+                        </div>
+                        <div>
+                          <h3 className="font-headline font-bold text-2xl text-[#1A1A1A] tracking-tight leading-none">
+                            {mat.formula}
+                          </h3>
+                          <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-[#D47E30] mt-1">
+                            {mat.structure}
+                          </p>
+                        </div>
+                      </div>
                       {mat.popular && (
                         <span
-                          className={`absolute top-8 left-8 text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-full transition-opacity duration-500 delay-200 ${isActive ? 'opacity-100' : 'opacity-0'}`}
+                          className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full shrink-0"
                           style={{ backgroundColor: "#FBF0E6", color: "#D47E30" }}
                         >
                           Popular
                         </span>
                       )}
-                      
-                      <img
-                        src={mat.image}
-                        alt={`${mat.formula} crystal structure`}
-                        className={`w-full h-full object-contain transition-all duration-700 delay-100 ${isActive ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}
-                        style={{
-                          filter: isActive ? "drop-shadow(0 16px 32px rgba(141,90,43,0.15))" : "none",
+                    </div>
+
+                    {/* Crystal Structure Presentation Area */}
+                    <div className="px-5 sm:px-6 py-2">
+                      <div className="w-full h-40 sm:h-44 rounded-2xl bg-gradient-to-b from-[#FAF7F2] to-[#F3ECE4] flex items-center justify-center p-3 relative overflow-hidden group">
+                        {/* Orbital resonance dashed ring on active front card */}
+                        {isActive && (
+                          <div
+                            className="absolute inset-2 sm:inset-3 rounded-2xl border border-[#D47E30]/25 border-dashed animate-[spin_28s_linear_infinite] pointer-events-none"
+                            aria-hidden="true"
+                          />
+                        )}
+
+                        {/* Active Focus Pill */}
+                        {isActive && (
+                          <div className="absolute top-3 right-3 flex items-center gap-1 text-[10px] font-bold text-[#D47E30] bg-white/85 backdrop-blur-sm px-2.5 py-0.5 rounded-full shadow-xs border border-[#D47E30]/20 z-10">
+                            <Sparkles
+                              size={11}
+                              className="animate-spin text-[#D47E30]"
+                              style={{ animationDuration: "6s" }}
+                            />
+                            <span>Active Focus</span>
+                          </div>
+                        )}
+
+                        <img
+                          src={mat.image}
+                          alt={`${mat.formula} crystal structure`}
+                          className={`w-full h-full object-contain transition-all duration-700 ${
+                            isActive
+                              ? "scale-100 drop-shadow-[0_14px_28px_rgba(141,90,43,0.24)] animate-crystal-float"
+                              : "scale-90 opacity-80"
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Card Body & Features */}
+                    <div className="p-5 sm:p-6 pt-2 flex flex-col flex-1 justify-between">
+                      <div>
+                        <h4 className="text-[15px] font-semibold text-[#2A2A2A] mb-2.5 line-clamp-1">
+                          {mat.fullName}
+                        </h4>
+
+                        <ul className="space-y-1.5 mb-5">
+                          {mat.features.map((feat, i) => (
+                            <li key={i} className="flex items-center gap-2 text-[12.5px] text-[#666]">
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#D47E30]" />
+                              <span className="line-clamp-1">{feat}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Action Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = mat.detailsUrl;
+                          if (isAuthenticated) {
+                            navigate(url);
+                          } else {
+                            navigate(`/signin?redirect=${encodeURIComponent(url)}`);
+                          }
                         }}
-                      />
+                        className={`w-full py-3 px-4 rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-150 ${
+                          isActive
+                            ? "bg-[#D47E30] text-white hover:bg-[#B8671E] shadow-md shadow-[#D47E30]/25 active:scale-95 cursor-pointer"
+                            : "bg-[#F3EFEA] text-[#554C42] hover:bg-[#EAE4DC] cursor-pointer"
+                        }`}
+                      >
+                        <span>View Material Details</span>
+                        <ArrowRight size={14} />
+                      </button>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Carousel Controls */}
+          <div className="flex items-center justify-center gap-4 mt-6 sm:mt-8">
+            <button
+              type="button"
+              onClick={prevMaterial}
+              aria-label="Previous material"
+              className="w-11 h-11 rounded-full bg-white border border-[#E5E5E5] text-[#333] hover:text-[#D47E30] hover:border-[#D47E30] hover:bg-[#FBF0E6]/30 flex items-center justify-center transition-all shadow-sm active:scale-90 cursor-pointer"
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            {/* Indicator Dots */}
+            <div className="flex items-center gap-2">
+              {exploreMaterials.map((mat, idx) => (
+                <button
+                  key={mat.id}
+                  type="button"
+                  onClick={() => setExploreIdx(idx)}
+                  aria-label={`View ${mat.formula}`}
+                  className="group relative py-2 px-1 cursor-pointer focus:outline-none"
+                >
+                  <span
+                    className="block rounded-full transition-all duration-300"
+                    style={{
+                      backgroundColor: exploreIdx === idx ? "#D47E30" : "#DDDBD8",
+                      height: "8px",
+                      width: exploreIdx === idx ? "28px" : "8px",
+                    }}
+                  />
+                  <span className="sr-only">{mat.formula}</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={nextMaterial}
+              aria-label="Next material"
+              className="w-11 h-11 rounded-full bg-white border border-[#E5E5E5] text-[#333] hover:text-[#D47E30] hover:border-[#D47E30] hover:bg-[#FBF0E6]/30 flex items-center justify-center transition-all shadow-sm active:scale-90 cursor-pointer"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          {/* Progress Countdown Bar */}
+          <div className="max-w-[200px] sm:max-w-[260px] mx-auto mt-4">
+            <div className="w-full h-1 bg-[#E8E8E6] rounded-full overflow-hidden">
+              <div
+                key={exploreIdx}
+                className="h-full bg-gradient-to-r from-[#D47E30] to-[#F1641D] rounded-full"
+                style={{
+                  animation: isCarouselHovered ? "none" : "progressTimer 3.8s linear forwards",
+                  width: isCarouselHovered ? "100%" : undefined,
+                  opacity: isCarouselHovered ? 0.4 : 1,
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[#9A9A9A] mt-1.5 px-0.5">
+              <span>{isCarouselHovered ? "Paused on hover" : "Auto-cycling"}</span>
+              <span className="font-mono text-[#D47E30] font-semibold">
+                {exploreIdx + 1} / {exploreMaterials.length}
+              </span>
             </div>
           </div>
+
+          {/* Helper note */}
+          <p className="text-center text-[12px] text-[#9A9A9A] mt-3">
+            Automatic carousel • Hover over cards to pause • Click background cards to bring to front
+          </p>
         </div>
       </section>
 

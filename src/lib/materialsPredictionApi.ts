@@ -258,3 +258,89 @@ export function getPredictionResults(jobId: string) {
 export function predictionDownloadUrl(jobId: string, format = "zip") {
   return `${API_BASE_URL}/api/materials-prediction/predictions/${encodeURIComponent(jobId)}/download/${format}`;
 }
+
+// ==========================================
+// Batch CIF Prediction Pipeline API
+// ==========================================
+
+export interface BatchPropertyOption {
+  key: string;
+  name: string;
+  category: string;
+  unit: string;
+  default: boolean;
+  description: string;
+}
+
+export interface BatchStatusResponse {
+  job_id: string;
+  status: "processing" | "completed" | "failed";
+  progress: number;
+  total: number;
+  completed: number;
+  current_file: string;
+  error?: string | null;
+}
+
+export interface BatchResultsResponse {
+  job_id: string;
+  status: string;
+  total: number;
+  completed: number;
+  results: Array<Record<string, any>>;
+  summary: {
+    total: number;
+    successful: number;
+    warnings: number;
+    failed: number;
+  };
+}
+
+export async function fetchBatchProperties(): Promise<BatchPropertyOption[]> {
+  const res = await request<{ properties: BatchPropertyOption[] }>(
+    "/api/calculations/batch-properties"
+  );
+  return res.properties;
+}
+
+export async function fetchBatchSampleCifs(): Promise<Array<{ filename: string; content: string }>> {
+  const res = await request<{ samples: Array<{ filename: string; content: string }> }>(
+    "/api/calculations/batch-sample-cifs"
+  );
+  return res.samples;
+}
+
+export async function startBatchCifPrediction(
+  files: File[],
+  properties: string[],
+  temperature = 298.15
+): Promise<{ job_id: string; total: number; status: string; message: string }> {
+  const form = new FormData();
+  files.forEach((file) => form.append("files", file));
+  form.append("properties", properties.join(","));
+  form.append("temperature", String(temperature));
+
+  return request<{ job_id: string; total: number; status: string; message: string }>(
+    "/api/calculations/batch-predict",
+    {
+      method: "POST",
+      body: form,
+    }
+  );
+}
+
+export function getBatchJobStatus(jobId: string): Promise<BatchStatusResponse> {
+  return request<BatchStatusResponse>(
+    `/api/calculations/batch-predict/status/${encodeURIComponent(jobId)}`
+  );
+}
+
+export function getBatchJobResults(jobId: string): Promise<BatchResultsResponse> {
+  return request<BatchResultsResponse>(
+    `/api/calculations/batch-predict/results/${encodeURIComponent(jobId)}`
+  );
+}
+
+export function getBatchCsvDownloadUrl(jobId: string): string {
+  return `${API_BASE_URL}/api/calculations/batch-predict/download/${encodeURIComponent(jobId)}`;
+}
