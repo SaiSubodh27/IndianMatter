@@ -343,4 +343,40 @@ export function getBatchJobResults(jobId: string): Promise<BatchResultsResponse>
 
 export function getBatchCsvDownloadUrl(jobId: string): string {
   return `${API_BASE_URL}/api/calculations/batch-predict/download/${encodeURIComponent(jobId)}`;
-}
+}
+
+export interface BfsyBatchResult {
+  filename: string;
+  formula: string;
+  num_atoms: number;
+  bulk_modulus_GPa: number | null;
+  shear_modulus_GPa: number | null;
+  youngs_modulus_GPa: number | null;
+  poisson_ratio: number | null;
+  formation_energy_eV_atom: number | null;
+  energy_per_atom_eV: number | null;
+  compressibility_GPa_inv: number | null;
+  pughs_ratio: number | null;
+  status: string;
+  error_message?: string | null;
+}
+
+export interface BfsyBatchResponse {
+  status: string;
+  model_used: string;
+  total: number;
+  successful: number;
+  failed: number;
+  results: BfsyBatchResult[];
+  csv_content: string;
+}
+
+export async function batchPredictBfsy(files: File[]): Promise<BfsyBatchResponse> {
+  const form = new FormData();
+  files.forEach((file) => form.append("files", file));
+  return request<BfsyBatchResponse>("/api/calculations/batch-predict-bfsy", {
+    method: "POST",
+    body: form,
+  });
+}
+

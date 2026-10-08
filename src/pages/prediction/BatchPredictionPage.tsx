@@ -53,6 +53,9 @@ function formatValue(key: string, value: any): string {
     if (key.includes("bulk_modulus") || key.includes("shear_modulus") || key.includes("youngs_modulus")) {
       return `${value.toFixed(2)} GPa`;
     }
+    if (key.includes("formation_energy") || key.includes("energy_per_atom")) {
+      return `${value.toFixed(4)} eV/atom`;
+    }
     if (key.includes("band_gap")) {
       return `${value.toFixed(3)} eV`;
     }
@@ -79,7 +82,7 @@ function formatValue(key: string, value: any): string {
 export default function BatchPredictionPage() {
   const [availableProps, setAvailableProps] = useState<BatchPropertyOption[]>([]);
   const [selectedProps, setSelectedProps] = useState<string[]>([
-    "formula", "crystal_system", "density", "bulk_modulus", "shear_modulus", "band_gap", "ionic_conductivity", "activation_energy"
+    "formula", "crystal_system", "density", "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy", "band_gap", "ionic_conductivity", "activation_energy"
   ]);
   const [temperature, setTemperature] = useState<number>(298.15);
 
@@ -207,20 +210,28 @@ export default function BatchPredictionPage() {
     );
   };
 
-  const setPreset = (preset: "battery" | "mechanical" | "all" | "clear") => {
+  const setPreset = (preset: "battery" | "mechanical" | "bfsy" | "all" | "clear") => {
     if (preset === "all") {
       setSelectedProps(availableProps.map((p) => p.key));
     } else if (preset === "clear") {
       setSelectedProps([]);
+    } else if (preset === "bfsy") {
+      setSelectedProps([
+        "formula", "crystal_system", "density",
+        "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy",
+        "poisson_ratio", "compressibility", "pughs_ratio"
+      ]);
     } else if (preset === "battery") {
       setSelectedProps([
         "formula", "crystal_system", "density", "volume",
-        "bulk_modulus", "shear_modulus", "band_gap", "ionic_conductivity", "activation_energy"
+        "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy",
+        "band_gap", "ionic_conductivity", "activation_energy"
       ]);
     } else if (preset === "mechanical") {
       setSelectedProps([
         "formula", "crystal_system", "density",
-        "bulk_modulus", "shear_modulus", "youngs_modulus", "poisson_ratio", "compressibility", "pughs_ratio"
+        "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy",
+        "poisson_ratio", "compressibility", "pughs_ratio"
       ]);
     }
   };
@@ -310,7 +321,21 @@ export default function BatchPredictionPage() {
     ? avgBulk.reduce((a, b) => a + b, 0) / avgBulk.length
     : null;
 
-  const categories = ["Structural", "Mechanical", "Electronic", "Thermal", "Ionic Transport"];
+  const avgYoung = results
+    .map((r) => r.youngs_modulus_GPa)
+    .filter((v): v is number => typeof v === "number" && !isNaN(v));
+  const meanYoung = avgYoung.length > 0
+    ? avgYoung.reduce((a, b) => a + b, 0) / avgYoung.length
+    : null;
+
+  const avgEf = results
+    .map((r) => r.formation_energy_eV_atom)
+    .filter((v): v is number => typeof v === "number" && !isNaN(v));
+  const meanEf = avgEf.length > 0
+    ? avgEf.reduce((a, b) => a + b, 0) / avgEf.length
+    : null;
+
+  const categories = ["Structural", "Mechanical", "Thermodynamics", "Electronic", "Thermal", "Ionic Transport"];
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-7 px-4 sm:px-8 py-6">
@@ -462,6 +487,13 @@ export default function BatchPredictionPage() {
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
+                  onClick={() => setPreset("bfsy")}
+                  className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-[#E3ECFC] text-[#1D4FA3] hover:bg-[#D0E0FA] transition-colors cursor-pointer"
+                >
+                  BFSY Suite
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPreset("battery")}
                   className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-[#FBE8D8] text-[#F1641D] hover:bg-[#F2D7C2] transition-colors cursor-pointer"
                 >
@@ -501,6 +533,7 @@ export default function BatchPredictionPage() {
                   switch (cat) {
                     case "Ionic Transport": return <Activity size={14} className="text-[#F1641D]" />;
                     case "Mechanical": return <Cpu size={14} className="text-[#1D4FA3]" />;
+                    case "Thermodynamics": return <Sparkles size={14} className="text-[#E05638]" />;
                     case "Electronic": return <Zap size={14} className="text-[#9A6A00]" />;
                     case "Thermal": return <Flame size={14} className="text-[#B3261E]" />;
                     default: return <Atom size={14} className="text-[#1E7B34]" />;
@@ -631,32 +664,48 @@ export default function BatchPredictionPage() {
           </div>
 
           {/* Summary Metric Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl border border-[#E9DFD4] bg-[#FAF4EE]/40">
-              <span className="text-[11px] font-semibold text-[#8C929C] uppercase block">Total Processed</span>
-              <span className="text-2xl font-headline font-bold text-[#1E2227] mt-1 block">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            <div className="p-3.5 rounded-xl border border-[#E9DFD4] bg-[#FAF4EE]/40">
+              <span className="text-[10px] font-semibold text-[#8C929C] uppercase block">Total Processed</span>
+              <span className="text-xl font-headline font-bold text-[#1E2227] mt-1 block">
                 {results.length}
               </span>
             </div>
-            <div className="p-4 rounded-xl border border-[#DFF5E1] bg-[#DFF5E1]/30">
-              <span className="text-[11px] font-semibold text-[#1E7B34] uppercase block">Successful</span>
-              <span className="text-2xl font-headline font-bold text-[#1E7B34] mt-1 block">
+            <div className="p-3.5 rounded-xl border border-[#DFF5E1] bg-[#DFF5E1]/30">
+              <span className="text-[10px] font-semibold text-[#1E7B34] uppercase block">Successful</span>
+              <span className="text-xl font-headline font-bold text-[#1E7B34] mt-1 block">
                 {summary.successful ?? results.filter((r) => r.status === "success").length}
               </span>
             </div>
-            {meanCond !== null && (
-              <div className="p-4 rounded-xl border border-[#FBE8D8] bg-[#FBE8D8]/30">
-                <span className="text-[11px] font-semibold text-[#F1641D] uppercase block">Avg Ionic Conductivity</span>
-                <span className="text-lg font-headline font-bold text-[#F1641D] mt-1 block">
-                  {formatValue("ionic_conductivity_S_cm", meanCond)}
+            {meanBulk !== null && (
+              <div className="p-3.5 rounded-xl border border-[#E3ECFC] bg-[#E3ECFC]/30">
+                <span className="text-[10px] font-semibold text-[#1D4FA3] uppercase block">Avg Bulk Mod. (K)</span>
+                <span className="text-xl font-headline font-bold text-[#1D4FA3] mt-1 block">
+                  {meanBulk.toFixed(1)} GPa
                 </span>
               </div>
             )}
-            {meanBulk !== null && (
-              <div className="p-4 rounded-xl border border-[#E3ECFC] bg-[#E3ECFC]/30">
-                <span className="text-[11px] font-semibold text-[#1D4FA3] uppercase block">Avg Bulk Modulus</span>
-                <span className="text-2xl font-headline font-bold text-[#1D4FA3] mt-1 block">
-                  {meanBulk.toFixed(1)} GPa
+            {meanYoung !== null && (
+              <div className="p-3.5 rounded-xl border border-[#E3ECFC] bg-[#E3ECFC]/30">
+                <span className="text-[10px] font-semibold text-[#1D4FA3] uppercase block">Avg Young's Mod. (E)</span>
+                <span className="text-xl font-headline font-bold text-[#1D4FA3] mt-1 block">
+                  {meanYoung.toFixed(1)} GPa
+                </span>
+              </div>
+            )}
+            {meanEf !== null && (
+              <div className="p-3.5 rounded-xl border border-[#FDE4E1] bg-[#FDE4E1]/30">
+                <span className="text-[10px] font-semibold text-[#E05638] uppercase block">Avg Formation En. (Ef)</span>
+                <span className="text-xl font-headline font-bold text-[#E05638] mt-1 block">
+                  {meanEf.toFixed(3)} eV
+                </span>
+              </div>
+            )}
+            {meanCond !== null && (
+              <div className="p-3.5 rounded-xl border border-[#FBE8D8] bg-[#FBE8D8]/30">
+                <span className="text-[10px] font-semibold text-[#F1641D] uppercase block">Avg Ionic Cond. (σ)</span>
+                <span className="text-sm font-headline font-bold text-[#F1641D] mt-1 block">
+                  {formatValue("ionic_conductivity_S_cm", meanCond)}
                 </span>
               </div>
             )}
@@ -695,6 +744,18 @@ export default function BatchPredictionPage() {
                     {selectedProps.includes("shear_modulus") && (
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Shear Mod. (G)</th>
                     )}
+                    {selectedProps.includes("youngs_modulus") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Young's Mod. (E)</th>
+                    )}
+                    {selectedProps.includes("formation_energy") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Formation En. (Ef)</th>
+                    )}
+                    {selectedProps.includes("poisson_ratio") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Poisson (ν)</th>
+                    )}
+                    {selectedProps.includes("pughs_ratio") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Pugh (K/G)</th>
+                    )}
                     {selectedProps.includes("band_gap") && (
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Band Gap</th>
                     )}
@@ -732,6 +793,26 @@ export default function BatchPredictionPage() {
                       {selectedProps.includes("shear_modulus") && (
                         <td className="py-3 px-4 text-[#1E2227]">
                           {formatValue("shear_modulus", row.shear_modulus_GPa)}
+                        </td>
+                      )}
+                      {selectedProps.includes("youngs_modulus") && (
+                        <td className="py-3 px-4 text-[#1E2227]">
+                          {formatValue("youngs_modulus", row.youngs_modulus_GPa)}
+                        </td>
+                      )}
+                      {selectedProps.includes("formation_energy") && (
+                        <td className="py-3 px-4 font-medium text-[#E05638]">
+                          {formatValue("formation_energy", row.formation_energy_eV_atom)}
+                        </td>
+                      )}
+                      {selectedProps.includes("poisson_ratio") && (
+                        <td className="py-3 px-4 text-[#1E2227]">
+                          {formatValue("poisson_ratio", row.poisson_ratio)}
+                        </td>
+                      )}
+                      {selectedProps.includes("pughs_ratio") && (
+                        <td className="py-3 px-4 text-[#1E2227]">
+                          {formatValue("pughs_ratio", row.pughs_ratio)}
                         </td>
                       )}
                       {selectedProps.includes("band_gap") && (

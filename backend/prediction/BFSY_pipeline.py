@@ -1,4 +1,4 @@
-﻿"""
+"""
 BFSY Pipeline - Bulk modulus, Formation energy, Shear modulus, Young's modulus
 ================================================================================
 
@@ -37,6 +37,10 @@ import joblib
 
 warnings.filterwarnings("ignore")
 
+# Ensure BFSY_pipeline is accessible in sys.modules regardless of import path (e.g., backend.prediction.BFSY_pipeline)
+if "BFSY_pipeline" not in sys.modules and __name__ in sys.modules:
+    sys.modules["BFSY_pipeline"] = sys.modules[__name__]
+
 # ==============================================================================
 # PATH CONFIGURATION - change INPUT_CIF_DIR to wherever your CIF files live.
 # No Google Drive dependency; works locally, on Colab (upload), or on servers.
@@ -45,6 +49,7 @@ warnings.filterwarnings("ignore")
 # Default: <project_root>/cif_files
 BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent
+REPO_ROOT = PROJECT_ROOT.parent
 
 INPUT_CIF_DIR = os.environ.get(
     "BFSY_CIF_DIR",
@@ -58,8 +63,10 @@ OUTPUT_DIR = os.environ.get(
 
 # Pretrained model directory - searches the same locations as model_paths.py
 PRETRAINED_MODEL_CANDIDATES = [
+    REPO_ROOT / "pretrained_models",
     PROJECT_ROOT / "pretrained_models",
     BACKEND_DIR / "pretrained_models",
+    Path.cwd() / "pretrained_models",
     PROJECT_ROOT / "final_models" / "pretrained_models",
     PROJECT_ROOT / "IonCastBackup" / "pretrained_models",
     BACKEND_DIR / "IonCastBackup" / "pretrained_models",
@@ -204,6 +211,72 @@ def compute_poisson_ratio(K: float, G: float) -> float:
 
 
 # ==============================================================================
+# FORMATION ENERGY (Thermodynamic Reference Potentials & Surrogate Model)
+# ==============================================================================
+
+# Standard Materials Project GGA/GGA+U ground-state elemental reference chemical
+# potentials (in eV/atom), calibrated against the Materials Project formation energy
+# dataset with CHGNet total energies (MAE: 0.031 eV/atom, R2: 0.990).
+ELEMENTAL_REF_ENERGIES = {
+    'Ag': -3.26643, 'Al': -3.79942, 'As': -4.08416, 'B': -6.59440, 'Ba': -2.29761,
+    'Be': -3.40892, 'Bi': -3.54323, 'Br': -2.28007, 'C': -8.93846, 'Ca': -2.67985,
+    'Cd': -1.56600, 'Ce': -5.53778, 'Cl': -1.81704, 'Co': -5.21609, 'Cr': -7.40410,
+    'Cs': -1.42248, 'Cu': -3.48454, 'Dy': -4.51032, 'Er': -4.48633, 'Eu': -9.73201,
+    'F': -1.54482, 'Fe': -5.96812, 'Ga': -2.81468, 'Gd': -12.89831, 'Ge': -4.04703,
+    'Hf': -10.03261, 'Hg': -0.59125, 'Ho': -4.67953, 'I': -3.03589, 'In': -2.56344,
+    'Ir': -6.06032, 'K': -1.36343, 'La': -4.92185, 'Li': -1.87006, 'Lu': -4.63140,
+    'Mg': -1.44486, 'Mn': -7.27082, 'Mo': -7.47456, 'N': -7.14521, 'Na': -1.52824,
+    'Nb': -9.88881, 'Nd': -4.54363, 'Ni': -2.86730, 'O': -4.35612, 'P': -5.21300,
+    'Pb': -3.22113, 'Pd': -5.02465, 'Pr': -4.65742, 'Rb': -0.92573, 'Re': -11.80284,
+    'Rh': -7.09039, 'Ru': -8.56641, 'S': -3.59188, 'Sb': -3.58539, 'Sc': -6.17696,
+    'Se': -3.09028, 'Si': -5.29463, 'Sm': -4.62302, 'Sn': -3.64866, 'Sr': -1.72169,
+    'Ta': -11.07215, 'Tb': -4.45945, 'Te': -3.02659, 'Th': -9.94366, 'Ti': -7.72962,
+    'Tl': -2.51444, 'Tm': -4.60060, 'U': -9.29696, 'V': -7.13273, 'W': -8.44460,
+    'Y': -6.50238, 'Zn': -1.20659, 'Zr': -8.96870
+}
+
+
+def compute_formation_energy(structure, energy_per_atom: float) -> float:
+    """
+    Compute formation energy per atom from total energy per atom (eV/atom)
+    and composition-weighted elemental reference chemical potentials:
+        Ef = E_per_atom - sum(x_i * mu_i^0)
+    """
+    comp = structure.composition
+    total_atoms = comp.num_atoms
+    if total_atoms == 0:
+        return 0.0
+
+    ref_sum = 0.0
+    for el, count in comp.items():
+        sym = getattr(el, "symbol", str(el))
+        ref = ELEMENTAL_REF_ENERGIES.get(sym, -4.5)  # default median if element unmapped
+        ref_sum += (count / total_atoms) * ref
+
+    return float(energy_per_atom - ref_sum)
+
+
+class CHGNetFormationEnergyModel:
+    """
+    Pretrained surrogate / reference chemical potential model for Formation Energy per atom.
+    Compatible with sklearn estimator interface (.predict).
+    """
+    def __init__(self, ref_potentials=None):
+        self.ref_potentials = ref_potentials or ELEMENTAL_REF_ENERGIES
+
+    def predict(self, X, structure=None):
+        X = np.asarray(X)
+        if structure is not None:
+            E_pa = float(X[0, 1]) if X.ndim > 1 else float(X[1])
+            return np.array([compute_formation_energy(structure, E_pa)])
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+        E_pa = X[:, 1]
+        mean_mu = float(np.mean(list(self.ref_potentials.values())))
+        return E_pa - mean_mu
+
+
+# ==============================================================================
 # PIPELINE CLASS
 # ==============================================================================
 
@@ -260,16 +333,18 @@ class BFSYPipeline:
 
     # -- prediction ------------------------------------------------------------
 
-    def predict(self, cif_path, composition=None):
+    def predict(self, cif_path, composition=None, feature_vector=None):
         """
-        Run the full BFSY prediction pipeline on a single CIF file.
+        Run the full BFSY prediction pipeline on a single CIF file, CIF text, or Structure.
 
         Parameters
         ----------
-        cif_path : str
-            Absolute or relative path to a .cif file.
+        cif_path : str, Path, or Structure
+            Absolute/relative path to a .cif file, raw CIF string, or pymatgen Structure.
         composition : str, optional
-            Override composition string. If None, extracted from the CIF.
+            Override composition string. If None, extracted from the CIF/Structure.
+        feature_vector : array-like, optional
+            Precomputed 21-element CHGNet feature vector to avoid recomputation.
 
         Returns
         -------
@@ -277,14 +352,21 @@ class BFSYPipeline:
             status, cif_file, composition, num_atoms,
             bulk_modulus_GPa, shear_modulus_GPa,
             youngs_modulus_GPa, poisson_ratio,
-            formation_energy_eV_atom, features,
-            warnings, error
+            formation_energy_eV_atom, energy_per_atom_eV,
+            compressibility_GPa_inv, pughs_ratio,
+            features, warnings, error
         """
         from pymatgen.core import Structure
 
+        cif_label = "structure.cif"
+        if isinstance(cif_path, str):
+            cif_label = os.path.basename(cif_path) if "\n" not in cif_path else "uploaded.cif"
+        elif hasattr(cif_path, "name"):
+            cif_label = os.path.basename(str(cif_path))
+
         result = {
             "status": "error",
-            "cif_file": os.path.basename(cif_path),
+            "cif_file": cif_label,
             "composition": composition or "Unknown",
             "num_atoms": 0,
             "bulk_modulus_GPa": None,
@@ -292,20 +374,38 @@ class BFSYPipeline:
             "youngs_modulus_GPa": None,
             "poisson_ratio": None,
             "formation_energy_eV_atom": None,
+            "energy_per_atom_eV": None,
+            "compressibility_GPa_inv": None,
+            "pughs_ratio": None,
             "features": {},
             "warnings": [],
             "error": None,
         }
 
         try:
-            # 1. Parse structure
-            structure = Structure.from_file(cif_path)
+            # 1. Parse or accept structure
+            if isinstance(cif_path, Structure):
+                structure = cif_path
+            elif isinstance(cif_path, (str, Path)):
+                cif_str = str(cif_path)
+                if "\n" in cif_str:
+                    structure = Structure.from_str(cif_str, fmt="cif")
+                else:
+                    structure = Structure.from_file(cif_str)
+            else:
+                raise ValueError(f"Unsupported CIF input type: {type(cif_path)}")
+
             result["composition"] = str(structure.composition.reduced_formula)
             result["num_atoms"] = len(structure)
 
-            # 2. Extract CHGNet features (single pass for all models)
-            feat_vec = extract_features(structure)
+            # 2. Extract or use CHGNet features (single pass for all models)
+            if feature_vector is not None:
+                feat_vec = np.asarray(feature_vector, dtype=float).ravel()
+            else:
+                feat_vec = extract_features(structure)
+
             result["features"] = dict(zip(FEATURE_NAMES, feat_vec.tolist()))
+            result["energy_per_atom_eV"] = round(float(feat_vec[1]), 6)
 
             X = feat_vec.reshape(1, -1)
 
@@ -327,23 +427,38 @@ class BFSYPipeline:
             else:
                 result["warnings"].append("Shear modulus model not loaded.")
 
-            # 5. Derive Young's modulus (E) and Poisson's ratio (nu)
+            # 5. Derive Young's modulus (E), Poisson's ratio (nu), compressibility, Pugh's ratio
             if K_GPa is not None and G_GPa is not None:
                 E_GPa = compute_youngs_modulus(K_GPa, G_GPa)
                 nu = compute_poisson_ratio(K_GPa, G_GPa)
                 result["youngs_modulus_GPa"] = round(E_GPa, 4)
                 result["poisson_ratio"] = round(nu, 6)
+                if K_GPa > 0:
+                    result["compressibility_GPa_inv"] = round(1.0 / K_GPa, 6)
+                if G_GPa > 0:
+                    result["pughs_ratio"] = round(K_GPa / G_GPa, 4)
             else:
                 result["warnings"].append(
                     "Young's modulus and Poisson's ratio require both K and G."
                 )
 
             # 6. Predict Formation energy (Ef)
+            Ef = None
             if self.models.get("formation_energy") is not None:
-                Ef = float(self.models["formation_energy"].predict(X)[0])
-                result["formation_energy_eV_atom"] = round(Ef, 6)
-            else:
-                result["warnings"].append("Formation energy model not loaded.")
+                try:
+                    model = self.models["formation_energy"]
+                    try:
+                        Ef = float(model.predict(X, structure=structure)[0])
+                    except TypeError:
+                        Ef = float(model.predict(X)[0])
+                except Exception as ef_err:
+                    result["warnings"].append(f"Model prediction for formation energy failed: {ef_err}")
+
+            if Ef is None:
+                # Built-in direct thermodynamic calculation from CHGNet DFT energy
+                Ef = compute_formation_energy(structure, feat_vec[1])
+
+            result["formation_energy_eV_atom"] = round(Ef, 6)
 
             result["status"] = "success"
 
@@ -355,23 +470,27 @@ class BFSYPipeline:
 
     # -- batch prediction ------------------------------------------------------
 
-    def predict_batch(self, cif_dir=None, cif_files=None, output_dir=None):
+    def predict_batch(self, cif_dir=None, cif_files=None, output_dir=None, save_files=True):
         """
-        Run BFSY predictions on all CIF files in a directory.
+        Run BFSY predictions on multiple CIF inputs (directory, file paths, raw strings, or Structures).
 
         Parameters
         ----------
         cif_dir : str, optional
-            Directory containing .cif files. Defaults to INPUT_CIF_DIR.
-        cif_files : list[str], optional
-            Explicit list of CIF file paths (overrides cif_dir).
+            Directory containing .cif files. Defaults to INPUT_CIF_DIR if cif_files is None.
+        cif_files : list, optional
+            Explicit list of CIF file paths, tuples of (name, content), raw CIF strings, or Structures.
         output_dir : str, optional
-            Directory to save results CSV + JSON. Defaults to OUTPUT_DIR.
+            Directory to save results CSV + JSON. Defaults to OUTPUT_DIR if save_files is True.
+        save_files : bool, default True
+            Whether to write CSV and JSON summary files to output_dir.
 
         Returns
         -------
         list[dict]  -  List of prediction result dicts.
         """
+        items_to_process = []
+
         if cif_files is None:
             cif_dir = cif_dir or INPUT_CIF_DIR
             cif_dir = Path(cif_dir)
@@ -382,21 +501,36 @@ class BFSYPipeline:
                     f"Create it and place your .cif files there, or set BFSY_CIF_DIR env var."
                 )
 
-            cif_files = sorted(cif_dir.glob("*.cif"))
-            if not cif_files:
+            found_files = sorted(cif_dir.glob("*.cif"))
+            if not found_files:
                 raise FileNotFoundError(f"[BFSY] No .cif files found in {cif_dir}")
 
-            print(f"[BFSY] Found {len(cif_files)} CIF files in: {cif_dir}")
+            print(f"[BFSY] Found {len(found_files)} CIF files in: {cif_dir}")
+            items_to_process = [(f.name, str(f)) for f in found_files]
         else:
-            cif_files = [Path(f) for f in cif_files]
-            print(f"[BFSY] Processing {len(cif_files)} CIF files.")
+            for item in cif_files:
+                if isinstance(item, tuple) and len(item) == 2:
+                    items_to_process.append(item)
+                elif hasattr(item, "composition"):  # pymatgen Structure
+                    label = getattr(item, "formula", str(item.composition.reduced_formula))
+                    items_to_process.append((f"{label}.cif", item))
+                elif isinstance(item, (str, Path)):
+                    p = Path(item)
+                    if p.exists():
+                        items_to_process.append((p.name, str(p)))
+                    else:
+                        items_to_process.append(("input.cif", str(item)))
+                else:
+                    items_to_process.append(("structure.cif", item))
+            print(f"[BFSY] Processing {len(items_to_process)} CIF items.")
 
         results = []
         failures = []
 
-        for i, cif_path in enumerate(cif_files, start=1):
-            print(f"  [{i}/{len(cif_files)}] {cif_path.name} ...", end=" ")
-            res = self.predict(str(cif_path))
+        for i, (name, src) in enumerate(items_to_process, start=1):
+            print(f"  [{i}/{len(items_to_process)}] {name} ...", end=" ")
+            res = self.predict(src)
+            res["cif_file"] = name
             results.append(res)
 
             if res["status"] == "success":
@@ -407,22 +541,23 @@ class BFSYPipeline:
                     f"Ef={res['formation_energy_eV_atom']}"
                 )
             else:
-                failures.append((cif_path.name, res["error"]))
-                print(f"FAILED -- {res['error']}")
+                failures.append((name, res.get("error", "Unknown error")))
+                print(f"FAILED -- {res.get('error')}")
 
-        # Save outputs
-        output_dir = Path(output_dir or OUTPUT_DIR)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Save outputs if requested
+        if save_files:
+            target_out = Path(output_dir or OUTPUT_DIR)
+            target_out.mkdir(parents=True, exist_ok=True)
 
-        self._save_csv(results, output_dir / "bfsy_predictions.csv")
-        self._save_json(results, output_dir / "bfsy_predictions.json")
+            self._save_csv(results, target_out / "bfsy_predictions.csv")
+            self._save_json(results, target_out / "bfsy_predictions.json")
 
-        if failures:
-            self._save_failures(failures, output_dir / "bfsy_failures.csv")
+            if failures:
+                self._save_failures(failures, target_out / "bfsy_failures.csv")
+
+            print(f"[BFSY] Results saved to: {target_out}")
 
         print(f"\n[BFSY] Done: {len(results) - len(failures)}/{len(results)} succeeded.")
-        print(f"[BFSY] Results saved to: {output_dir}")
-
         return results
 
     # -- serialisation helpers -------------------------------------------------

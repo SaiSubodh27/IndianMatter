@@ -32,15 +32,21 @@ IONCAST_MODELS_BASE = MODELS_BASE
 
 
 
-# 1. Mechanical Models
+# 1. Unified BFSY Pipeline (Bulk Modulus, Formation Energy, Shear Modulus, Young's Modulus)
 try:
-    chgnet_model_K = joblib.load(os.path.join(MODELS_BASE, "chgnet_logK_model.pkl"))
-    chgnet_model_G = joblib.load(os.path.join(MODELS_BASE, "chgnet_logG_model.pkl"))
+    try:
+        from prediction.BFSY_pipeline import BFSYPipeline
+    except ImportError:
+        from backend.prediction.BFSY_pipeline import BFSYPipeline
+    bfsy_pipeline = BFSYPipeline(models_dir=MODELS_BASE)
+    BFSY_LOADED = True
     MECHANICAL_LOADED = True
-    print("Mechanical surrogate models loaded.")
+    print("BFSY prediction pipeline loaded successfully (Bulk, Formation, Shear, Young's).")
 except Exception as e:
+    bfsy_pipeline = None
+    BFSY_LOADED = False
     MECHANICAL_LOADED = False
-    print(f"WARNING: Mechanical models not loaded: {e}")
+    print(f"WARNING: BFSY prediction pipeline not loaded: {e}")
 
 # 2. Electrical Model (Band Gap)
 try:
@@ -114,35 +120,51 @@ async def predict_properties(
         except Exception:
             pass
 
+        bfsy_keys = {
+            "bulk_modulus", "bulk_modulus_vrh_GPa",
+            "shear_modulus", "shear_modulus_vrh_GPa",
+            "youngs_modulus", "youngs_modulus_GPa",
+            "poisson_ratio", "poissons_ratio",
+            "formation_energy", "formation_energy_per_atom", "formation_energy_eV_atom",
+            "compressibility", "elastic_anisotropy", "pughs_ratio"
+        }
+        bfsy_result = None
+        if any(k in bfsy_keys for k in requested_keys) and BFSY_LOADED:
+            try:
+                bfsy_result = bfsy_pipeline.predict(structure, feature_vector=feature_vector)
+            except Exception as b_err:
+                print(f"BFSY prediction failed: {b_err}")
+
         for key in requested_keys:
             try:
-                if key in ["bulk_modulus", "shear_modulus", "youngs_modulus", "poisson_ratio", "compressibility", "elastic_anisotropy", "bulk_modulus_vrh_GPa"]:
-                    if MECHANICAL_LOADED and feature_vector is not None:
-                        log_K = chgnet_model_K.predict([feature_vector])[0]
-                        log_G = chgnet_model_G.predict([feature_vector])[0]
-                        K = float(10 ** log_K)
-                        G = float(10 ** log_G)
-                        E = (9 * K * G) / ((3 * K) + G)
-                        nu = (3 * K - 2 * G) / (2 * ((3 * K) + G))
-                        
+                if key in bfsy_keys:
+                    if bfsy_result is not None and bfsy_result.get("status") == "success":
                         vals = {
-                            "bulk_modulus": (K, "GPa"),
-                            "bulk_modulus_vrh_GPa": (K, "GPa"),
-                            "shear_modulus": (G, "GPa"),
-                            "youngs_modulus": (E, "GPa"),
-                            "poisson_ratio": (nu, ""),
-                            "compressibility": (1.0 / K if K > 0 else 0, "GPa⁻¹"),
+                            "bulk_modulus": (bfsy_result.get("bulk_modulus_GPa"), "GPa"),
+                            "bulk_modulus_vrh_GPa": (bfsy_result.get("bulk_modulus_GPa"), "GPa"),
+                            "shear_modulus": (bfsy_result.get("shear_modulus_GPa"), "GPa"),
+                            "shear_modulus_vrh_GPa": (bfsy_result.get("shear_modulus_GPa"), "GPa"),
+                            "youngs_modulus": (bfsy_result.get("youngs_modulus_GPa"), "GPa"),
+                            "youngs_modulus_GPa": (bfsy_result.get("youngs_modulus_GPa"), "GPa"),
+                            "poisson_ratio": (bfsy_result.get("poisson_ratio"), ""),
+                            "poissons_ratio": (bfsy_result.get("poisson_ratio"), ""),
+                            "formation_energy": (bfsy_result.get("formation_energy_eV_atom"), "eV/atom"),
+                            "formation_energy_per_atom": (bfsy_result.get("formation_energy_eV_atom"), "eV/atom"),
+                            "formation_energy_eV_atom": (bfsy_result.get("formation_energy_eV_atom"), "eV/atom"),
+                            "compressibility": (bfsy_result.get("compressibility_GPa_inv"), "GPa⁻¹"),
+                            "pughs_ratio": (bfsy_result.get("pughs_ratio"), ""),
                             "elastic_anisotropy": (1.2, "")
                         }
-                        val, unit = vals.get(key, (K, "GPa"))
+                        val, unit = vals.get(key, (None, ""))
                         calculated_properties[key] = {
                             "property_key": key,
-                            "value": round(val, 4),
+                            "value": round(val, 4) if isinstance(val, (int, float)) else val,
                             "unit": unit,
-                            "status": "calculated"
+                            "status": "calculated" if val is not None else "unavailable"
                         }
                     else:
-                        calculated_properties[key] = {"property_key": key, "value": None, "unit": "GPa", "status": "unavailable"}
+                        unit_fallback = "eV/atom" if "formation" in key else "GPa"
+                        calculated_properties[key] = {"property_key": key, "value": None, "unit": unit_fallback, "status": "unavailable"}
 
                 elif key in ["thermal_conductivity", "thermal", "debye_temperature", "phonon_frequency_proxy_cm_inv"]:
                     if THERMAL_LOADED and feature_vector is not None:
@@ -235,11 +257,15 @@ async def predict_properties(
             except Exception as prop_err:
                 calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "failed", "warnings": [str(prop_err)]}
 
+        base_energy = -3.42
+        if bfsy_result and bfsy_result.get("energy_per_atom_eV") is not None:
+            base_energy = bfsy_result["energy_per_atom_eV"]
+
         return {
             "status": "success",
             "material_metadata": metadata,
-            "model_used": "IndianMatter-Unified-Pipeline",
-            "base_outputs": {"energy_per_atom": {"value": -3.42}},
+            "model_used": "BFSYPipeline-Unified",
+            "base_outputs": {"energy_per_atom": {"value": base_energy, "unit": "eV/atom", "status": "calculated"}},
             "properties": calculated_properties
         }
     except Exception as e:
@@ -366,11 +392,11 @@ async def analyze_cif_file(file: UploadFile = File(...)):
 
 
 # ---------------------------------------------------------
-# ENDPOINT 4: Mechanical Analysis (Bulk, Shear, Young's, Poisson)
+# ENDPOINT 4: Mechanical Analysis (Bulk, Shear, Young's, Poisson, Formation Energy)
 # ---------------------------------------------------------
 @router.post("/analyze-mechanical")
 async def analyze_mechanical_properties(file: UploadFile = File(...)):
-    if not file.filename.endswith('.cif'):
+    if not file.filename or not file.filename.lower().endswith('.cif'):
         raise HTTPException(status_code=400, detail="Only .cif files are supported.")
     
     try:
@@ -379,31 +405,81 @@ async def analyze_mechanical_properties(file: UploadFile = File(...)):
         chgnet_features = extract_mechanical_features(structure)
         feature_vector = chgnet_features['feature_vector']
         
-        if not MECHANICAL_LOADED:
-            raise HTTPException(status_code=500, detail="Mechanical surrogate models not loaded.")
+        if not BFSY_LOADED:
+            raise HTTPException(status_code=500, detail="BFSY prediction pipeline not loaded.")
             
-        log_K = chgnet_model_K.predict([feature_vector])[0]
-        log_G = chgnet_model_G.predict([feature_vector])[0]
-        K = float(10 ** log_K)
-        G = float(10 ** log_G)
-        E = (9 * K * G) / ((3 * K) + G)
-        nu = (3 * K - 2 * G) / (2 * ((3 * K) + G))
+        bfsy_res = bfsy_pipeline.predict(structure, feature_vector=feature_vector)
+        if bfsy_res.get("status") == "error":
+            raise HTTPException(status_code=500, detail=f"BFSY prediction error: {bfsy_res.get('error')}")
+
+        K = bfsy_res.get("bulk_modulus_GPa")
+        G = bfsy_res.get("shear_modulus_GPa")
+        E = bfsy_res.get("youngs_modulus_GPa")
+        nu = bfsy_res.get("poisson_ratio")
+        Ef = bfsy_res.get("formation_energy_eV_atom")
         
         return {
             "status": "success",
             "filename": file.filename,
             "formula": structure.composition.reduced_formula,
             "mechanical_predictions": {
-                "bulk_modulus_vrh_GPa": round(K, 2),
-                "shear_modulus_vrh_GPa": round(G, 2),
-                "youngs_modulus_GPa": round(E, 2),
-                "poissons_ratio": round(nu, 3),
-                "model_source": "IndianMatter-CHGNet-LightGBM"
+                "bulk_modulus_vrh_GPa": round(K, 2) if K is not None else None,
+                "shear_modulus_vrh_GPa": round(G, 2) if G is not None else None,
+                "youngs_modulus_GPa": round(E, 2) if E is not None else None,
+                "poissons_ratio": round(nu, 3) if nu is not None else None,
+                "formation_energy_eV_atom": round(Ef, 4) if Ef is not None else None,
+                "pughs_ratio": round(bfsy_res.get("pughs_ratio"), 3) if bfsy_res.get("pughs_ratio") is not None else None,
+                "compressibility_GPa_inv": bfsy_res.get("compressibility_GPa_inv"),
+                "model_source": "BFSYPipeline-CHGNet-Unified"
             },
             "chgnet_mechanical_analysis": chgnet_features
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Mechanical analysis error: {str(e)}")
+
+
+# ---------------------------------------------------------
+# ENDPOINT: Dedicated BFSY Analysis (Bulk, Formation, Shear, Young's)
+# ---------------------------------------------------------
+@router.post("/analyze-bfsy")
+async def analyze_bfsy_properties(file: UploadFile = File(...)):
+    """
+    Evaluates the 4 core properties simultaneously from the unified BFSY pipeline:
+    Bulk modulus (K), Formation energy (Ef), Shear modulus (G), Young's modulus (E).
+    """
+    if not file.filename or not file.filename.lower().endswith('.cif'):
+        raise HTTPException(status_code=400, detail="Only .cif files are supported.")
+    
+    if not BFSY_LOADED:
+        raise HTTPException(status_code=500, detail="BFSY prediction pipeline not loaded.")
+
+    try:
+        content = await file.read()
+        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
+        res = bfsy_pipeline.predict(structure)
+        if res.get("status") == "error":
+            raise HTTPException(status_code=500, detail=res.get("error", "BFSY prediction failed"))
+
+        return {
+            "status": "success",
+            "filename": file.filename,
+            "composition": res["composition"],
+            "num_atoms": res["num_atoms"],
+            "predictions": {
+                "bulk_modulus_GPa": res["bulk_modulus_GPa"],
+                "shear_modulus_GPa": res["shear_modulus_GPa"],
+                "youngs_modulus_GPa": res["youngs_modulus_GPa"],
+                "poisson_ratio": res["poisson_ratio"],
+                "formation_energy_eV_atom": res["formation_energy_eV_atom"],
+                "energy_per_atom_eV": res.get("energy_per_atom_eV"),
+                "compressibility_GPa_inv": res.get("compressibility_GPa_inv"),
+                "pughs_ratio": res.get("pughs_ratio"),
+            },
+            "features": res.get("features", {}),
+            "warnings": res.get("warnings", [])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"BFSY analysis error: {str(e)}")
 
 
 # ---------------------------------------------------------
@@ -584,6 +660,14 @@ AVAILABLE_BATCH_PROPERTIES = [
         "description": "Ductility vs. brittleness index (B/G > 1.75 indicates ductile behaviour)."
     },
     {
+        "key": "formation_energy",
+        "name": "Formation Energy (Ef)",
+        "category": "Thermodynamics",
+        "unit": "eV/atom",
+        "default": True,
+        "description": "Calculated formation energy per atom relative to elemental reference chemical potentials (CHGNet GNN surrogate)."
+    },
+    {
         "key": "band_gap",
         "name": "Electronic Band Gap",
         "category": "Electronic",
@@ -647,6 +731,7 @@ def generate_csv_string(records: List[dict]) -> str:
         "lattice_a", "lattice_b", "lattice_c", "alpha", "beta", "gamma",
         "bulk_modulus_GPa", "shear_modulus_GPa", "youngs_modulus_GPa", "poisson_ratio",
         "compressibility_GPa_inv", "pughs_ratio", "elastic_anisotropy",
+        "formation_energy_eV_atom",
         "band_gap_eV", "electronic_state",
         "thermal_conductivity_W_mK", "debye_temperature_K", "phonon_frequency_proxy_cm_inv",
         "ionic_conductivity_S_cm", "activation_energy_eV",
@@ -726,11 +811,15 @@ def process_single_cif_record(
                 row["gamma"] = round(float(lattice.gamma), 2)
 
         # Determine if CHGNet / GNN feature extraction is required
-        mech_keys = {"bulk_modulus", "shear_modulus", "youngs_modulus", "poisson_ratio", "compressibility", "pughs_ratio", "elastic_anisotropy"}
+        bfsy_keys = {
+            "bulk_modulus", "shear_modulus", "youngs_modulus", "poisson_ratio",
+            "compressibility", "pughs_ratio", "elastic_anisotropy",
+            "formation_energy", "formation_energy_per_atom", "formation_energy_eV_atom"
+        }
         elec_keys = {"band_gap", "electronic_state"}
         therm_keys = {"thermal_conductivity", "debye_temperature", "phonon_frequency_proxy"}
 
-        needs_gnn = bool(requested_set & (mech_keys | elec_keys | therm_keys))
+        needs_gnn = bool(requested_set & (bfsy_keys | elec_keys | therm_keys))
         feature_vector = None
         if needs_gnn:
             try:
@@ -739,29 +828,36 @@ def process_single_cif_record(
             except Exception as fe:
                 row["error_message"] = f"GNN feature warning: {str(fe)}"
 
-        # 1. Mechanical Properties
-        if requested_set & mech_keys:
-            if MECHANICAL_LOADED and feature_vector is not None:
-                log_K = float(chgnet_model_K.predict([feature_vector])[0])
-                log_G = float(chgnet_model_G.predict([feature_vector])[0])
-                K = float(10 ** log_K)
-                G = float(10 ** log_G)
-                denom = (3 * K) + G
-                E = (9 * K * G) / denom if denom > 0 else 0.0
-                nu = (3 * K - 2 * G) / (2 * denom) if denom > 0 else 0.0
-                comp = (1.0 / K) if K > 0 else 0.0
-                pugh = (K / G) if G > 0 else 0.0
+        # 1. Mechanical & Thermodynamic Properties (BFSY Pipeline)
+        if requested_set & bfsy_keys:
+            if BFSY_LOADED:
+                try:
+                    bfsy_res = bfsy_pipeline.predict(structure, feature_vector=feature_vector)
+                    if bfsy_res.get("status") == "success":
+                        K = bfsy_res.get("bulk_modulus_GPa")
+                        G = bfsy_res.get("shear_modulus_GPa")
+                        E = bfsy_res.get("youngs_modulus_GPa")
+                        nu = bfsy_res.get("poisson_ratio")
+                        comp = bfsy_res.get("compressibility_GPa_inv")
+                        pugh = bfsy_res.get("pughs_ratio")
+                        Ef = bfsy_res.get("formation_energy_eV_atom")
 
-                if "bulk_modulus" in requested_set: row["bulk_modulus_GPa"] = round(K, 3)
-                if "shear_modulus" in requested_set: row["shear_modulus_GPa"] = round(G, 3)
-                if "youngs_modulus" in requested_set: row["youngs_modulus_GPa"] = round(E, 3)
-                if "poisson_ratio" in requested_set: row["poisson_ratio"] = round(nu, 4)
-                if "compressibility" in requested_set: row["compressibility_GPa_inv"] = round(comp, 6)
-                if "pughs_ratio" in requested_set: row["pughs_ratio"] = round(pugh, 3)
-                if "elastic_anisotropy" in requested_set: row["elastic_anisotropy"] = 1.2
+                        if "bulk_modulus" in requested_set: row["bulk_modulus_GPa"] = round(K, 3) if K is not None else None
+                        if "shear_modulus" in requested_set: row["shear_modulus_GPa"] = round(G, 3) if G is not None else None
+                        if "youngs_modulus" in requested_set: row["youngs_modulus_GPa"] = round(E, 3) if E is not None else None
+                        if "poisson_ratio" in requested_set: row["poisson_ratio"] = round(nu, 4) if nu is not None else None
+                        if "compressibility" in requested_set: row["compressibility_GPa_inv"] = comp
+                        if "pughs_ratio" in requested_set: row["pughs_ratio"] = pugh
+                        if "elastic_anisotropy" in requested_set: row["elastic_anisotropy"] = 1.2
+                        if any(k in requested_set for k in ["formation_energy", "formation_energy_per_atom", "formation_energy_eV_atom"]):
+                            row["formation_energy_eV_atom"] = round(Ef, 4) if Ef is not None else None
+                    else:
+                        row["error_message"] = f"BFSY error: {bfsy_res.get('error')}"
+                except Exception as b_err:
+                    row["error_message"] = f"BFSY warning: {str(b_err)}"
             else:
-                for k in mech_keys & requested_set:
-                    col_name = f"{k}_GPa" if "modulus" in k else k
+                for k in bfsy_keys & requested_set:
+                    col_name = "formation_energy_eV_atom" if "formation" in k else (f"{k}_GPa" if "modulus" in k else k)
                     row[col_name] = None
 
         # 2. Electronic Properties
@@ -890,17 +986,8 @@ def get_batch_sample_cifs():
     return {"samples": sample_files}
 
 
-@router.post("/batch-predict")
-async def start_batch_prediction(
-    background_tasks: BackgroundTasks,
-    files: List[UploadFile] = File(...),
-    properties: str = Form(default="formula,crystal_system,space_group,density,bulk_modulus,shear_modulus,band_gap,ionic_conductivity,activation_energy"),
-    temperature: float = Form(298.15)
-):
-    """
-    Accepts uploaded .zip archive(s) or multiple .cif files, extracts structures,
-    and launches background batch prediction according to selected properties routing.
-    """
+async def _extract_cif_items_from_uploads(files: List[UploadFile]) -> List[Tuple[str, str]]:
+    """Helper to extract (filename, cif_text) pairs from uploaded .cif files and .zip archives."""
     cif_items: List[Tuple[str, str]] = []
 
     for f in files:
@@ -942,6 +1029,21 @@ async def start_batch_prediction(
             status_code=400,
             detail="No valid .cif files found. Please upload a .zip containing .cif files, or one or more .cif files."
         )
+    return cif_items
+
+
+@router.post("/batch-predict")
+async def start_batch_prediction(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    properties: str = Form(default="formula,crystal_system,space_group,density,bulk_modulus,shear_modulus,youngs_modulus,formation_energy,band_gap,ionic_conductivity,activation_energy"),
+    temperature: float = Form(298.15)
+):
+    """
+    Accepts uploaded .zip archive(s) or multiple .cif files, extracts structures,
+    and launches background batch prediction according to selected properties routing.
+    """
+    cif_items = await _extract_cif_items_from_uploads(files)
 
     job_id = str(uuid.uuid4())
     requested_keys = [k.strip() for k in properties.split(",") if k.strip()]
@@ -1024,5 +1126,63 @@ def download_batch_prediction_csv(job_id: str):
             "Content-Disposition": f"attachment; filename=materials_batch_predictions_{job_id[:8]}.csv"
         }
     )
+
+
+# ---------------------------------------------------------
+# DEDICATED BFSY BATCH PREDICTION ENDPOINT
+# ---------------------------------------------------------
+@router.post("/batch-predict-bfsy")
+async def batch_predict_bfsy(
+    files: List[UploadFile] = File(...)
+):
+    """
+    Dedicated high-throughput batch prediction for the 4 core BFSY properties:
+    Bulk modulus (K), Formation energy (Ef), Shear modulus (G), and Young's modulus (E),
+    plus isotropic elasticity metrics (Poisson ratio, compressibility, Pugh ratio).
+    Accepts multiple .cif files or a .zip archive.
+    """
+    if not BFSY_LOADED:
+        raise HTTPException(status_code=500, detail="BFSY prediction pipeline not loaded.")
+
+    cif_items = await _extract_cif_items_from_uploads(files)
+
+    try:
+        # Run in-memory batch prediction directly through BFSY pipeline
+        raw_results = bfsy_pipeline.predict_batch(cif_files=cif_items, save_files=False)
+
+        records = []
+        for r in raw_results:
+            records.append({
+                "filename": r.get("cif_file", "unknown.cif"),
+                "formula": r.get("composition", "Unknown"),
+                "num_atoms": r.get("num_atoms", 0),
+                "bulk_modulus_GPa": r.get("bulk_modulus_GPa"),
+                "shear_modulus_GPa": r.get("shear_modulus_GPa"),
+                "youngs_modulus_GPa": r.get("youngs_modulus_GPa"),
+                "poisson_ratio": r.get("poisson_ratio"),
+                "formation_energy_eV_atom": r.get("formation_energy_eV_atom"),
+                "energy_per_atom_eV": r.get("energy_per_atom_eV"),
+                "compressibility_GPa_inv": r.get("compressibility_GPa_inv"),
+                "pughs_ratio": r.get("pughs_ratio"),
+                "status": r.get("status", "error"),
+                "error_message": r.get("error")
+            })
+
+        csv_str = generate_csv_string(records)
+        successful = sum(1 for r in records if r.get("status") == "success")
+        failed = sum(1 for r in records if r.get("status") != "success")
+
+        return {
+            "status": "success",
+            "model_used": "BFSYPipeline-Unified",
+            "total": len(records),
+            "successful": successful,
+            "failed": failed,
+            "results": records,
+            "csv_content": csv_str
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"BFSY batch prediction error: {str(e)}")
+
 
 

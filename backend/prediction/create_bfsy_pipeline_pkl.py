@@ -1,7 +1,7 @@
-import joblib
 import os
 import sys
-
+import joblib
+sys.path.insert(0, os.path.dirname(__file__))
 from BFSY_pipeline import BFSYPipeline
 
 def main():
