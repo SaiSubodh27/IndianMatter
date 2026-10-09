@@ -682,7 +682,7 @@ export default function PropertyPredictionPage() {
 
           <div className="flex items-center gap-2">
             {inputMode === "name_only" && (
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-[#F1641D] border border-orange-200">
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-accent border border-orange-200">
                 Auto-Generate CIF Mode
               </span>
             )}
@@ -718,7 +718,7 @@ export default function PropertyPredictionPage() {
                 value={materialName}
                 onChange={(e) => setMaterialName(e.target.value)}
                 placeholder="e.g. LiCoO2, Fe2O3, Na3Zr2Si2PO12, LFP, NMC"
-                className="flex-1 bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-xl px-4 py-3 text-sm font-mono text-[#1E2227] outline-none focus:border-[#F1641D] transition-colors"
+                className="flex-1 bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-xl px-4 py-3 text-sm font-mono text-[#1E2227] outline-none focus:border-accent transition-colors"
               />
 
               {materialName.trim() && !file && (
@@ -726,7 +726,7 @@ export default function PropertyPredictionPage() {
                   type="button"
                   onClick={handlePreGenerateCif}
                   disabled={generatingCif || loading}
-                  className="px-4 py-3 bg-[#FAF4EE] hover:bg-[#F2E7DC] border border-[#E9DFD4] rounded-xl text-xs font-semibold text-[#F1641D] flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
+                  className="px-4 py-3 bg-[#FAF4EE] hover:bg-[#F2E7DC] border border-[#E9DFD4] rounded-xl text-xs font-semibold text-accent flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
                   title="Generate CIF structure now"
                 >
                   <Sparkles size={14} className={generatingCif ? "animate-spin" : ""} />
@@ -786,7 +786,7 @@ export default function PropertyPredictionPage() {
           <button
             type="submit"
             disabled={loading || generatingCif}
-            className="w-full bg-[#F1641D] text-white py-4 rounded-xl text-sm font-semibold hover:bg-[#D9520F] disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-soft cursor-pointer active:scale-98"
+            className="w-full bg-accent text-white py-4 rounded-xl text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-soft cursor-pointer active:scale-98"
           >
             {loading || generatingCif ? (
               <>
@@ -883,14 +883,14 @@ function DedicatedResultsPage({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-[#1E2227] hover:text-[#F1641D] bg-white hover:bg-[#FAF4EE] px-4 py-2.5 rounded-xl border border-[#EFE5DC] shadow-sm transition-colors cursor-pointer"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-[#1E2227] hover:text-accent bg-white hover:bg-[#FAF4EE] px-4 py-2.5 rounded-xl border border-[#EFE5DC] shadow-sm transition-colors cursor-pointer"
         >
-          <ArrowLeft size={15} className="text-[#F1641D]" /> Back to Property Prediction
+          <ArrowLeft size={15} className="text-accent" /> Back to Property Prediction
         </button>
 
         <div className="flex items-center gap-3">
           {cifSource === "generated" && (
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-[#F1641D] border border-orange-200">
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-accent border border-orange-200">
               Synthesized via CIF Generator
             </span>
           )}
@@ -928,7 +928,7 @@ function DedicatedResultsPage({
                 <button
                   type="button"
                   onClick={handleDownloadCif}
-                  className="px-3 py-2 bg-[#FAF4EE] hover:bg-[#FBE8D8] border border-[#E9DFD4] text-[#F1641D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                  className="px-3 py-2 bg-[#FAF4EE] hover:bg-accent-soft border border-[#E9DFD4] text-accent rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
                   title="Download .cif file"
                 >
                   <Download size={13} />
@@ -961,7 +961,7 @@ function DedicatedResultsPage({
                 Property Results
               </h3>
             </div>
-            <span className="text-xs font-bold text-[#F1641D] bg-[#FAF4EE] px-3 py-1 rounded-full border border-[#EFE5DC] shrink-0">
+            <span className="text-xs font-bold text-accent bg-[#FAF4EE] px-3 py-1 rounded-full border border-[#EFE5DC] shrink-0">
               {selectedProps.length} {selectedProps.length === 1 ? "property" : "properties"}
             </span>
           </div>
@@ -988,7 +988,7 @@ function DedicatedResultsPage({
                       <h4 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-[#8C929C]">
                         {category}
                       </h4>
-                      <span className="text-[10px] font-semibold text-[#F1641D] bg-[#FAF4EE] px-2 py-0.5 rounded-full border border-[#EFE5DC]">
+                      <span className="text-[10px] font-semibold text-accent bg-[#FAF4EE] px-2 py-0.5 rounded-full border border-[#EFE5DC]">
                         {propsInCategory.length}{" "}
                         {propsInCategory.length === 1 ? "property" : "properties"}
                       </span>
@@ -1031,7 +1031,7 @@ function DedicatedResultsPage({
 function PageHeader() {
   return (
     <div>
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
         <Activity size={14} /> Unified Material Property Inference
       </div>
       <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -1058,7 +1058,7 @@ function FileInput({
       {file ? (
         <div className="flex items-center justify-between p-3.5 bg-[#FAF4EE]/70 rounded-xl border border-[#E9DFD4]">
           <div className="flex items-center gap-3 min-w-0">
-            <FileCheck size={20} className="text-[#F1641D] shrink-0" />
+            <FileCheck size={20} className="text-accent shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[#1E2227] font-mono truncate">
                 {file.name}
@@ -1081,8 +1081,8 @@ function FileInput({
         </div>
       ) : (
         <label className="block">
-          <span className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#E9DFD4] bg-[#FAF4EE]/40 px-4 py-4 text-[#6C737E] cursor-pointer hover:border-[#F1641D] hover:bg-[#FAF4EE] transition-all text-xs">
-            <Upload size={16} className="text-[#F1641D]" />
+          <span className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#E9DFD4] bg-[#FAF4EE]/40 px-4 py-4 text-[#6C737E] cursor-pointer hover:border-accent hover:bg-[#FAF4EE] transition-all text-xs">
+            <Upload size={16} className="text-accent" />
             <span>Click to upload or drag & drop a .cif file</span>
             <input
               type="file"
@@ -1110,7 +1110,7 @@ function PropertyChecklist({
         <span className="block text-sm font-bold text-[#1E2227]">
           Target Properties
         </span>
-        <span className="text-xs font-semibold text-[#F1641D] bg-[#FAF4EE] px-3 py-1 rounded-full border border-[#EFE5DC]">
+        <span className="text-xs font-semibold text-accent bg-[#FAF4EE] px-3 py-1 rounded-full border border-[#EFE5DC]">
           {selectedKeys.length} selected
         </span>
       </div>
@@ -1134,15 +1134,15 @@ function PropertyChecklist({
                       key={prop.key}
                       onClick={() => onToggle(prop.key)}
                       className={`flex items-center justify-between p-3.5 rounded-xl border text-xs transition-all cursor-pointer select-none ${isChecked
-                        ? "border-[#F1641D] bg-[#FAF4EE] text-[#1E2227] shadow-sm ring-1 ring-[#F1641D]/20"
-                        : "border-[#E9DFD4] bg-white text-[#6C737E] hover:border-[#F1641D] hover:bg-[#FAF4EE]/20"
+                        ? "border-accent bg-[#FAF4EE] text-[#1E2227] shadow-sm ring-1 ring-accent/20"
+                        : "border-[#E9DFD4] bg-white text-[#6C737E] hover:border-accent hover:bg-[#FAF4EE]/20"
                         }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 mr-2">
                         {isChecked ? (
                           <CheckSquare
                             size={16}
-                            className="text-[#F1641D] shrink-0"
+                            className="text-accent shrink-0"
                           />
                         ) : (
                           <Square
@@ -1183,13 +1183,13 @@ function PropertyResultBlock({
   warning?: string;
 }) {
   return (
-    <div className="w-full bg-[#FAF4EE] rounded-2xl p-4 sm:p-4.5 border border-[#EFE5DC] space-y-1 transition-all hover:border-[#F1641D]/40">
+    <div className="w-full bg-[#FAF4EE] rounded-2xl p-4 sm:p-4.5 border border-[#EFE5DC] space-y-1 transition-all hover:border-accent/40">
       <div className="flex items-center justify-between">
         <span className="text-[11px] sm:text-xs font-semibold text-[#6C737E]">
           {title}
         </span>
         {status && status !== "calculated" && (
-          <span className="text-[9px] uppercase tracking-wider text-[#F1641D] bg-white px-2 py-0.5 rounded border border-[#EFE5DC]">
+          <span className="text-[9px] uppercase tracking-wider text-accent bg-white px-2 py-0.5 rounded border border-[#EFE5DC]">
             {status.replace(/_/g, " ")}
           </span>
         )}

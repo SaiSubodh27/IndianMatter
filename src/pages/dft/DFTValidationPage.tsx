@@ -39,7 +39,7 @@ export default function DFTValidationPage() {
     <div className="w-full max-w-[1550px] mx-auto space-y-8 px-4 sm:px-8 py-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
           <ShieldCheck size={14} /> Ab Initio Benchmarking
         </div>
         <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -66,7 +66,7 @@ export default function DFTValidationPage() {
                   value={formula}
                   onChange={(e) => setFormula(e.target.value)}
                   placeholder="e.g. LiCoO2, mp-22526"
-                  className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-4 py-2.5 text-xs text-[#1E2227] outline-none focus:border-[#F1641D] transition-colors"
+                  className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-4 py-2.5 text-xs text-[#1E2227] outline-none focus:border-accent transition-colors"
                   required
                 />
               </div>
@@ -79,7 +79,7 @@ export default function DFTValidationPage() {
                   <select
                     value={functional}
                     onChange={(e) => setFunctional(e.target.value)}
-                    className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs text-[#1E2227] outline-none focus:border-[#F1641D]"
+                    className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs text-[#1E2227] outline-none focus:border-accent"
                   >
                     <option value="PBE">PBE (Generalized Gradient)</option>
                     <option value="PBEsol">PBEsol (Solids)</option>
@@ -96,7 +96,7 @@ export default function DFTValidationPage() {
                     type="number"
                     value={cutoff}
                     onChange={(e) => setCutoff(Number(e.target.value))}
-                    className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs text-[#1E2227] outline-none focus:border-[#F1641D]"
+                    className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs text-[#1E2227] outline-none focus:border-accent"
                   />
                 </div>
               </div>
@@ -108,7 +108,7 @@ export default function DFTValidationPage() {
                 <select
                   value={kpoints}
                   onChange={(e) => setKpoints(e.target.value)}
-                  className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs text-[#1E2227] outline-none focus:border-[#F1641D]"
+                  className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs text-[#1E2227] outline-none focus:border-accent"
                 >
                   <option value="4x4x4">4 × 4 × 4 (Gamma-centered)</option>
                   <option value="6x6x6">6 × 6 × 6 (Dense standard)</option>
@@ -120,7 +120,7 @@ export default function DFTValidationPage() {
                 <button
                   type="submit"
                   disabled={status === "running"}
-                  className="w-full bg-[#F1641D] text-white py-3 rounded-xl text-xs font-semibold hover:bg-[#D9520F] transition-all shadow-soft flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-accent text-white py-3 rounded-xl text-xs font-semibold hover:bg-accent-hover transition-all shadow-soft flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {status === "running" ? "Computing SCF Iterations..." : "Dispatch DFT Calculation"} <Play size={14} />
                 </button>
@@ -141,7 +141,7 @@ export default function DFTValidationPage() {
         <div className="lg:col-span-7 space-y-6">
           {status === "idle" && (
             <div className="bg-white rounded-[2rem] p-12 text-center shadow-card border border-[#EFE5DC] space-y-4 flex flex-col items-center justify-center min-h-[420px]">
-              <div className="w-16 h-16 rounded-full bg-[#FBE8D8] text-[#F1641D] flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-accent-soft text-accent flex items-center justify-center">
                 <ShieldCheck size={32} />
               </div>
               <h3 className="text-xl font-headline font-bold text-[#1E2227]">Awaiting Calculation Dispatch</h3>
@@ -158,12 +158,12 @@ export default function DFTValidationPage() {
                   <h3 className="font-headline font-bold text-lg text-[#1E2227]">Self-Consistent Field (SCF) Iteration</h3>
                   <p className="text-xs text-[#8C929C]">Calculating Kohn-Sham eigenvalues for {formula}</p>
                 </div>
-                <span className="text-xs font-mono font-bold text-[#F1641D]">{progress}%</span>
+                <span className="text-xs font-mono font-bold text-accent">{progress}%</span>
               </div>
 
               <div className="w-full h-3 bg-[#FAF4EE] rounded-full overflow-hidden border border-[#EFE5DC]">
                 <div
-                  className="h-full bg-[#F1641D] rounded-full transition-all duration-300"
+                  className="h-full bg-accent rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -172,7 +172,7 @@ export default function DFTValidationPage() {
                 <p>▶ Initializing plane-wave basis set (cutoff = {cutoff} eV)...</p>
                 <p>▶ Generating k-point grid ({kpoints})...</p>
                 <p>▶ Iteration 14: dE = 1.48e-05 eV, charge density residual = 8.12e-06</p>
-                <p className="text-[#F1641D]">▶ Converging exchange-correlation potential ({functional})...</p>
+                <p className="text-accent">▶ Converging exchange-correlation potential ({functional})...</p>
               </div>
             </div>
           )}
@@ -198,7 +198,7 @@ export default function DFTValidationPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#FAF4EE] p-4 rounded-2xl border border-[#EFE5DC]">
                   <span className="text-[10px] text-[#8C929C] uppercase font-bold">GNN Prediction</span>
-                  <p className="text-2xl font-bold font-headline text-[#F1641D] mt-1">
+                  <p className="text-2xl font-bold font-headline text-accent mt-1">
                     {validationResult?.gnnEnergy ?? "No result yet"}
                   </p>
                   <p className="text-[11px] text-[#6C737E]">Formation Energy</p>
@@ -233,7 +233,7 @@ export default function DFTValidationPage() {
                   </div>
                   <div className="w-full h-2 bg-[#FAF4EE] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#F1641D] rounded-full"
+                      className="h-full bg-accent rounded-full"
                       style={{ width: validationResult?.agreementPercent ? `${validationResult.agreementPercent}%` : "0%" }}
                     />
                   </div>
@@ -261,7 +261,7 @@ export default function DFTValidationPage() {
                   </button>
                   <button
                     onClick={() => alert("DFT benchmark saved to active research collection.")}
-                    className="px-5 py-2 bg-[#F1641D] text-white rounded-xl text-xs font-medium hover:bg-[#D9520F] flex items-center gap-1.5"
+                    className="px-5 py-2 bg-accent text-white rounded-xl text-xs font-medium hover:bg-accent-hover flex items-center gap-1.5"
                   >
                     Save Benchmark <ArrowRight size={13} />
                   </button>

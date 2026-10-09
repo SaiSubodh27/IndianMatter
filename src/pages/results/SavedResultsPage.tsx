@@ -14,7 +14,7 @@ export default function SavedResultsPage() {
     <div className="w-full max-w-[1550px] mx-auto space-y-8 px-4 sm:px-8 py-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
             <Bookmark size={14} /> Research Workspace
           </div>
           <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -27,7 +27,7 @@ export default function SavedResultsPage() {
 
         <button
           onClick={() => alert("Consolidated research archive exported (ZIP).")}
-          className="px-4 py-2.5 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] flex items-center gap-2 shadow-soft shrink-0"
+          className="px-4 py-2.5 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover flex items-center gap-2 shadow-soft shrink-0"
         >
           <Download size={14} /> Export Workspace (ZIP)
         </button>
@@ -46,7 +46,7 @@ export default function SavedResultsPage() {
             onClick={() => setActiveTab(tab.id as "materials" | "predictions" | "dft" | "cif")}
             className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeTab === tab.id
-                ? "bg-[#FBE8D8] text-[#F1641D] shadow-sm"
+                ? "bg-accent-soft text-accent shadow-sm"
                 : "text-[#5F6771] hover:text-[#1E2227]"
             }`}
           >

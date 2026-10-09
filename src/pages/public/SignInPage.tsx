@@ -110,7 +110,7 @@ export default function SignInPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-white text-[#1E2227] flex flex-col justify-between relative overflow-x-hidden font-sans selection:bg-[#F1641D]/20 selection:text-[#F1641D]">
+      <div className="min-h-screen bg-white text-[#1E2227] flex flex-col justify-between relative overflow-x-hidden font-sans selection:bg-accent/20 selection:text-accent">
         {/* Decorative Organic Wave Shapes on Margins */}
         <div className="fixed top-0 left-[-120px] w-[320px] h-[750px] bg-[#F8DFCB]/40 rounded-[100%] blur-3xl pointer-events-none -z-10 transform -rotate-12" />
         <div className="fixed top-[40%] right-[-140px] w-[380px] h-[850px] bg-[#F8DFCB]/50 rounded-[100%] blur-3xl pointer-events-none -z-10 transform rotate-12" />
@@ -134,35 +134,35 @@ export default function SignInPage() {
               className="w-8 h-8 object-contain"
             />
             <span className="font-headline font-bold text-xl tracking-tight text-[#1E2227]">
-              Indian<span className="text-[#F1641D]">Matter</span>
+              Indian<span className="text-accent">Matter</span>
             </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-[14px] font-medium text-[#5F6771]">
-            <Link to="/" className="hover:text-[#F1641D] transition-colors">
+            <Link to="/" className="hover:text-accent transition-colors">
               Home
             </Link>
             <Link
               to="/#explore"
-              className="hover:text-[#F1641D] transition-colors"
+              className="hover:text-accent transition-colors"
             >
               Explore
             </Link>
             <Link
               to="/#about"
-              className="hover:text-[#F1641D] transition-colors"
+              className="hover:text-accent transition-colors"
             >
               About
             </Link>
             <Link
               to="/#resources"
-              className="hover:text-[#F1641D] transition-colors"
+              className="hover:text-accent transition-colors"
             >
               Resources
             </Link>
             <Link
               to="/#contact"
-              className="hover:text-[#F1641D] transition-colors"
+              className="hover:text-accent transition-colors"
             >
               Contact
             </Link>
@@ -175,7 +175,7 @@ export default function SignInPage() {
             >
               <Sun size={18} strokeWidth={1.8} />
             </button>
-            <button className="bg-[#F1641D] text-white px-6 py-2 rounded-full text-[14px] font-medium opacity-90 cursor-default">
+            <button className="bg-accent text-white px-6 py-2 rounded-full text-[14px] font-medium opacity-90 cursor-default">
               Sign In
             </button>
           </div>
@@ -187,13 +187,13 @@ export default function SignInPage() {
             {/* Left Panel (Soft Peach with Mineral Image & Notes) */}
             <div className="md:w-5/12 bg-[#FAF4EE] p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden">
               <div className="relative z-10 space-y-4">
-                <div className="w-10 h-1 bg-[#F1641D] rounded-full" />
+                <div className="w-10 h-1 bg-accent rounded-full" />
                 <div>
                   <p className="text-xs font-semibold text-[#8C929C] uppercase tracking-wider">
                     Welcome to
                   </p>
                   <h1 className="text-3xl font-headline font-bold text-[#1E2227] tracking-tight mt-1">
-                    Indian<span className="text-[#F1641D]">Matter</span>
+                    Indian<span className="text-accent">Matter</span>
                   </h1>
                   <p className="text-xs font-medium text-[#5F6771] mt-0.5">
                     Materials for a Brighter Tomorrow
@@ -226,7 +226,7 @@ export default function SignInPage() {
                     <br />
                     Tomorrow
                   </p>
-                  <div className="w-8 h-[2px] bg-[#F1641D] ml-auto mt-1" />
+                  <div className="w-8 h-[2px] bg-accent ml-auto mt-1" />
                 </div>
               </div>
             </div>
@@ -317,7 +317,7 @@ export default function SignInPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="researcher@university.edu"
-                      className="w-full bg-[#FAF4EE]/40 border border-[#E9DFD4] rounded-xl py-2.5 pl-10 pr-4 text-xs text-[#1E2227] outline-none focus:border-[#F1641D] transition-colors placeholder:text-[#9EA4AD]"
+                      className="w-full bg-[#FAF4EE]/40 border border-[#E9DFD4] rounded-xl py-2.5 pl-10 pr-4 text-xs text-[#1E2227] outline-none focus:border-accent transition-colors placeholder:text-[#9EA4AD]"
                     />
                   </div>
                 </div>
@@ -337,7 +337,7 @@ export default function SignInPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
-                      className="w-full bg-[#FAF4EE]/40 border border-[#E9DFD4] rounded-xl py-2.5 pl-10 pr-10 text-xs text-[#1E2227] outline-none focus:border-[#F1641D] transition-colors placeholder:text-[#9EA4AD]"
+                      className="w-full bg-[#FAF4EE]/40 border border-[#E9DFD4] rounded-xl py-2.5 pl-10 pr-10 text-xs text-[#1E2227] outline-none focus:border-accent transition-colors placeholder:text-[#9EA4AD]"
                     />
                     <button
                       type="button"
@@ -355,13 +355,13 @@ export default function SignInPage() {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="accent-[#F1641D] rounded cursor-pointer"
+                      className="accent-accent rounded cursor-pointer"
                     />
                     <span className="text-[#6C737E]">Remember me</span>
                   </label>
                   <a
                     href="#forgot"
-                    className="text-[#F1641D] font-medium hover:underline"
+                    className="text-accent font-medium hover:underline"
                   >
                     Forgot password?
                   </a>
@@ -370,7 +370,7 @@ export default function SignInPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#F1641D] text-white py-3 rounded-xl text-xs font-semibold hover:bg-[#D9520F] transition-all shadow-soft flex items-center justify-center gap-2 active:scale-98 mt-2 disabled:opacity-50"
+                  className="w-full bg-accent text-white py-3 rounded-xl text-xs font-semibold hover:bg-accent-hover transition-all shadow-soft flex items-center justify-center gap-2 active:scale-98 mt-2 disabled:opacity-50"
                 >
                   {loading ? "Authenticating..." : "Sign In"}{" "}
                   <ArrowRight size={14} />
@@ -381,7 +381,7 @@ export default function SignInPage() {
                 Don't have an account?{" "}
                 <Link
                   to="/signin"
-                  className="text-[#F1641D] font-semibold hover:underline"
+                  className="text-accent font-semibold hover:underline"
                 >
                   Sign Up
                 </Link>
@@ -395,7 +395,7 @@ export default function SignInPage() {
           <p className="text-[10px] tracking-[0.25em] font-bold text-[#9EA4AD] uppercase font-headline">
             MATERIALS FOR A BRIGHTER TOMORROW
           </p>
-          <div className="w-10 h-[2px] bg-[#F1641D] mx-auto mt-2" />
+          <div className="w-10 h-[2px] bg-accent mx-auto mt-2" />
         </footer>
       </div>
     </>

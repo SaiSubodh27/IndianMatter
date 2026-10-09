@@ -166,7 +166,7 @@ export default function LiteraturePage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
             <BookOpen size={14} /> Knowledge Exploration & Research Papers
           </div>
           <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -183,7 +183,7 @@ export default function LiteraturePage() {
           className="self-start md:self-auto px-4 py-2.5 bg-white border border-[#E9DFD4] hover:bg-[#FAF4EE] rounded-xl text-xs font-semibold text-[#1E2227] flex items-center gap-2 shadow-sm transition-colors"
           title="Refresh papers database"
         >
-          <RefreshCw size={14} className={loading ? "animate-spin text-[#F1641D]" : "text-[#8C929C]"} />
+          <RefreshCw size={14} className={loading ? "animate-spin text-accent" : "text-[#8C929C]"} />
           {loading ? "Syncing..." : "Sync Latest Papers"}
         </button>
       </div>
@@ -193,7 +193,7 @@ export default function LiteraturePage() {
         <div className="bg-white rounded-2xl p-5 border border-[#EFE5DC] shadow-card">
           <div className="flex items-center justify-between text-[#8C929C] text-xs font-medium mb-1">
             <span>Indexed Papers</span>
-            <Database size={16} className="text-[#F1641D]" />
+            <Database size={16} className="text-accent" />
           </div>
           <div className="text-2xl font-bold font-headline text-[#1E2227]">
             {loading ? "..." : stats.total}
@@ -215,7 +215,7 @@ export default function LiteraturePage() {
         <div className="bg-white rounded-2xl p-5 border border-[#EFE5DC] shadow-card">
           <div className="flex items-center justify-between text-[#8C929C] text-xs font-medium mb-1">
             <span>High Relevance</span>
-            <Flame size={16} className="text-[#F1641D]" />
+            <Flame size={16} className="text-accent" />
           </div>
           <div className="text-2xl font-bold font-headline text-[#1E2227]">
             {loading ? "..." : stats.highRelCount}
@@ -239,14 +239,14 @@ export default function LiteraturePage() {
       <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-card border border-[#EFE5DC]">
         <div className="flex items-center justify-between pb-3 border-b border-[#F2E7DC]">
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-[#F1641D]" />
+            <Sparkles size={16} className="text-accent" />
             <h3 className="font-headline font-bold text-base text-[#1E2227]">
               Chemical Diversity Space Projection
             </h3>
           </div>
           <button
             onClick={() => setShowDiversityMap(!showDiversityMap)}
-            className="text-xs font-semibold text-[#F1641D] hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
           >
             {showDiversityMap ? "Hide Projection" : "Show Projection"}
           </button>
@@ -255,7 +255,7 @@ export default function LiteraturePage() {
         {showDiversityMap && (
           <div className="pt-4 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-2.5 max-w-2xl">
-              <span className="text-[11px] font-bold text-[#F1641D] uppercase tracking-wider font-headline">
+              <span className="text-[11px] font-bold text-accent uppercase tracking-wider font-headline">
                 Latent Space Embedding (t-SNE / UMAP)
               </span>
               <h4 className="text-xl font-headline font-bold text-[#1E2227]">
@@ -266,7 +266,7 @@ export default function LiteraturePage() {
               </p>
               <div className="flex flex-wrap gap-4 text-xs font-semibold pt-1">
                 <span className="flex items-center gap-1.5 text-[#1E2227]">
-                  <span className="w-2.5 h-2.5 bg-[#F1641D] rounded-full" /> Explored Syntheses
+                  <span className="w-2.5 h-2.5 bg-accent rounded-full" /> Explored Syntheses
                 </span>
                 <span className="flex items-center gap-1.5 text-[#1E2227]">
                   <span className="w-2.5 h-2.5 bg-[#2E7D32] rounded-full" /> High-Conductivity Predicted Candidates
@@ -275,7 +275,7 @@ export default function LiteraturePage() {
             </div>
 
             <div className="w-52 h-36 bg-[#FAF4EE] rounded-2xl border border-[#EFE5DC] flex flex-col items-center justify-center p-4 text-center shrink-0">
-              <Layers size={28} className="text-[#F1641D] mb-1.5" />
+              <Layers size={28} className="text-accent mb-1.5" />
               <p className="text-xs font-bold text-[#1E2227]">UMAP 2D Projection</p>
               <p className="text-[10px] text-[#8C929C]">Structures mapped from the active dataset</p>
             </div>
@@ -293,7 +293,7 @@ export default function LiteraturePage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search publications by title, keyword, author, journal, topic, or DOI..."
-            className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-2xl py-3.5 pl-12 pr-10 text-xs sm:text-sm text-[#1E2227] outline-none focus:border-[#F1641D] transition-colors"
+            className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-2xl py-3.5 pl-12 pr-10 text-xs sm:text-sm text-[#1E2227] outline-none focus:border-accent transition-colors"
           />
           {searchQuery && (
             <button
@@ -324,7 +324,7 @@ export default function LiteraturePage() {
               onClick={() => setSelectedDomain(tag)}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                 selectedDomain === tag
-                  ? "bg-[#F1641D] text-white shadow-sm"
+                  ? "bg-accent text-white shadow-sm"
                   : "bg-[#FAF4EE] text-[#5F6771] hover:bg-[#F2E7DC]"
               }`}
             >
@@ -341,7 +341,7 @@ export default function LiteraturePage() {
                 type="checkbox"
                 checked={openAccessOnly}
                 onChange={(e) => setOpenAccessOnly(e.target.checked)}
-                className="w-4 h-4 rounded text-[#F1641D] focus:ring-[#F1641D] accent-[#F1641D]"
+                className="w-4 h-4 rounded text-accent focus:ring-accent accent-accent"
               />
               <span className="flex items-center gap-1">
                 <Unlock size={12} className="text-[#2E7D32]" /> Open Access Only
@@ -353,10 +353,10 @@ export default function LiteraturePage() {
                 type="checkbox"
                 checked={highRelevanceOnly}
                 onChange={(e) => setHighRelevanceOnly(e.target.checked)}
-                className="w-4 h-4 rounded text-[#F1641D] focus:ring-[#F1641D] accent-[#F1641D]"
+                className="w-4 h-4 rounded text-accent focus:ring-accent accent-accent"
               />
               <span className="flex items-center gap-1">
-                <Sparkles size={12} className="text-[#F1641D]" /> High Relevance (Score ≥ 4)
+                <Sparkles size={12} className="text-accent" /> High Relevance (Score ≥ 4)
               </span>
             </label>
           </div>
@@ -366,7 +366,7 @@ export default function LiteraturePage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-[#FAF4EE] border border-[#E9DFD4] rounded-xl px-3 py-1.5 text-xs text-[#1E2227] outline-none focus:border-[#F1641D]"
+              className="bg-[#FAF4EE] border border-[#E9DFD4] rounded-xl px-3 py-1.5 text-xs text-[#1E2227] outline-none focus:border-accent"
             >
               <option value="date">Publication Date (Newest)</option>
               <option value="relevance">Relevance Score</option>
@@ -410,7 +410,7 @@ export default function LiteraturePage() {
       {/* Loading state */}
       {loading && (
         <div className="bg-white rounded-2xl p-12 border border-[#EFE5DC] text-center space-y-3">
-          <RefreshCw size={28} className="animate-spin text-[#F1641D] mx-auto" />
+          <RefreshCw size={28} className="animate-spin text-accent mx-auto" />
           <p className="text-sm font-semibold text-[#1E2227]">Retrieving research papers from database...</p>
           <p className="text-xs text-[#8C929C]">Fetching indexed literature and citation metadata</p>
         </div>
@@ -433,7 +433,7 @@ export default function LiteraturePage() {
               setOpenAccessOnly(false);
               setHighRelevanceOnly(false);
             }}
-            className="px-4 py-2 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] transition-colors"
+            className="px-4 py-2 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover transition-colors"
           >
             Reset Filters
           </button>
@@ -468,7 +468,7 @@ export default function LiteraturePage() {
                       )}
 
                       {score >= 4 && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-50 text-[#F1641D] border border-orange-200">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-50 text-accent border border-orange-200">
                           <Sparkles size={10} /> High Relevance
                         </span>
                       )}
@@ -519,7 +519,7 @@ export default function LiteraturePage() {
                         href={`https://doi.org/${paper.doi}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3.5 py-2 bg-[#FAF4EE] text-[#F1641D] rounded-xl text-xs font-semibold hover:bg-[#FBE8D8] transition-colors flex items-center gap-1.5"
+                        className="px-3.5 py-2 bg-[#FAF4EE] text-accent rounded-xl text-xs font-semibold hover:bg-accent-soft transition-colors flex items-center gap-1.5"
                       >
                         DOI <ExternalLink size={12} />
                       </a>
@@ -528,7 +528,7 @@ export default function LiteraturePage() {
                         href={paper.landing_page_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3.5 py-2 bg-[#FAF4EE] text-[#F1641D] rounded-xl text-xs font-semibold hover:bg-[#FBE8D8] transition-colors flex items-center gap-1.5"
+                        className="px-3.5 py-2 bg-[#FAF4EE] text-accent rounded-xl text-xs font-semibold hover:bg-accent-soft transition-colors flex items-center gap-1.5"
                       >
                         View <ExternalLink size={12} />
                       </a>
@@ -556,7 +556,7 @@ export default function LiteraturePage() {
                     </p>
                     <button
                       onClick={() => toggleAbstract(paper.id)}
-                      className="text-[11px] font-semibold text-[#F1641D] mt-1.5 flex items-center gap-1 hover:underline"
+                      className="text-[11px] font-semibold text-accent mt-1.5 flex items-center gap-1 hover:underline"
                     >
                       {isExpanded ? (
                         <>Show Less <ChevronUp size={12} /></>

@@ -4,6 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
+        accent: {
+          DEFAULT: "#F1641D",
+          hover: "#D9520F",
+          soft: "#FBE8D8",
+        },
         im: {
           // Page & surface — near-white, very light (65-75% of design)
           bg: "#FFFFFF",

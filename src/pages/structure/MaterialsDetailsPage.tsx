@@ -55,14 +55,14 @@ export default function MaterialDetailsPage() {
       <div>
         <Link
           to="/app/materials"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C929C] hover:text-[#F1641D] transition-colors mb-3"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C929C] hover:text-accent transition-colors mb-3"
         >
           <ArrowLeft size={14} /> Back to Materials Search
         </Link>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-[#F1641D] uppercase tracking-wider font-headline">
+            <div className="flex items-center gap-2 text-xs font-bold text-accent uppercase tracking-wider font-headline">
               <span>Materials Project • mp-22526</span>
               <span>• Trigonal (R -3 m)</span>
             </div>
@@ -79,12 +79,12 @@ export default function MaterialDetailsPage() {
               to="/app/dft"
               className="px-4 py-2 border border-[#E9DFD4] rounded-xl text-xs font-medium text-[#1E2227] hover:bg-[#FAF4EE] flex items-center gap-1.5 shadow-sm"
             >
-              <ShieldCheck size={14} className="text-[#F1641D]" /> Validate with
+              <ShieldCheck size={14} className="text-accent" /> Validate with
               DFT
             </Link>
             <Link
               to="/app/predict"
-              className="px-4 py-2 bg-[#F1641D] text-white rounded-xl text-xs font-medium hover:bg-[#D9520F] flex items-center gap-1.5 shadow-sm"
+              className="px-4 py-2 bg-accent text-white rounded-xl text-xs font-medium hover:bg-accent-hover flex items-center gap-1.5 shadow-sm"
             >
               <Activity size={14} /> Predict Properties
             </Link>
@@ -134,7 +134,7 @@ export default function MaterialDetailsPage() {
             </div>
             <div className="bg-[#FAF4EE] p-3 rounded-xl flex justify-between items-center border border-[#EFE5DC]">
               <span className="text-[#5F6771]">Ionic Conductivity (300K)</span>
-              <span className="font-bold text-[#F1641D]">{"Not available"}</span>
+              <span className="font-bold text-accent">{"Not available"}</span>
             </div>
             <div className="bg-[#FAF4EE] p-3 rounded-xl flex justify-between items-center border border-[#EFE5DC]">
               <span className="text-[#5F6771]">Crystal Density</span>
@@ -176,7 +176,7 @@ export default function MaterialDetailsPage() {
               }
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === tab.id
-                  ? "bg-[#F1641D] text-white shadow-sm"
+                  ? "bg-accent text-white shadow-sm"
                   : "bg-[#FAF4EE] text-[#5F6771] hover:text-[#1E2227]"
               }`}
             >
@@ -263,7 +263,7 @@ export default function MaterialDetailsPage() {
                     {paper.journal} ({paper.year})
                   </p>
                 </div>
-                <span className="text-[#F1641D] font-mono flex items-center gap-1">
+                <span className="text-accent font-mono flex items-center gap-1">
                   DOI <ExternalLink size={12} />
                 </span>
               </div>

@@ -10,7 +10,7 @@ export default function SettingsPage() {
   return (
     <div className="w-full max-w-[1550px] mx-auto space-y-8 px-4 sm:px-8 py-6">
       <div>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
           <Settings size={14} /> Workspace Configuration
         </div>
         <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -32,7 +32,7 @@ export default function SettingsPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2.5 outline-none focus:border-[#F1641D]"
+                className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2.5 outline-none focus:border-accent"
               />
             </div>
             <div>
@@ -41,7 +41,7 @@ export default function SettingsPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2.5 outline-none focus:border-[#F1641D]"
+                className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2.5 outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -51,7 +51,7 @@ export default function SettingsPage() {
               type="text"
               value={lab}
               onChange={(e) => setLab(e.target.value)}
-              className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2.5 outline-none focus:border-[#F1641D]"
+              className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl px-3 py-2.5 outline-none focus:border-accent"
             />
           </div>
         </div>
@@ -70,7 +70,7 @@ export default function SettingsPage() {
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl py-2.5 pl-10 pr-4 text-xs font-mono outline-none focus:border-[#F1641D]"
+                className="w-full bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl py-2.5 pl-10 pr-4 text-xs font-mono outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -79,7 +79,7 @@ export default function SettingsPage() {
         <div className="flex justify-end">
           <button
             onClick={() => alert("Settings saved successfully.")}
-            className="px-6 py-2.5 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] transition-all shadow-soft"
+            className="px-6 py-2.5 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover transition-all shadow-soft"
           >
             Save Changes
           </button>

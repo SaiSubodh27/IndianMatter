@@ -563,7 +563,7 @@ export default function MaterialsSearchPage() {
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-7 px-4 sm:px-8 py-6">
       <header>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D]">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
           Material discovery
         </p>
         <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -579,7 +579,7 @@ export default function MaterialsSearchPage() {
         <form onSubmit={runSearch} className="flex flex-col sm:flex-row gap-3">
           <div
             onClick={() => searchInputRef.current?.focus()}
-            className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5 bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl py-2 px-3 text-sm focus-within:border-[#F1641D] transition-colors min-h-[46px] cursor-text"
+            className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5 bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl py-2 px-3 text-sm focus-within:border-accent transition-colors min-h-[46px] cursor-text"
           >
             <Search
               className="text-[#8C929C] shrink-0 ml-1 mr-0.5"
@@ -590,7 +590,7 @@ export default function MaterialsSearchPage() {
                 key={`${mode}-${element}`}
                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold select-none shadow-xs transition-all ${mode === "exclude"
                     ? "bg-[#713600] text-white"
-                    : "bg-[#FBE8D8] text-[#F1641D] border border-[#F1641D]/30"
+                    : "bg-accent-soft text-accent border border-accent/30"
                   }`}
               >
                 <span>{mode === "exclude" ? `− ${element}` : element}</span>
@@ -604,7 +604,7 @@ export default function MaterialsSearchPage() {
                   aria-label={`Remove ${element}`}
                   className={`hover:opacity-100 p-0.5 rounded cursor-pointer transition-opacity flex items-center justify-center ${mode === "exclude"
                       ? "text-white/80 hover:text-white"
-                      : "text-[#F1641D]/80 hover:text-[#F1641D]"
+                      : "text-accent/80 hover:text-accent"
                     }`}
                 >
                   <X size={12} strokeWidth={2.5} />
@@ -626,7 +626,7 @@ export default function MaterialsSearchPage() {
           </div>
           <button
             type="submit"
-            className="px-6 py-3 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] shrink-0 transition-colors cursor-pointer"
+            className="px-6 py-3 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover shrink-0 transition-colors cursor-pointer"
           >
             Search Materials
           </button>
@@ -645,7 +645,7 @@ export default function MaterialsSearchPage() {
             type="button"
             onClick={() => setSelectionMode("include")}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${selectionMode === "include"
-                ? "bg-[#FBE8D8] text-[#F1641D]"
+                ? "bg-accent-soft text-accent"
                 : "bg-[#FAF4EE] text-[#6C737E] hover:bg-[#F2E7DC]"
               }`}
           >
@@ -670,7 +670,7 @@ export default function MaterialsSearchPage() {
                 setDatabase(e.target.value);
                 setSubmitted(false);
               }}
-              className="bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg py-1 px-2 text-[#1E2227] outline-none focus:border-[#F1641D]"
+              className="bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg py-1 px-2 text-[#1E2227] outline-none focus:border-accent"
             >
               <option value="indianmatter">IndianMatter</option>
               <option value="materials_project">Materials Project</option>
@@ -690,7 +690,7 @@ export default function MaterialsSearchPage() {
 
       {!submitted && (
         <div className="bg-white rounded-2xl p-10 text-center border border-[#EFE5DC] text-sm text-[#6C737E]">
-          <Filter className="mx-auto mb-3 text-[#F1641D]" size={22} />
+          <Filter className="mx-auto mb-3 text-accent" size={22} />
           Start with a formula, material ID, or element selection.
         </div>
       )}
@@ -705,7 +705,7 @@ export default function MaterialsSearchPage() {
             <button
               type="button"
               onClick={resetAll}
-              className="px-4 py-2 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] flex items-center gap-1.5"
+              className="px-4 py-2 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover flex items-center gap-1.5"
             >
               <RotateCcw size={13} /> Reset
             </button>
@@ -825,7 +825,7 @@ export default function MaterialsSearchPage() {
                                   className={`${(col.type === "text" && textFilters[col.key]) ||
                                       (col.type === "number" &&
                                         numericFilters[col.key]?.value)
-                                      ? "text-[#F1641D]"
+                                      ? "text-accent"
                                       : "text-[#8C929C]"
                                     } hover:text-white transition-colors`}
                                 >
@@ -852,7 +852,7 @@ export default function MaterialsSearchPage() {
                                           }))
                                         }
                                         placeholder="Filter..."
-                                        className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D]"
+                                        className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-accent"
                                       />
                                     </>
                                   ) : (
@@ -895,7 +895,7 @@ export default function MaterialsSearchPage() {
                                             ? undefined
                                             : (numericFilters[col.key]?.value ?? "")
                                         }
-                                        className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-[#F1641D] mb-2.5"
+                                        className="w-full bg-[#FAF4EE] border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-accent mb-2.5"
                                       />
                                       <div className="flex gap-2">
                                         <button
@@ -929,7 +929,7 @@ export default function MaterialsSearchPage() {
                                             }
                                             setOpenFilterColumn(null);
                                           }}
-                                          className="flex-1 py-1.5 bg-[#F1641D] text-white rounded-lg text-xs font-semibold hover:bg-[#D9520F]"
+                                          className="flex-1 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold hover:bg-accent-hover"
                                         >
                                           Apply
                                         </button>
@@ -963,7 +963,7 @@ export default function MaterialsSearchPage() {
                       <tr
                         key={m.mv_id ?? i}
                         className={`group ${i % 2 === 0 ? "bg-white" : "bg-[#FDF9F4]"
-                          } border-b border-[#F2E7DC] hover:bg-[#FBE8D8]/40 transition-colors`}
+                          } border-b border-[#F2E7DC] hover:bg-accent-soft/40 transition-colors`}
                       >
                         {COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
                           (col, colIndex) => {

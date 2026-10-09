@@ -26,6 +26,9 @@
   --im-orange-hover: #9a4a00;
   --im-orange-light: #fef3c7;
   --im-orange-subtle: #fffbeb;
+  --im-accent: #f1641d;
+  --im-accent-hover: #d9520f;
+  --im-accent-soft: #fbe8d8;
   --im-cream: #f8fafc;
   --im-brown: #78350f;
   --im-earth: #92400e;
@@ -151,7 +154,7 @@
   }
 
   .results-table-container::-webkit-scrollbar-thumb:hover {
-    background: #f1641d;
+    background: var(--im-accent);
   }
 
   /* Text selection */

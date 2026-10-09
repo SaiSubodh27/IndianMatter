@@ -688,7 +688,7 @@ export default function AdvancedSearchPage() {
     <div className="w-full max-w-[1550px] mx-auto space-y-8 px-4 sm:px-8 py-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
           <SlidersHorizontal size={14} /> Multi-Criteria Search Engine
         </div>
         <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -710,7 +710,7 @@ export default function AdvancedSearchPage() {
           {includeElements.map((el) => (
             <span
               key={el}
-              className="px-2.5 py-1 bg-[#FBE8D8] text-[#F1641D] rounded-lg font-bold flex items-center gap-1 text-xs"
+              className="px-2.5 py-1 bg-accent-soft text-accent rounded-lg font-bold flex items-center gap-1 text-xs"
             >
               +{el}
               <X
@@ -749,7 +749,7 @@ export default function AdvancedSearchPage() {
             onClick={() => setSelectionMode("include")}
             className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
               selectionMode === "include"
-                ? "bg-[#F1641D] text-white shadow-sm"
+                ? "bg-accent text-white shadow-sm"
                 : "bg-[#FAF4EE] text-[#5F6771]"
             }`}
           >
@@ -780,7 +780,7 @@ export default function AdvancedSearchPage() {
           <span>Click any element to add to active query filter</span>
           <span className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 bg-[#F1641D] rounded-full" />{" "}
+              <span className="w-2.5 h-2.5 bg-accent rounded-full" />{" "}
               Included
             </span>
             <span className="flex items-center gap-1">
@@ -871,7 +871,7 @@ export default function AdvancedSearchPage() {
         </button>
         <Link
           to={`/materials-search?${includeElements.map((element) => `elements=${encodeURIComponent(element)}`).join("&")}${excludeElements.length && includeElements.length ? "&" : ""}${excludeElements.map((element) => `exclude_elements=${encodeURIComponent(element)}`).join("&")}`}
-          className="px-6 py-2.5 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] flex items-center gap-2 shadow-soft"
+          className="px-6 py-2.5 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover flex items-center gap-2 shadow-soft"
         >
           Query Databases <Search size={14} />
         </Link>

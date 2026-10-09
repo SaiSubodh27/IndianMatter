@@ -941,7 +941,7 @@ export default function LandingPage() {
                   {isActive && (
                     <div
                       key={`aura-${mat.id}`}
-                      className="absolute -inset-4 sm:-inset-6 -z-10 rounded-[3rem] bg-gradient-to-tr from-[#D47E30]/25 via-[#F1641D]/15 to-transparent blur-2xl animate-pulse-glow pointer-events-none"
+                      className="absolute -inset-4 sm:-inset-6 -z-10 rounded-[3rem] bg-gradient-to-tr from-[#D47E30]/25 via-accent/15 to-transparent blur-2xl animate-pulse-glow pointer-events-none"
                       style={{ transform: "translateZ(-30px)" }}
                       aria-hidden="true"
                     />
@@ -1127,7 +1127,7 @@ export default function LandingPage() {
             <div className="w-full h-1 bg-[#E8E8E6] rounded-full overflow-hidden">
               <div
                 key={exploreIdx}
-                className="h-full bg-gradient-to-r from-[#D47E30] to-[#F1641D] rounded-full"
+                className="h-full bg-gradient-to-r from-[#D47E30] to-accent rounded-full"
                 style={{
                   animation: isCarouselHovered ? "none" : "progressTimer 3.8s linear forwards",
                   width: isCarouselHovered ? "100%" : undefined,

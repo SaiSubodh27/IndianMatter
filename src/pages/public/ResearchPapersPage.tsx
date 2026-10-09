@@ -192,7 +192,7 @@ export default function ResearchPapersPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FAF1E8] text-[#1E2227] font-sans flex flex-col selection:bg-[#FBE8D8] selection:text-[#F1641D]">
+    <div className="min-h-screen bg-[#FAF1E8] text-[#1E2227] font-sans flex flex-col selection:bg-accent-soft selection:text-accent">
       {/* ── Fixed Main Site Header ── */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#EDE8E2] h-16 transition-shadow duration-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">

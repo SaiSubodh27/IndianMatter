@@ -341,7 +341,7 @@ export default function BatchPredictionPage() {
     <div className="w-full max-w-[1600px] mx-auto space-y-7 px-4 sm:px-8 py-6">
       {/* Page Header */}
       <header>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
           <Zap size={14} /> High-Throughput Inference
         </div>
         <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -361,13 +361,13 @@ export default function BatchPredictionPage() {
           <section className="bg-white rounded-[2rem] p-6 sm:p-7 shadow-card border border-[#EFE5DC] space-y-5">
             <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-3">
               <h2 className="font-headline font-bold text-base text-[#1E2227] flex items-center gap-2">
-                <FileArchive size={17} className="text-[#F1641D]" /> 1. Upload CIF Files or ZIP
+                <FileArchive size={17} className="text-accent" /> 1. Upload CIF Files or ZIP
               </h2>
               <button
                 type="button"
                 onClick={handleLoadSamples}
                 disabled={sampleLoading || jobStatus === "processing"}
-                className="text-[11px] font-semibold text-[#F1641D] hover:text-[#D9520F] flex items-center gap-1 bg-[#FBE8D8] px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="text-[11px] font-semibold text-accent hover:text-accent-hover flex items-center gap-1 bg-accent-soft px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 <Sparkles size={12} /> {sampleLoading ? "Loading..." : "Load Samples"}
               </button>
@@ -381,7 +381,7 @@ export default function BatchPredictionPage() {
               onClick={() => fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
                 isDragging
-                  ? "border-[#F1641D] bg-[#FBE8D8]/30 scale-[1.01]"
+                  ? "border-accent bg-accent-soft/30 scale-[1.01]"
                   : "border-[#E9DFD4] bg-[#FAF4EE]/40 hover:bg-[#FAF4EE] hover:border-[#D5C7B8]"
               }`}
             >
@@ -393,7 +393,7 @@ export default function BatchPredictionPage() {
                 className="hidden"
                 onChange={handleFileChange}
               />
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[#FBE8D8] text-[#F1641D] flex items-center justify-center shadow-xs">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-accent-soft text-accent flex items-center justify-center shadow-xs">
                 <Upload size={22} />
               </div>
               <p className="text-xs font-semibold text-[#1E2227]">
@@ -443,12 +443,12 @@ export default function BatchPredictionPage() {
           {/* Calculation Settings */}
           <section className="bg-white rounded-[2rem] p-6 sm:p-7 shadow-card border border-[#EFE5DC] space-y-4">
             <h2 className="font-headline font-bold text-base text-[#1E2227] flex items-center gap-2 border-b border-[#F2E7DC] pb-3">
-              <Sliders size={17} className="text-[#F1641D]" /> 2. Environmental Settings
+              <Sliders size={17} className="text-accent" /> 2. Environmental Settings
             </h2>
             <div>
               <div className="flex justify-between items-center text-xs mb-1.5">
                 <label className="font-semibold text-[#1E2227]">Target Temperature</label>
-                <span className="font-mono font-bold text-[#F1641D]">
+                <span className="font-mono font-bold text-accent">
                   {temperature} K ({(temperature - 273.15).toFixed(1)} °C)
                 </span>
               </div>
@@ -459,7 +459,7 @@ export default function BatchPredictionPage() {
                 step="5"
                 value={temperature}
                 onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                className="w-full accent-[#F1641D] cursor-pointer"
+                className="w-full accent-accent cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-[#8C929C] mt-1">
                 <span>200 K (-73°C)</span>
@@ -476,7 +476,7 @@ export default function BatchPredictionPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F2E7DC] pb-3">
               <div>
                 <h2 className="font-headline font-bold text-base text-[#1E2227] flex items-center gap-2">
-                  <Layers size={17} className="text-[#F1641D]" /> 3. Select Properties to Route & Predict
+                  <Layers size={17} className="text-accent" /> 3. Select Properties to Route & Predict
                 </h2>
                 <p className="text-xs text-[#8C929C] mt-0.5">
                   Only selected models and descriptors will be executed for fast throughput.
@@ -495,7 +495,7 @@ export default function BatchPredictionPage() {
                 <button
                   type="button"
                   onClick={() => setPreset("battery")}
-                  className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-[#FBE8D8] text-[#F1641D] hover:bg-[#F2D7C2] transition-colors cursor-pointer"
+                  className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-accent-soft text-accent hover:bg-[#F2D7C2] transition-colors cursor-pointer"
                 >
                   Battery Suite
                 </button>
@@ -531,7 +531,7 @@ export default function BatchPredictionPage() {
 
                 const getIcon = () => {
                   switch (cat) {
-                    case "Ionic Transport": return <Activity size={14} className="text-[#F1641D]" />;
+                    case "Ionic Transport": return <Activity size={14} className="text-accent" />;
                     case "Mechanical": return <Cpu size={14} className="text-[#1D4FA3]" />;
                     case "Thermodynamics": return <Sparkles size={14} className="text-[#E05638]" />;
                     case "Electronic": return <Zap size={14} className="text-[#9A6A00]" />;
@@ -554,11 +554,11 @@ export default function BatchPredictionPage() {
                             onClick={() => toggleProperty(prop.key)}
                             className={`flex items-start gap-2 p-2 rounded-lg text-xs cursor-pointer select-none transition-colors ${
                               isChecked
-                                ? "bg-white border border-[#F1641D]/30 shadow-xs"
+                                ? "bg-white border border-accent/30 shadow-xs"
                                 : "hover:bg-white/60 border border-transparent"
                             }`}
                           >
-                            <span className="mt-0.5 text-[#F1641D]">
+                            <span className="mt-0.5 text-accent">
                               {isChecked ? <CheckSquare size={14} /> : <Square size={14} className="text-[#8C929C]" />}
                             </span>
                             <div className="min-w-0">
@@ -592,7 +592,7 @@ export default function BatchPredictionPage() {
                 type="button"
                 onClick={handleRunBatch}
                 disabled={jobStatus === "processing" || files.length === 0}
-                className="w-full py-3.5 bg-[#F1641D] hover:bg-[#D9520F] text-white rounded-xl font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3.5 bg-accent hover:bg-accent-hover text-white rounded-xl font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {jobStatus === "processing" ? (
                   <>
@@ -609,18 +609,18 @@ export default function BatchPredictionPage() {
 
               {/* Progress Bar when running */}
               {jobStatus === "processing" && (
-                <div className="space-y-1.5 p-3.5 rounded-xl border border-[#FBE8D8] bg-[#FAF4EE]">
+                <div className="space-y-1.5 p-3.5 rounded-xl border border-accent-soft bg-[#FAF4EE]">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-semibold text-[#1E2227] truncate max-w-[320px]">
-                      Processing: <span className="text-[#F1641D]">{currentFile || "Preparing..."}</span>
+                      Processing: <span className="text-accent">{currentFile || "Preparing..."}</span>
                     </span>
-                    <span className="font-mono text-[#F1641D] font-bold">
+                    <span className="font-mono text-accent font-bold">
                       {completedCount} / {totalFiles} ({progress}%)
                     </span>
                   </div>
                   <div className="w-full bg-[#E9DFD4] h-2 rounded-full overflow-hidden">
                     <div
-                      className="bg-[#F1641D] h-full transition-all duration-300 rounded-full"
+                      className="bg-accent h-full transition-all duration-300 rounded-full"
                       style={{ width: `${Math.max(5, progress)}%` }}
                     />
                   </div>
@@ -702,9 +702,9 @@ export default function BatchPredictionPage() {
               </div>
             )}
             {meanCond !== null && (
-              <div className="p-3.5 rounded-xl border border-[#FBE8D8] bg-[#FBE8D8]/30">
-                <span className="text-[10px] font-semibold text-[#F1641D] uppercase block">Avg Ionic Cond. (σ)</span>
-                <span className="text-sm font-headline font-bold text-[#F1641D] mt-1 block">
+              <div className="p-3.5 rounded-xl border border-accent-soft bg-accent-soft/30">
+                <span className="text-[10px] font-semibold text-accent uppercase block">Avg Ionic Cond. (σ)</span>
+                <span className="text-sm font-headline font-bold text-accent mt-1 block">
                   {formatValue("ionic_conductivity_S_cm", meanCond)}
                 </span>
               </div>
@@ -720,7 +720,7 @@ export default function BatchPredictionPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Filter by formula or filename..."
-                className="w-full pl-9 pr-3 py-2 bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl text-xs text-[#1E2227] outline-none focus:border-[#F1641D]"
+                className="w-full pl-9 pr-3 py-2 bg-[#FAF4EE]/50 border border-[#E9DFD4] rounded-xl text-xs text-[#1E2227] outline-none focus:border-accent"
               />
             </div>
             <span className="text-xs text-[#8C929C]">
@@ -774,7 +774,7 @@ export default function BatchPredictionPage() {
                       <td className="py-3 px-4 font-mono font-medium text-[#1E2227]">
                         {row.filename}
                       </td>
-                      <td className="py-3 px-4 font-bold text-[#F1641D]">
+                      <td className="py-3 px-4 font-bold text-accent">
                         {row.formula || "—"}
                       </td>
                       <td className="py-3 px-4 text-[#5F6771]">

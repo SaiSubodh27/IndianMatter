@@ -453,7 +453,7 @@ export default function CIFGenerationPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
             <FileJson size={14} /> CIF Architect // Crystallographic Synthesis
           </div>
           <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -467,7 +467,7 @@ export default function CIFGenerationPage() {
         {/* Live execution timer badge */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-[#E9DFD4] rounded-xl text-xs font-mono font-medium text-[#1E2227] shadow-sm">
-            <Clock size={13} className="text-[#F1641D]" />
+            <Clock size={13} className="text-accent" />
             <span>EXEC:</span>
             <span className="font-bold">{generating ? `${liveSeconds}s` : elapsedTime ? `${elapsedTime.toFixed(2)}s` : "0.00s"}</span>
           </div>
@@ -497,7 +497,7 @@ export default function CIFGenerationPage() {
                 }
               }}
               placeholder="Fe2O3   ·   La0.7Sr0.3MnO3   ·   Zn0.05Fe1.95O4   ·   or describe in words"
-              className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-2xl py-3.5 px-5 text-sm sm:text-base font-mono text-[#1E2227] outline-none focus:border-[#F1641D] transition-colors"
+              className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-2xl py-3.5 px-5 text-sm sm:text-base font-mono text-[#1E2227] outline-none focus:border-accent transition-colors"
             />
             {formula && (
               <button
@@ -514,7 +514,7 @@ export default function CIFGenerationPage() {
             type="button"
             onClick={handleGenerate}
             disabled={generating || !formula.trim()}
-            className="px-6 py-3.5 bg-[#F1641D] hover:bg-[#D9520F] disabled:opacity-50 text-white rounded-2xl font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-soft transition-all shrink-0 active:scale-98"
+            className="px-6 py-3.5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white rounded-2xl font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-soft transition-all shrink-0 active:scale-98"
           >
             {generating ? (
               <>
@@ -534,7 +534,7 @@ export default function CIFGenerationPage() {
         {caseCorrection && caseCorrection.suggestion && (
           <div className="flex items-center justify-between gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
             <div className="flex items-center gap-2">
-              <Sparkles size={14} className="text-[#F1641D]" />
+              <Sparkles size={14} className="text-accent" />
               <span>
                 {caseCorrection.corrected ? "Auto-capitalized to " : "Did you mean "}
                 <strong>{caseCorrection.suggestion}</strong>?
@@ -571,7 +571,7 @@ export default function CIFGenerationPage() {
                 </span>
               )}
               {isDopedDetected ? (
-                <span className="px-2.5 py-0.5 rounded-full bg-orange-50 text-[#F1641D] font-medium border border-orange-200">
+                <span className="px-2.5 py-0.5 rounded-full bg-orange-50 text-accent font-medium border border-orange-200">
                   Doped solid solution
                 </span>
               ) : (
@@ -649,7 +649,7 @@ export default function CIFGenerationPage() {
               <span className="text-xs font-bold uppercase tracking-wider text-[#1E2227]">
                 Active Search Space Elements
               </span>
-              <span className="text-[10px] font-semibold text-[#F1641D] bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 font-mono">
+              <span className="text-[10px] font-semibold text-accent bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 font-mono">
                 {parsedElements.length} Elements
               </span>
             </div>
@@ -664,7 +664,7 @@ export default function CIFGenerationPage() {
                   >
                     <span className="font-bold text-[#1E2227]">{el.symbol}</span>
                     <span className="text-[#8C929C]">×{el.amount}</span>
-                    <span className="text-[10px] text-[#F1641D] font-semibold">{el.weight_percent}% wt</span>
+                    <span className="text-[10px] text-accent font-semibold">{el.weight_percent}% wt</span>
                   </div>
                 ))
               ) : (
@@ -704,7 +704,7 @@ export default function CIFGenerationPage() {
 
             {/* Doping Detected Alert */}
             {isDopedDetected && detectedDopingText && (
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl text-xs text-[#F1641D] flex items-center gap-2">
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl text-xs text-accent flex items-center gap-2">
                 <AlertCircle size={14} className="shrink-0" />
                 <span>{detectedDopingText}</span>
               </div>
@@ -761,7 +761,7 @@ export default function CIFGenerationPage() {
               value={spaceGroup}
               onChange={(e) => setSpaceGroup(e.target.value)}
               placeholder="e.g. R-3c, Fd-3m, Pnma, or 167"
-              className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-xl px-4 py-2.5 text-xs font-mono text-[#1E2227] outline-none focus:border-[#F1641D]"
+              className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-xl px-4 py-2.5 text-xs font-mono text-[#1E2227] outline-none focus:border-accent"
             />
           </div>
 
@@ -772,13 +772,13 @@ export default function CIFGenerationPage() {
               className="flex items-center justify-between cursor-pointer select-none"
             >
               <div className="flex items-center gap-2">
-                <Sliders size={16} className="text-[#F1641D]" />
+                <Sliders size={16} className="text-accent" />
                 <span className="text-xs font-bold uppercase tracking-wider text-[#1E2227]">
                   Site-Specific Doping Specification
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold text-[#F1641D] bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                <span className="text-[10px] font-semibold text-accent bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
                   {isDopedDetected || dopantElement ? "Doped" : "Undoped"}
                 </span>
                 {dopingDrawerOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -800,7 +800,7 @@ export default function CIFGenerationPage() {
                     value={hostFormula}
                     onChange={(e) => setHostFormula(e.target.value)}
                     placeholder="e.g. Fe2O3"
-                    className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs font-mono text-[#1E2227] outline-none focus:border-[#F1641D]"
+                    className="w-full bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-xl px-3 py-2 text-xs font-mono text-[#1E2227] outline-none focus:border-accent"
                   />
                 </div>
 
@@ -818,7 +818,7 @@ export default function CIFGenerationPage() {
                         value={dopantElement}
                         onChange={(e) => setDopantElement(e.target.value)}
                         placeholder="e.g. Ti"
-                        className="w-full bg-white border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#1E2227] outline-none focus:border-[#F1641D]"
+                        className="w-full bg-white border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#1E2227] outline-none focus:border-accent"
                       />
                     </div>
                     <div>
@@ -828,7 +828,7 @@ export default function CIFGenerationPage() {
                         value={hostSiteSpecies}
                         onChange={(e) => setHostSiteSpecies(e.target.value)}
                         placeholder="e.g. Fe"
-                        className="w-full bg-white border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#1E2227] outline-none focus:border-[#F1641D]"
+                        className="w-full bg-white border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#1E2227] outline-none focus:border-accent"
                       />
                     </div>
                   </div>
@@ -843,7 +843,7 @@ export default function CIFGenerationPage() {
                       value={dopantFraction}
                       onChange={(e) => setDopantFraction(e.target.value)}
                       placeholder="e.g. 0.05"
-                      className="w-full bg-white border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#1E2227] outline-none focus:border-[#F1641D]"
+                      className="w-full bg-white border border-[#E9DFD4] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#1E2227] outline-none focus:border-accent"
                     />
                   </div>
                 </div>
@@ -857,7 +857,7 @@ export default function CIFGenerationPage() {
                     <button
                       type="button"
                       onClick={addCoDopant}
-                      className="px-2.5 py-1 bg-white border border-[#E9DFD4] hover:bg-[#FAF4EE] rounded-lg text-xs font-semibold text-[#F1641D] flex items-center gap-1 shadow-sm"
+                      className="px-2.5 py-1 bg-white border border-[#E9DFD4] hover:bg-[#FAF4EE] rounded-lg text-xs font-semibold text-accent flex items-center gap-1 shadow-sm"
                     >
                       <Plus size={12} /> Add Co-Dopant
                     </button>
@@ -925,7 +925,7 @@ export default function CIFGenerationPage() {
           {/* Connected Engines Telemetry Card */}
           <div className="bg-white rounded-[2rem] p-6 shadow-card border border-[#EFE5DC] space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-[#1E2227] flex items-center gap-2">
-              <Cpu size={14} className="text-[#F1641D]" /> Connected Engines & Telemetry
+              <Cpu size={14} className="text-accent" /> Connected Engines & Telemetry
             </span>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2.5 bg-[#FAF4EE] rounded-xl flex justify-between items-center">
@@ -964,14 +964,14 @@ export default function CIFGenerationPage() {
           {/* In-Flight Generation Progress Card */}
           {generating && (
             <div className="bg-white rounded-[2.5rem] p-8 shadow-card border border-[#EFE5DC] text-center space-y-4">
-              <RefreshCw size={36} className="animate-spin text-[#F1641D] mx-auto" />
+              <RefreshCw size={36} className="animate-spin text-accent mx-auto" />
               <h3 className="font-headline font-bold text-xl text-[#1E2227]">
                 Executing Crystallographic Pipeline: {formula}
               </h3>
               <p className="text-xs text-[#8C929C] max-w-md mx-auto">
                 Querying multi-database indexes, generating symmetry tensor, and performing double-precision MACE-MP-0 lattice relaxation...
               </p>
-              <div className="font-mono text-sm font-bold text-[#F1641D]">
+              <div className="font-mono text-sm font-bold text-accent">
                 Elapsed: {liveSeconds}s
               </div>
             </div>
@@ -1007,7 +1007,7 @@ export default function CIFGenerationPage() {
 
                   <button
                     onClick={handleDownload}
-                    className="px-4 py-2 bg-[#F1641D] hover:bg-[#D9520F] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
+                    className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
                   >
                     <Download size={13} /> Download .cif
                   </button>
@@ -1022,7 +1022,7 @@ export default function CIFGenerationPage() {
                       Lattice Vectors & Unit Cell Geometry
                     </span>
                     {latticeMetrics.volume && (
-                      <span className="text-xs font-mono text-[#F1641D] font-semibold">
+                      <span className="text-xs font-mono text-accent font-semibold">
                         Volume: {latticeMetrics.volume} Å³
                       </span>
                     )}
@@ -1096,7 +1096,7 @@ export default function CIFGenerationPage() {
           {!generated && !generating && (
             <div className="bg-white rounded-[2.5rem] p-8 shadow-card border border-[#EFE5DC] space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center border border-orange-200 text-[#F1641D]">
+                <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center border border-orange-200 text-accent">
                   <Layers size={24} />
                 </div>
                 <div>
@@ -1112,7 +1112,7 @@ export default function CIFGenerationPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="p-4 bg-[#FAF4EE] rounded-2xl border border-[#EFE5DC] space-y-1">
                   <div className="flex items-center gap-1.5 font-bold text-[#1E2227]">
-                    <Database size={14} className="text-[#F1641D]" /> Multi-DB Search
+                    <Database size={14} className="text-accent" /> Multi-DB Search
                   </div>
                   <p className="text-[11px] text-[#5F6771]">
                     Searches Materials Project, OQMD, JARVIS, and COD databases in priority order.
@@ -1121,7 +1121,7 @@ export default function CIFGenerationPage() {
 
                 <div className="p-4 bg-[#FAF4EE] rounded-2xl border border-[#EFE5DC] space-y-1">
                   <div className="flex items-center gap-1.5 font-bold text-[#1E2227]">
-                    <Sparkles size={14} className="text-[#F1641D]" /> CrystaLLM Engine
+                    <Sparkles size={14} className="text-accent" /> CrystaLLM Engine
                   </div>
                   <p className="text-[11px] text-[#5F6771]">
                     Autoregressive GPT generative model synthesizes novel structures when no match exists.
@@ -1130,7 +1130,7 @@ export default function CIFGenerationPage() {
 
                 <div className="p-4 bg-[#FAF4EE] rounded-2xl border border-[#EFE5DC] space-y-1">
                   <div className="flex items-center gap-1.5 font-bold text-[#1E2227]">
-                    <Cpu size={14} className="text-[#F1641D]" /> MACE-MP-0 Relaxation
+                    <Cpu size={14} className="text-accent" /> MACE-MP-0 Relaxation
                   </div>
                   <p className="text-[11px] text-[#5F6771]">
                     Machine learning potential performs float64 geometry optimization with FIRE.
@@ -1139,7 +1139,7 @@ export default function CIFGenerationPage() {
 
                 <div className="p-4 bg-[#FAF4EE] rounded-2xl border border-[#EFE5DC] space-y-1">
                   <div className="flex items-center gap-1.5 font-bold text-[#1E2227]">
-                    <FileJson size={14} className="text-[#F1641D]" /> Direct Property Prediction
+                    <FileJson size={14} className="text-accent" /> Direct Property Prediction
                   </div>
                   <p className="text-[11px] text-[#5F6771]">
                     1-click seamless handoff of synthesized CIF directly into the GNN prediction pipeline.

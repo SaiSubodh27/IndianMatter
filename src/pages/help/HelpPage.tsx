@@ -19,7 +19,7 @@ export default function HelpPage() {
   return (
     <div className="w-full max-w-[1550px] mx-auto space-y-8 px-4 sm:px-8 py-6">
       <div>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F1641D] font-headline mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent font-headline mb-1">
           <HelpCircle size={14} /> Knowledge & Documentation
         </div>
         <h1 className="text-3xl sm:text-4xl font-headline font-bold text-[#1E2227]">
@@ -54,7 +54,7 @@ export default function HelpPage() {
           </div>
           <button
             onClick={() => alert("Support ticket created. A computational scientist will respond within 4 hours.")}
-            className="px-5 py-2.5 bg-[#F1641D] text-white rounded-xl text-xs font-semibold hover:bg-[#D9520F] transition-all shadow-soft shrink-0"
+            className="px-5 py-2.5 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover transition-all shadow-soft shrink-0"
           >
             Submit Research Ticket
           </button>
