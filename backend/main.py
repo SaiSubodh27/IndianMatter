@@ -37,6 +37,17 @@ from routes import (
 )
 from model_service import load_models
 
+# CIF Generator pipeline (integrated from the CIF-generator project).
+# Exposes POST /cif/api/generate, /cif/api/doped-cif, /cif/api/parse-formula, ...
+# and serves its web UI at /cif/.
+try:
+    from webapp import app as cif_generator_app
+    _CIF_APP_AVAILABLE = True
+except Exception as _cif_import_error:  # keep main API up even if heavy ML deps are missing
+    cif_generator_app = None
+    _CIF_APP_AVAILABLE = False
+    print(f"[startup] CIF generator disabled: {_cif_import_error}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -108,6 +119,10 @@ app.include_router(indianmatter.router, prefix="/api/indianmatter", tags=["India
 # ---------------------------------------------------------
 app.include_router(calculator_router)
 app.include_router(transport_router.router, prefix="/api/calculations")
+
+# Mount the integrated CIF generator app (UI at /cif/, API at /cif/api/...)
+if _CIF_APP_AVAILABLE:
+    app.mount("/cif", cif_generator_app)
 
 
 @app.get("/")

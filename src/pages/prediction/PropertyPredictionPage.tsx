@@ -14,6 +14,7 @@ import {
   DirectPredictionResponse,
   PropertyResult,
 } from "../../lib/materialsPredictionApi";
+import { useLocation } from "react-router-dom";
 
 // ---------------------------------------------------------------------------
 // Property catalogue — one entry per supported property key.
@@ -503,6 +504,21 @@ export default function PropertyPredictionPage() {
   const [result, setResult] = useState<DirectPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // If we arrived here from the CIF Generation page, a generated CIF was
+  // handed over via router state — use it directly instead of asking for an upload.
+  const location = useLocation();
+  useEffect(() => {
+    const st = location.state as { cifString?: string; formula?: string } | null;
+    if (st?.cifString) {
+      const generatedFile = new File(
+        [st.cifString],
+        `${(st.formula || "generated").replace(/\s+/g, "_")}.cif`,
+        { type: "chemical/x-cif" },
+      );
+      setFile(generatedFile);
+    }
+  }, [location.state]);
 
   const cifText = useCifText(file);
 
