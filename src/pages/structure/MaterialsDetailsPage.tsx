@@ -70,7 +70,7 @@ export default function MaterialDetailsPage() {
               LiCoO₂
             </h1>
             <p className="text-sm text-[#5F6771]">
-              Lithium Cobalt Oxide — Layered Cathode Material
+              Lithium Cobalt Oxide: Layered Cathode Material
             </p>
           </div>
 

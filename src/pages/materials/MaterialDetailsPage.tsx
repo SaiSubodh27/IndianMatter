@@ -25,7 +25,7 @@ export default function MaterialDetailsPage() {
             <h1 className="text-4xl sm:text-5xl font-headline font-bold text-[#1E2227] tracking-tight mt-1">
               LiCoO₂
             </h1>
-            <p className="text-sm text-[#5F6771]">Lithium Cobalt Oxide — Layered Cathode Material</p>
+            <p className="text-sm text-[#5F6771]">Lithium Cobalt Oxide: Layered Cathode Material</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

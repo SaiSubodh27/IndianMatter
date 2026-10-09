@@ -49,7 +49,7 @@ function detailFrom(body: unknown): string | null {
 function statusMessage(status: number, detail: string | null): string {
   switch (status) {
     case 400:
-      return detail ?? "Invalid CIF file — the server rejected this upload.";
+      return detail ?? "Invalid CIF file. The server rejected this upload.";
     case 404:
       return `Prediction endpoint not found at ${API_BASE_URL}. The backend may be running an older build.`;
     case 405:
@@ -57,11 +57,11 @@ function statusMessage(status: number, detail: string | null): string {
     case 413:
       return "CIF file is too large for the prediction service.";
     case 415:
-      return "Unsupported file format — only .cif files are accepted.";
+      return "Unsupported file format: only .cif files are accepted.";
     case 422:
       return detail ?? "The request was rejected as invalid by the server.";
     case 429:
-      return "Too many requests — please wait a moment and try again.";
+      return "Too many requests. Please wait a moment and try again.";
     case 500:
       return detail
         ? `Prediction failed: ${detail}`
@@ -69,7 +69,7 @@ function statusMessage(status: number, detail: string | null): string {
     case 502:
     case 503:
     case 504:
-      return "Prediction service unavailable — the backend is up but not ready to serve predictions.";
+      return "Prediction service unavailable: the backend is up but not ready to serve predictions.";
     default:
       if (status >= 500) {
         return detail
@@ -109,14 +109,14 @@ async function requestJson(
   } catch {
     if (timedOut) {
       throw new ApiError(
-        `Request timed out after ${Math.round(timeoutMs / 1000)}s. Large structures can exceed this — try a smaller cell.`,
+        `Request timed out after ${Math.round(timeoutMs / 1000)}s. Large structures can exceed this: try a smaller cell.`,
       );
     }
     if (externalSignal?.aborted) {
       throw new ApiError("Request cancelled.");
     }
     throw new ApiError(
-      `Backend unavailable — could not reach the prediction service at ${API_BASE_URL}. Confirm the server is running and that VITE_API_BASE_URL points at it.`,
+      `Backend unavailable: could not reach the prediction service at ${API_BASE_URL}. Confirm the server is running and that VITE_API_BASE_URL points at it.`,
       0,
       true,
     );
@@ -151,7 +151,7 @@ async function requestJson(
 
   if (parseFailed || parsed === null) {
     throw new ApiError(
-      "Invalid server response — expected JSON from the prediction service.",
+      "Invalid server response: expected JSON from the prediction service.",
       response.status,
     );
   }

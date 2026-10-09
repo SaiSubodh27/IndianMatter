@@ -36,8 +36,7 @@ export default function Home() {
           </h1>
           <p className="mt-7 max-w-xl text-lg leading-8 text-[#68645c]">
             Explore materials research, inspect results, and ask better
-            questions with a contextual assistant built around the paper—not
-            apart from it.
+            questions with a contextual assistant built directly around the research paper.
           </p>
           <Link
             to="/dashboard/ai-copilot"
