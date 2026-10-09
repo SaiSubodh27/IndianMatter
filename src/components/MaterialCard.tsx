@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowRight, Bookmark, Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ChemicalFormula from "./ChemicalFormula";
+import CrystalSystemSketch from "./CrystalSystemSketch";
 
 export interface MaterialCardProps {
   id: string;
@@ -15,57 +16,6 @@ export interface MaterialCardProps {
   density: string;
   database: string;
   tags: string[];
-}
-
-/**
- * Returns a schematic SVG wireframe based on the crystallographic system.
- */
-function CrystalSystemSchematic({ system }: { system: string }) {
-  const s = (system || "").toLowerCase();
-  if (s.includes("cubic")) {
-    return (
-      <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
-        <rect x="14" y="14" width="22" height="22" rx="1" />
-        <rect x="8" y="8" width="22" height="22" rx="1" className="stroke-slate-400 stroke-dashed" />
-        <line x1="8" y1="8" x2="14" y2="14" />
-        <line x1="30" y1="8" x2="36" y2="14" />
-        <line x1="8" y1="30" x2="14" y2="36" />
-        <line x1="30" y1="30" x2="36" y2="36" />
-      </svg>
-    );
-  }
-  if (s.includes("hex") || s.includes("trig")) {
-    return (
-      <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
-        <polygon points="24,6 38,14 38,30 24,38 10,30 10,14" />
-        <line x1="24" y1="6" x2="24" y2="38" className="stroke-slate-300 stroke-dashed" />
-        <line x1="10" y1="14" x2="38" y2="30" className="stroke-slate-300 stroke-dashed" />
-      </svg>
-    );
-  }
-  if (s.includes("tetra")) {
-    return (
-      <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
-        <rect x="14" y="8" width="20" height="28" rx="1" />
-        <rect x="9" y="4" width="20" height="28" rx="1" className="stroke-slate-400 stroke-dashed" />
-        <line x1="9" y1="4" x2="14" y2="8" />
-        <line x1="29" y1="4" x2="34" y2="8" />
-        <line x1="9" y1="32" x2="14" y2="36" />
-        <line x1="29" y1="32" x2="34" y2="36" />
-      </svg>
-    );
-  }
-  // Default / Orthorhombic / Monoclinic / Triclinic
-  return (
-    <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
-      <polygon points="12,12 36,12 32,34 8,34" />
-      <polygon points="16,6 40,6 36,28 12,28" className="stroke-slate-400 stroke-dashed" />
-      <line x1="12" y1="12" x2="16" y2="6" />
-      <line x1="36" y1="12" x2="40" y2="6" />
-      <line x1="8" y1="34" x2="12" y2="28" />
-      <line x1="32" y1="34" x2="36" y2="28" />
-    </svg>
-  );
 }
 
 export default function MaterialCard({
@@ -126,7 +76,7 @@ export default function MaterialCard({
         <div className="my-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-white rounded border border-slate-200/60 shadow-xs">
-              <CrystalSystemSchematic system={system} />
+              <CrystalSystemSketch crystalSystem={system} />
             </div>
             <div>
               <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block">

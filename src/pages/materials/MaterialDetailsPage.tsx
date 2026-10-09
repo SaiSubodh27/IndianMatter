@@ -1,6 +1,20 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ShieldCheck, Activity, Download, ExternalLink } from "lucide-react";
+import CrystalSystemSketch from "../../components/CrystalSystemSketch";
+
+const materialData = {
+  formula: "LiCoO2",
+  formulaDisplay: "LiCoO₂",
+  name: "Lithium Cobalt Oxide",
+  subtitle: "Layered Cathode Material",
+  system: "Trigonal",
+  spaceGroup: "R -3 m",
+  spaceGroupNumber: "166",
+  mpId: "mp-22526",
+  database: "Materials Project",
+  conductivity: undefined as string | undefined,
+};
 
 export default function MaterialDetailsPage() {
   const [activeTab, setActiveTab] = useState<"structure" | "electronic" | "thermo" | "literature">("structure");
@@ -19,13 +33,13 @@ export default function MaterialDetailsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-[#F1641D] uppercase tracking-wider font-headline">
-              <span>Materials Project • mp-22526</span>
-              <span>• Trigonal (R -3 m)</span>
+              <span>{materialData.database} • {materialData.mpId}</span>
+              <span>• {materialData.system} ({materialData.spaceGroup})</span>
             </div>
             <h1 className="text-4xl sm:text-5xl font-headline font-bold text-[#1E2227] tracking-tight mt-1">
-              LiCoO₂
+              {materialData.formulaDisplay}
             </h1>
-            <p className="text-sm text-[#5F6771]">Lithium Cobalt Oxide: Layered Cathode Material</p>
+            <p className="text-sm text-[#5F6771]">{materialData.name}: {materialData.subtitle}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -59,10 +73,9 @@ export default function MaterialDetailsPage() {
           </div>
 
           <div className="flex-1 flex items-center justify-center relative my-4">
-            <img
-              src="/assets/about_lattice.png"
-              alt="LiCoO2 Unit Cell"
-              className="max-h-72 max-w-full object-contain drop-shadow-2xl"
+            <CrystalSystemSketch
+              crystalSystem={materialData.system}
+              className="w-48 h-48 stroke-slate-600 fill-none stroke-[1.5]"
             />
           </div>
 
