@@ -8,11 +8,20 @@ export default function DFTValidationPage() {
   const [kpoints, setKpoints] = useState("4x4x4");
   const [status, setStatus] = useState<"idle" | "running" | "completed">("idle");
   const [progress, setProgress] = useState(0);
+  const [validationResult, setValidationResult] = useState<{
+    gnnEnergy: string | null;
+    dftEnergy: string | null;
+    deltaEnergy: string | null;
+    bandGapComparison: string | null;
+    bandGapDelta: string | null;
+    agreementPercent: number | null;
+  } | null>(null);
 
   const handleRunDFT = (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("running");
     setProgress(15);
+    setValidationResult(null);
 
     const interval = setInterval(() => {
       setProgress((prev) => {
@@ -189,20 +198,28 @@ export default function DFTValidationPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#FAF4EE] p-4 rounded-2xl border border-[#EFE5DC]">
                   <span className="text-[10px] text-[#8C929C] uppercase font-bold">GNN Prediction</span>
-                  <p className="text-2xl font-bold font-headline text-[#F1641D] mt-1">-4.842 eV</p>
+                  <p className="text-2xl font-bold font-headline text-[#F1641D] mt-1">
+                    {validationResult?.gnnEnergy ?? "No result yet"}
+                  </p>
                   <p className="text-[11px] text-[#6C737E]">Formation Energy</p>
                 </div>
 
                 <div className="bg-[#FAF4EE] p-4 rounded-2xl border border-[#EFE5DC]">
                   <span className="text-[10px] text-[#8C929C] uppercase font-bold">DFT Ground Truth</span>
-                  <p className="text-2xl font-bold font-headline text-[#1E2227] mt-1">-4.860 eV</p>
+                  <p className="text-2xl font-bold font-headline text-[#1E2227] mt-1">
+                    {validationResult?.dftEnergy ?? "No result yet"}
+                  </p>
                   <p className="text-[11px] text-[#6C737E]">{functional} Functional</p>
                 </div>
 
                 <div className="bg-[#FAF4EE] p-4 rounded-2xl border border-[#EFE5DC]">
                   <span className="text-[10px] text-[#8C929C] uppercase font-bold">Absolute Error (Δ)</span>
-                  <p className="text-2xl font-bold font-headline text-[#2E7D32] mt-1">0.018 eV</p>
-                  <p className="text-[11px] text-[#2E7D32]">Within chemical accuracy</p>
+                  <p className="text-2xl font-bold font-headline text-[#2E7D32] mt-1">
+                    {validationResult?.deltaEnergy ?? "No result yet"}
+                  </p>
+                  <p className="text-[11px] text-[#2E7D32]">
+                    {validationResult?.deltaEnergy ? "Calculated residual" : "Awaiting calculation"}
+                  </p>
                 </div>
               </div>
 
@@ -211,11 +228,14 @@ export default function DFTValidationPage() {
                 <h4 className="text-xs font-bold text-[#1E2227]">Electronic Descriptors Delta</h4>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between text-[#5B636E]">
-                    <span>Band Gap (GNN: 2.45 eV vs DFT: 2.48 eV)</span>
-                    <span className="font-mono text-[#2E7D32]">Δ 0.03 eV</span>
+                    <span>{validationResult?.bandGapComparison ?? "Band Gap Comparison"}</span>
+                    <span className="font-mono text-[#2E7D32]">{validationResult?.bandGapDelta ?? "No result yet"}</span>
                   </div>
                   <div className="w-full h-2 bg-[#FAF4EE] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#F1641D] rounded-full" style={{ width: "94%" }} />
+                    <div
+                      className="h-full bg-[#F1641D] rounded-full"
+                      style={{ width: validationResult?.agreementPercent ? `${validationResult.agreementPercent}%` : "0%" }}
+                    />
                   </div>
                 </div>
               </div>
@@ -223,7 +243,10 @@ export default function DFTValidationPage() {
               {/* Actions Footer */}
               <div className="pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#F2E7DC]">
                 <button
-                  onClick={() => setStatus("idle")}
+                  onClick={() => {
+                    setStatus("idle");
+                    setValidationResult(null);
+                  }}
                   className="px-4 py-2 border border-[#E9DFD4] rounded-xl text-xs font-medium text-[#5F6771] hover:bg-[#FAF4EE] flex items-center gap-1.5"
                 >
                   <RotateCcw size={13} /> Reset

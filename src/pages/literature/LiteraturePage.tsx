@@ -262,7 +262,7 @@ export default function LiteraturePage() {
                 Explored vs. Unexplored Chemical Space
               </h4>
               <p className="text-xs text-[#5F6771] leading-relaxed">
-                2D latent projection mapping 140,000+ Materials Project compositions against published literature syntheses. Clusters represent established transition metal oxides; sparse regions highlight under-explored ionic conductors.
+                2D latent projection mapping active dataset compositions against published literature syntheses. Clusters represent established transition metal oxides; sparse regions highlight under-explored ionic conductors.
               </p>
               <div className="flex flex-wrap gap-4 text-xs font-semibold pt-1">
                 <span className="flex items-center gap-1.5 text-[#1E2227]">
@@ -277,7 +277,7 @@ export default function LiteraturePage() {
             <div className="w-52 h-36 bg-[#FAF4EE] rounded-2xl border border-[#EFE5DC] flex flex-col items-center justify-center p-4 text-center shrink-0">
               <Layers size={28} className="text-[#F1641D] mb-1.5" />
               <p className="text-xs font-bold text-[#1E2227]">UMAP 2D Projection</p>
-              <p className="text-[10px] text-[#8C929C]">140k Structures Mapped</p>
+              <p className="text-[10px] text-[#8C929C]">Structures mapped from the active dataset</p>
             </div>
           </div>
         )}

@@ -150,7 +150,7 @@ const features = [
   {
     icon: Search,
     title: "Federated Exploration",
-    desc: "Query 140,000+ DFT-calculated inorganic materials with element-level periodic table filtering.",
+    desc: "Query inorganic materials from Materials Project, OQMD, AFLOW, and JARVIS with element-level periodic table filtering.",
   },
   {
     icon: Leaf,
@@ -748,7 +748,7 @@ export default function LandingPage() {
           </h2>
 
           <p className="text-base lg:text-[17px] text-[#6B6B6B] max-w-[520px] leading-relaxed">
-            Screen over 140,000 inorganic materials across Materials Project, OQMD, and AFLOW. Predict electronic properties, generate candidate CIF structures, and benchmark against ab initio calculations.
+            Query inorganic materials across Materials Project, OQMD, AFLOW, and JARVIS. Predict electronic properties, generate candidate CIF structures, and benchmark against ab initio calculations.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">

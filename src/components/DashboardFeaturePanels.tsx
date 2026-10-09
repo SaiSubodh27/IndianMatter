@@ -23,9 +23,9 @@ export default function DashboardFeaturePanels() {
       renderVisual: () => (
         <div className="w-full flex flex-col justify-center items-center p-6 space-y-4">
           <div className="w-full max-w-sm bg-slate-50 rounded-lg p-4 border border-slate-200">
-            <div className="flex justify-between items-center text-xs font-semibold text-slate-800 mb-3">
+            <div className="flex flex-col gap-0.5 text-xs font-semibold text-slate-800 mb-3">
               <span>ML vs. DFT Convergence</span>
-              <span className="text-amber-800 font-mono text-[11px]">ΔE = 0.018 eV/atom</span>
+              <span className="text-slate-500 text-[11px] font-normal">Formation energy and e_hull screening against DFT references.</span>
             </div>
             {/* Visual Bar Comparison */}
             <div className="space-y-2.5 text-xs">

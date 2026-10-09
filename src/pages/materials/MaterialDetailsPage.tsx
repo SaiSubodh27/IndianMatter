@@ -93,7 +93,7 @@ export default function MaterialDetailsPage() {
             </div>
             <div className="bg-[#FAF4EE] p-3 rounded-xl flex justify-between items-center border border-[#EFE5DC]">
               <span className="text-[#5F6771]">Ionic Conductivity (300K)</span>
-              <span className="font-bold text-[#F1641D]">1.24 × 10⁻³ S/cm</span>
+              <span className="font-bold text-[#F1641D]">{"Not available"}</span>
             </div>
             <div className="bg-[#FAF4EE] p-3 rounded-xl flex justify-between items-center border border-[#EFE5DC]">
               <span className="text-[#5F6771]">Crystal Density</span>
