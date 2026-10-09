@@ -42,6 +42,15 @@
   --sidebar-collapsed-width: 72px;
   --sidebar-expanded-width: 256px;
   --sidebar-width: var(--sidebar-collapsed-width);
+
+  /* Motion design tokens */
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --motion-slow: 450ms;
+  --motion-xslow: 700ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 @layer base {
@@ -518,5 +527,100 @@
     }
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Motion System — Keyframes & Utilities
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    #e2e8f0 50%,
+    #f1f5f9 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Global Accessible Reduced-Motion System
+   Disables transforms, parallax, and infinite loops while preserving
+   accessible opacity fades and color changes.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+
+  /* Preserve accessible opacity and color transitions */
+  [class*="transition-opacity"],
+  [class*="transition-colors"],
+  .opacity-transition {
+    transition-duration: 150ms !important;
+  }
+
+  .skeleton-shimmer {
+    animation: none !important;
+    background: #f1f5f9 !important;
+  }
+}
+
 
 
