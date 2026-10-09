@@ -183,7 +183,7 @@ export default function LiteraturePage() {
           className="self-start md:self-auto px-4 py-2.5 bg-white border border-[#E9DFD4] hover:bg-[#FAF4EE] rounded-xl text-xs font-semibold text-[#1E2227] flex items-center gap-2 shadow-sm transition-colors"
           title="Refresh papers database"
         >
-          <RefreshCw size={14} className={loading ? "animate-spin text-accent" : "text-[#8C929C]"} />
+          <RefreshCw size={14} className={loading ? "animate-spin motion-reduce:animate-none text-accent" : "text-[#8C929C]"} />
           {loading ? "Syncing..." : "Sync Latest Papers"}
         </button>
       </div>
@@ -410,7 +410,7 @@ export default function LiteraturePage() {
       {/* Loading state */}
       {loading && (
         <div className="bg-white rounded-2xl p-12 border border-[#EFE5DC] text-center space-y-3">
-          <RefreshCw size={28} className="animate-spin text-accent mx-auto" />
+          <RefreshCw size={28} className="animate-spin motion-reduce:animate-none text-accent mx-auto" />
           <p className="text-sm font-semibold text-[#1E2227]">Retrieving research papers from database...</p>
           <p className="text-xs text-[#8C929C]">Fetching indexed literature and citation metadata</p>
         </div>

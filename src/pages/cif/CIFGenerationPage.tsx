@@ -472,7 +472,7 @@ export default function CIFGenerationPage() {
             <span className="font-bold">{generating ? `${liveSeconds}s` : elapsedTime ? `${elapsedTime.toFixed(2)}s` : "0.00s"}</span>
           </div>
           <div className="px-3 py-1.5 bg-[#FAF4EE] border border-[#EFE5DC] rounded-xl text-[11px] font-mono text-[#5F6771] flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <span>float64 precision</span>
           </div>
         </div>
@@ -518,7 +518,7 @@ export default function CIFGenerationPage() {
           >
             {generating ? (
               <>
-                <RefreshCw size={16} className="animate-spin" />
+                <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" />
                 <span>Generating CIF...</span>
               </>
             ) : (
@@ -964,7 +964,7 @@ export default function CIFGenerationPage() {
           {/* In-Flight Generation Progress Card */}
           {generating && (
             <div className="bg-white rounded-[2.5rem] p-8 shadow-card border border-[#EFE5DC] text-center space-y-4">
-              <RefreshCw size={36} className="animate-spin text-accent mx-auto" />
+              <RefreshCw size={36} className="animate-spin motion-reduce:animate-none text-accent mx-auto" />
               <h3 className="font-headline font-bold text-xl text-[#1E2227]">
                 Executing Crystallographic Pipeline: {formula}
               </h3>

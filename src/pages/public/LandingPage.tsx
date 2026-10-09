@@ -168,9 +168,8 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const exploreScrollRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState("home");
-  const [exploreIdx, setExploreIdx] = useState(2); // LiCoO2 centered
-  const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -306,21 +305,14 @@ export default function LandingPage() {
     return () => observers.forEach((o) => o.disconnect());
   }, []);
 
-  // Automatic scrolling from left to right: card to card with pause-on-hover
-  useEffect(() => {
-    if (isCarouselHovered) return;
-    const interval = setInterval(() => {
-      setExploreIdx((prev) => (prev + 1) % exploreMaterials.length);
-    }, 3800);
-    return () => clearInterval(interval);
-  }, [isCarouselHovered]);
-
-  const nextMaterial = () => {
-    setExploreIdx((prev) => (prev + 1) % exploreMaterials.length);
-  };
-
-  const prevMaterial = () => {
-    setExploreIdx((prev) => (prev - 1 + exploreMaterials.length) % exploreMaterials.length);
+  const scrollExplore = (direction: "left" | "right") => {
+    if (exploreScrollRef.current) {
+      const scrollAmount = 360;
+      exploreScrollRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
   };
 
   const handleContactSubmit = (e: React.FormEvent) => {
@@ -345,25 +337,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page min-h-screen bg-white text-[#38240D] overflow-x-clip selection-orange">
-      {/* ── Subtle organic background blobs — CSS only, not images ── */}
-      <div
-        aria-hidden="true"
-        className="fixed top-[-200px] right-[-200px] w-[600px] h-[600px] pointer-events-none -z-10"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(253,251,212,0.5) 0%, transparent 70%)",
-          borderRadius: "60% 40% 70% 30% / 50% 60% 40% 70%",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="fixed bottom-[-100px] left-[-150px] w-[500px] h-[500px] pointer-events-none -z-10"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(212,126,48,0.06) 0%, transparent 70%)",
-          borderRadius: "40% 60% 30% 70% / 60% 40% 70% 30%",
-        }}
-      />
+
 
       {/* ═══════════════════════════════════════════════════════════
           NAVBAR (Locked / Fixed at Top)
@@ -683,15 +657,7 @@ export default function LandingPage() {
         id="home"
         className="relative max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-20 pb-14 lg:pt-28 lg:pb-18 min-h-[540px] lg:min-h-[600px] flex items-center overflow-hidden"
       >
-        {/* Soft atmospheric background glow */}
-        <div
-          aria-hidden="true"
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-[650px] h-[650px] pointer-events-none -z-10"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(253,251,212,0.65) 0%, rgba(212,126,48,0.12) 45%, transparent 70%)",
-          }}
-        />
+
 
         {/* Integrated Background Video Layer (4-Edge Seamless Fade & Natural Left-to-Right Emergence) */}
         <div
@@ -860,293 +826,117 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Cards Carousel: Auto-scrolling left-to-right with front & back card depth and transition effects */}
+          {/* Controls: Left & Right Buttons */}
+          <div className="flex items-center justify-between mb-4 px-2">
+            <p className="text-xs text-[#9A9A9A]">
+              Showing key computational structures. Scroll horizontally to inspect.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scrollExplore("left")}
+                aria-label="Previous materials"
+                className="w-9 h-9 rounded-full bg-white border border-[#E5E5E5] text-[#333] hover:text-[#D47E30] hover:border-[#D47E30] hover:bg-[#FBF0E6]/30 flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollExplore("right")}
+                aria-label="Next materials"
+                className="w-9 h-9 rounded-full bg-white border border-[#E5E5E5] text-[#333] hover:text-[#D47E30] hover:border-[#D47E30] hover:bg-[#FBF0E6]/30 flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Cards: Static Horizontal Row with native overflow scrolling */}
           <div
-            className="relative w-full max-w-6xl mx-auto h-[540px] sm:h-[570px] flex items-center justify-center select-none"
-            style={{ perspective: "1200px" }}
-            onMouseEnter={() => setIsCarouselHovered(true)}
-            onMouseLeave={() => setIsCarouselHovered(false)}
+            ref={exploreScrollRef}
+            className="flex gap-6 overflow-x-auto pb-6 pt-2 scrollbar-thin snap-x snap-mandatory focus:outline-none"
+            tabIndex={0}
+            role="region"
+            aria-label="Materials library"
           >
-            {exploreMaterials.map((mat, idx) => {
-              const total = exploreMaterials.length;
-              let offset = idx - exploreIdx;
-              if (offset > total / 2) offset -= total;
-              if (offset < -total / 2) offset += total;
-
-              const isActive = offset === 0;
-
-              // Style and depth transforms based on relative distance to active front card
-              const getCardTransform = () => {
-                if (offset === 0) {
-                  return {
-                    transform: "translate3d(-50%, -50%, 50px) scale(1.02) rotateY(0deg)",
-                    zIndex: 30,
-                    opacity: 1,
-                  };
-                }
-                if (offset === 1) {
-                  return {
-                    transform: "translate3d(calc(-50% + min(320px, 30vw)), -50%, -70px) scale(0.86) rotateY(-10deg)",
-                    zIndex: 20,
-                    opacity: 0.65,
-                  };
-                }
-                if (offset === -1) {
-                  return {
-                    transform: "translate3d(calc(-50% - min(320px, 30vw)), -50%, -70px) scale(0.86) rotateY(10deg)",
-                    zIndex: 20,
-                    opacity: 0.65,
-                  };
-                }
-                if (offset === 2) {
-                  return {
-                    transform: "translate3d(calc(-50% + min(560px, 56vw)), -50%, -150px) scale(0.72) rotateY(-16deg)",
-                    zIndex: 10,
-                    opacity: 0.28,
-                  };
-                }
-                if (offset === -2) {
-                  return {
-                    transform: "translate3d(calc(-50% - min(560px, 56vw)), -50%, -150px) scale(0.72) rotateY(16deg)",
-                    zIndex: 10,
-                    opacity: 0.28,
-                  };
-                }
-                return {
-                  transform: "translate3d(-50%, -50%, -200px) scale(0.6)",
-                  zIndex: 5,
-                  opacity: 0,
-                };
-              };
-
-              const cardStyle = getCardTransform();
-
-              return (
-                <div
-                  key={mat.id}
-                  onClick={() => {
-                    if (!isActive) setExploreIdx(idx);
-                  }}
-                  className={`absolute top-1/2 left-1/2 w-[295px] sm:w-[360px] md:w-[390px] transition-all duration-750 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${
-                    isActive ? "cursor-default" : "cursor-pointer"
-                  } ${Math.abs(offset) >= 2 ? "max-sm:hidden" : ""}`}
-                  style={{
-                    transform: cardStyle.transform,
-                    zIndex: cardStyle.zIndex,
-                    opacity: cardStyle.opacity,
-                    transformStyle: "preserve-3d",
-                  }}
-                >
-                  {/* Glowing ambient aura behind the active front card */}
-                  {isActive && (
-                    <div
-                      key={`aura-${mat.id}`}
-                      className="absolute -inset-4 sm:-inset-6 -z-10 rounded-[3rem] bg-gradient-to-tr from-[#D47E30]/25 via-accent/15 to-transparent blur-2xl animate-pulse-glow pointer-events-none"
-                      style={{ transform: "translateZ(-30px)" }}
-                      aria-hidden="true"
-                    />
-                  )}
-
-                  <div
-                    className={`relative w-full bg-white rounded-[2rem] border transition-all duration-500 overflow-hidden flex flex-col ${
-                      isActive
-                        ? "border-[#D47E30] shadow-[0_28px_60px_-15px_rgba(212,126,48,0.28),0_16px_32px_-8px_rgba(0,0,0,0.08)] ring-2 ring-[#D47E30]/40"
-                        : "border-[#E8E8E6] shadow-[0_12px_30px_-10px_rgba(0,0,0,0.06)] hover:border-[#D47E30]/40"
-                    }`}
-                  >
-                    {/* Shimmer light-beam sweep effect on card change */}
-                    {isActive && (
-                      <div
-                        key={`shimmer-${exploreIdx}`}
-                        className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2rem] z-20"
-                        aria-hidden="true"
-                      >
-                        <div className="absolute -inset-full bg-gradient-to-r from-transparent via-white/50 to-transparent skew-x-[-25deg] animate-card-shimmer" />
-                      </div>
-                    )}
-
-                    {/* Card Top / Header */}
-                    <div className="p-5 sm:p-6 pb-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-500 ${
-                            isActive ? "bg-[#FBF0E6] scale-105" : "bg-stone-100 scale-100"
-                          }`}
-                        >
-                          <Atom
-                            size={20}
-                            style={{ color: isActive ? "#D47E30" : "#888" }}
-                            strokeWidth={2}
-                          />
-                        </div>
-                        <div>
-                          <h3 className="font-headline font-bold text-2xl text-[#1A1A1A] tracking-tight leading-none">
-                            {mat.formula}
-                          </h3>
-                          <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-[#D47E30] mt-1">
-                            {mat.structure}
-                          </p>
-                        </div>
-                      </div>
-                      {mat.popular && (
-                        <span
-                          className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full shrink-0"
-                          style={{ backgroundColor: "#FBF0E6", color: "#D47E30" }}
-                        >
-                          Popular
-                        </span>
-                      )}
+            {exploreMaterials.map((mat) => (
+              <div
+                key={mat.id}
+                className="w-[320px] sm:w-[360px] flex-shrink-0 snap-start bg-white rounded-2xl border border-[#E8E8E6] hover:border-[#D47E30]/40 transition-colors shadow-sm overflow-hidden flex flex-col justify-between"
+              >
+                {/* Card Top / Header */}
+                <div className="p-5 sm:p-6 pb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#FBF0E6]">
+                      <Atom size={20} className="text-[#D47E30]" strokeWidth={2} />
                     </div>
-
-                    {/* Crystal Structure Presentation Area */}
-                    <div className="px-5 sm:px-6 py-2">
-                      <div className="w-full h-40 sm:h-44 rounded-2xl bg-gradient-to-b from-[#FAF7F2] to-[#F3ECE4] flex items-center justify-center p-3 relative overflow-hidden group">
-                        {/* Orbital resonance dashed ring on active front card */}
-                        {isActive && (
-                          <div
-                            className="absolute inset-2 sm:inset-3 rounded-2xl border border-[#D47E30]/25 border-dashed animate-[spin_28s_linear_infinite] pointer-events-none"
-                            aria-hidden="true"
-                          />
-                        )}
-
-                        {/* Active Focus Pill */}
-                        {isActive && (
-                          <div className="absolute top-3 right-3 flex items-center gap-1 text-[10px] font-bold text-[#D47E30] bg-white/85 backdrop-blur-sm px-2.5 py-0.5 rounded-full shadow-xs border border-[#D47E30]/20 z-10">
-                            <Sparkles
-                              size={11}
-                              className="animate-spin text-[#D47E30]"
-                              style={{ animationDuration: "6s" }}
-                            />
-                            <span>Active Focus</span>
-                          </div>
-                        )}
-
-                        <img
-                          src={mat.image}
-                          alt={`${mat.formula} crystal structure`}
-                          className={`w-full h-full object-contain transition-all duration-700 ${
-                            isActive
-                              ? "scale-100 drop-shadow-[0_14px_28px_rgba(141,90,43,0.24)] animate-crystal-float"
-                              : "scale-90 opacity-80"
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Card Body & Features */}
-                    <div className="p-5 sm:p-6 pt-2 flex flex-col flex-1 justify-between">
-                      <div>
-                        <h4 className="text-[15px] font-semibold text-[#2A2A2A] mb-2.5 line-clamp-1">
-                          {mat.fullName}
-                        </h4>
-
-                        <ul className="space-y-1.5 mb-5">
-                          {mat.features.map((feat, i) => (
-                            <li key={i} className="flex items-center gap-2 text-[12.5px] text-[#666]">
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#D47E30]" />
-                              <span className="line-clamp-1">{feat}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Action Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const url = mat.detailsUrl;
-                          if (isAuthenticated) {
-                            navigate(url);
-                          } else {
-                            navigate(`/signin?redirect=${encodeURIComponent(url)}`);
-                          }
-                        }}
-                        className={`w-full py-3 px-4 rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-150 ${
-                          isActive
-                            ? "bg-[#D47E30] text-white hover:bg-[#B8671E] shadow-md shadow-[#D47E30]/25 active:scale-95 cursor-pointer"
-                            : "bg-[#F3EFEA] text-[#554C42] hover:bg-[#EAE4DC] cursor-pointer"
-                        }`}
-                      >
-                        <span>View Material Details</span>
-                        <ArrowRight size={14} />
-                      </button>
+                    <div>
+                      <h3 className="font-headline font-bold text-2xl text-[#1A1A1A] tracking-tight leading-none">
+                        {mat.formula}
+                      </h3>
+                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-[#D47E30] mt-1">
+                        {mat.structure}
+                      </p>
                     </div>
                   </div>
+                  {mat.popular && (
+                    <span
+                      className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full shrink-0"
+                      style={{ backgroundColor: "#FBF0E6", color: "#D47E30" }}
+                    >
+                      Popular
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-          </div>
 
-          {/* Carousel Controls */}
-          <div className="flex items-center justify-center gap-4 mt-6 sm:mt-8">
-            <button
-              type="button"
-              onClick={prevMaterial}
-              aria-label="Previous material"
-              className="w-11 h-11 rounded-full bg-white border border-[#E5E5E5] text-[#333] hover:text-[#D47E30] hover:border-[#D47E30] hover:bg-[#FBF0E6]/30 flex items-center justify-center transition-all shadow-sm active:scale-90 cursor-pointer"
-            >
-              <ChevronLeft size={20} />
-            </button>
+                {/* Crystal Structure Presentation Area */}
+                <div className="px-5 sm:px-6 py-2">
+                  <div className="w-full h-40 sm:h-44 rounded-2xl bg-[#FAF7F2] flex items-center justify-center p-3 relative overflow-hidden">
+                    <img
+                      src={mat.image}
+                      alt={`${mat.formula} crystal structure`}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
 
-            {/* Indicator Dots */}
-            <div className="flex items-center gap-2">
-              {exploreMaterials.map((mat, idx) => (
-                <button
-                  key={mat.id}
-                  type="button"
-                  onClick={() => setExploreIdx(idx)}
-                  aria-label={`View ${mat.formula}`}
-                  className="group relative py-2 px-1 cursor-pointer focus:outline-none"
-                >
-                  <span
-                    className="block rounded-full transition-all duration-300"
-                    style={{
-                      backgroundColor: exploreIdx === idx ? "#D47E30" : "#DDDBD8",
-                      height: "8px",
-                      width: exploreIdx === idx ? "28px" : "8px",
+                {/* Card Body & Features */}
+                <div className="p-5 sm:p-6 pt-2 flex flex-col flex-1 justify-between">
+                  <div>
+                    <h4 className="text-[15px] font-semibold text-[#2A2A2A] mb-2.5 line-clamp-1">
+                      {mat.fullName}
+                    </h4>
+
+                    <ul className="space-y-1.5 mb-5">
+                      {mat.features.map((feat, i) => (
+                        <li key={i} className="flex items-center gap-2 text-[12.5px] text-[#666]">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#D47E30]" />
+                          <span className="line-clamp-1">{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Action Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = mat.detailsUrl;
+                      if (isAuthenticated) {
+                        navigate(url);
+                      } else {
+                        navigate(`/signin?redirect=${encodeURIComponent(url)}`);
+                      }
                     }}
-                  />
-                  <span className="sr-only">{mat.formula}</span>
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={nextMaterial}
-              aria-label="Next material"
-              className="w-11 h-11 rounded-full bg-white border border-[#E5E5E5] text-[#333] hover:text-[#D47E30] hover:border-[#D47E30] hover:bg-[#FBF0E6]/30 flex items-center justify-center transition-all shadow-sm active:scale-90 cursor-pointer"
-            >
-              <ChevronRight size={20} />
-            </button>
+                    className="w-full py-2.5 px-4 rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-2 bg-[#F3EFEA] text-[#554C42] hover:bg-[#EAE4DC] hover:text-[#1A1A1A] transition-colors cursor-pointer"
+                  >
+                    <span>View Material Details</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-
-          {/* Progress Countdown Bar */}
-          <div className="max-w-[200px] sm:max-w-[260px] mx-auto mt-4">
-            <div className="w-full h-1 bg-[#E8E8E6] rounded-full overflow-hidden">
-              <div
-                key={exploreIdx}
-                className="h-full bg-gradient-to-r from-[#D47E30] to-accent rounded-full"
-                style={{
-                  animation: isCarouselHovered ? "none" : "progressTimer 3.8s linear forwards",
-                  width: isCarouselHovered ? "100%" : undefined,
-                  opacity: isCarouselHovered ? 0.4 : 1,
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-[#9A9A9A] mt-1.5 px-0.5">
-              <span>{isCarouselHovered ? "Paused on hover" : "Auto-cycling"}</span>
-              <span className="font-mono text-[#D47E30] font-semibold">
-                {exploreIdx + 1} / {exploreMaterials.length}
-              </span>
-            </div>
-          </div>
-
-          {/* Helper note */}
-          <p className="text-center text-[12px] text-[#9A9A9A] mt-3">
-            Automatic carousel • Hover over cards to pause • Click background cards to bring to front
-          </p>
         </div>
       </section>
 
@@ -1647,7 +1437,7 @@ export default function LandingPage() {
                   >
                     {contactState === "loading" ? (
                       <>
-                        <Loader2 size={16} className="animate-spin" />
+                        <Loader2 size={16} className="animate-spin motion-reduce:animate-none" />
                         Sending…
                       </>
                     ) : (

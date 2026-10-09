@@ -596,7 +596,7 @@ export default function BatchPredictionPage() {
               >
                 {jobStatus === "processing" ? (
                   <>
-                    <RefreshCw size={16} className="animate-spin" />
+                    <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" />
                     Executing Batch Property Routing ({progress}%)
                   </>
                 ) : (

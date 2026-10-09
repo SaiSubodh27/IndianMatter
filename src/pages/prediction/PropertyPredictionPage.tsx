@@ -729,7 +729,7 @@ export default function PropertyPredictionPage() {
                   className="px-4 py-3 bg-[#FAF4EE] hover:bg-[#F2E7DC] border border-[#E9DFD4] rounded-xl text-xs font-semibold text-accent flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
                   title="Generate CIF structure now"
                 >
-                  <Sparkles size={14} className={generatingCif ? "animate-spin" : ""} />
+                  <Sparkles size={14} className={generatingCif ? "animate-spin motion-reduce:animate-none" : ""} />
                   <span>{generatingCif ? "Synthesizing..." : "Synthesize CIF First"}</span>
                 </button>
               )}
@@ -790,7 +790,7 @@ export default function PropertyPredictionPage() {
           >
             {loading || generatingCif ? (
               <>
-                <RefreshCw size={16} className="animate-spin" />
+                <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" />
                 <span>{loadingStage || "Processing Prediction Pipeline..."}</span>
               </>
             ) : (
@@ -808,7 +808,7 @@ export default function PropertyPredictionPage() {
           </button>
 
           {loadingStage && (
-            <p className="text-center text-xs text-[#8C929C] font-medium animate-pulse">
+            <p className="text-center text-xs text-[#8C929C] font-medium">
               {loadingStage}
             </p>
           )}
@@ -895,7 +895,7 @@ function DedicatedResultsPage({
             </span>
           )}
           <div className="flex items-center gap-2 text-xs font-medium text-[#6C737E]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
             Prediction Complete
           </div>
         </div>

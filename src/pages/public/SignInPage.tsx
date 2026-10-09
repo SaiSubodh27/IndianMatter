@@ -111,10 +111,7 @@ export default function SignInPage() {
   return (
     <>
       <div className="min-h-screen bg-white text-[#1E2227] flex flex-col justify-between relative overflow-x-hidden font-sans selection:bg-accent/20 selection:text-accent">
-        {/* Decorative Organic Wave Shapes on Margins */}
-        <div className="fixed top-0 left-[-120px] w-[320px] h-[750px] bg-[#F8DFCB]/40 rounded-[100%] blur-3xl pointer-events-none -z-10 transform -rotate-12" />
-        <div className="fixed top-[40%] right-[-140px] w-[380px] h-[850px] bg-[#F8DFCB]/50 rounded-[100%] blur-3xl pointer-events-none -z-10 transform rotate-12" />
-        <div className="fixed bottom-0 left-[-80px] w-[340px] h-[600px] bg-[#F8DFCB]/30 rounded-[100%] blur-3xl pointer-events-none -z-10" />
+
 
         {/* Floating Amber Molecule on Bottom Right */}
         <div className="fixed bottom-0 right-0 w-44 md:w-64 opacity-80 pointer-events-none -z-10">
@@ -217,7 +214,7 @@ export default function SignInPage() {
                 </div>
 
                 <div className="text-right pb-4 -mr-2">
-                  <p className="font-handwriting text-[#5B636E] text-xl leading-tight -rotate-3">
+                  <p className="font-handwriting text-[#5B636E] text-xl leading-tight">
                     Science
                     <br />
                     Today

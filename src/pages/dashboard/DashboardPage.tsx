@@ -154,15 +154,7 @@ export default function DashboardPage() {
     }, 1200); // 1.2s debounce to ensure "hard one scroll = one thing"
   };
 
-  // Auto-slide every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!isScrolling) {
-        setActiveIndex((prev) => (prev + 1) % featuresData.length);
-      }
-    }, 2000); // 2 second interval
-    return () => clearInterval(interval);
-  }, [isScrolling]);
+
 
   const current = featuresData[activeIndex] || featuresData[0];
 

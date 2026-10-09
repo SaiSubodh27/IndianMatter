@@ -398,7 +398,7 @@ export default function ResearchPapersPage() {
                   className="p-2.5 rounded-xl border border-[#E2D9CF] text-[#5F6771] hover:text-[#1E2227] hover:bg-[#FAF6F0] transition-colors disabled:opacity-50"
                   title="Refresh papers"
                 >
-                  <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+                  <RefreshCw size={15} className={loading ? "animate-spin motion-reduce:animate-none" : ""} />
                 </button>
               </div>
             </div>
@@ -515,7 +515,7 @@ export default function ResearchPapersPage() {
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-2xl p-6 border border-[#EDE8E2] shadow-sm animate-pulse space-y-4"
+                  className="bg-white rounded-2xl p-6 border border-[#EDE8E2] shadow-sm animate-pulse motion-reduce:animate-none space-y-4"
                 >
                   <div className="flex justify-between items-center">
                     <div className="h-4 bg-[#EDE8E2] rounded w-1/4" />

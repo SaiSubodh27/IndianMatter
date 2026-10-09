@@ -78,7 +78,7 @@ export default function FeaturedCarousel() {
                 
                 {/* Front Card (Slightly rotated) */}
                 <div className={`absolute inset-y-0 w-3/5 bg-white rounded-2xl shadow-card p-10 flex flex-col justify-between transition-transform transform hover:-translate-y-2 ${
-                  tool.buttonLeft ? "right-8 rotate-1" : "left-8 -rotate-1"
+                  tool.buttonLeft ? "right-8" : "left-8"
                 }`}>
                   
                   <div>
@@ -111,7 +111,7 @@ export default function FeaturedCarousel() {
                   <div className="w-32 h-32 rounded-full border border-dashed border-im-primary/30 flex items-center justify-center">
                     <Atom size={48} className="text-im-primary/40" />
                   </div>
-                  <p className="mt-6 font-handwriting text-im-primary/60 text-sm -rotate-6">Precision insights</p>
+                  <p className="mt-6 font-handwriting text-im-primary/60 text-sm">Precision insights</p>
                 </div>
 
               </div>
