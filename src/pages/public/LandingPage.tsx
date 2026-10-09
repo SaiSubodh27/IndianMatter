@@ -340,6 +340,7 @@ export default function LandingPage() {
     { href: "#explore", label: "Explore" },
     { href: "#about", label: "About" },
     { href: "#resources", label: "Resources" },
+    { href: "/research", label: "Research" },
     { href: "#contact", label: "Contact" },
   ];
 
@@ -396,18 +397,29 @@ export default function LandingPage() {
             aria-label="Main navigation"
           >
             {navLinks.map(({ href, label }) => {
+              const isRoute = href.startsWith("/");
               const sectionId = href.slice(1);
-              const active = activeSection === sectionId;
+              const active = !isRoute && activeSection === sectionId;
+              const linkClasses = `text-[14px] font-medium transition-all duration-150 px-3.5 py-1.5 rounded-full ${
+                active
+                  ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
+                  : "text-[#6B6B6B] hover:text-[#D47E30] hover:bg-[#FDF5EE]/60"
+              }`;
+
+              if (isRoute) {
+                return (
+                  <Link key={href} to={href} className={linkClasses}>
+                    {label}
+                  </Link>
+                );
+              }
+
               return (
                 <a
                   key={href}
                   href={href}
                   onClick={(e) => scrollToSection(e, sectionId)}
-                  className={`text-[14px] font-medium transition-all duration-150 px-3.5 py-1.5 rounded-full ${
-                    active
-                      ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
-                      : "text-[#6B6B6B] hover:text-[#D47E30] hover:bg-[#FDF5EE]/60"
-                  }`}
+                  className={linkClasses}
                   aria-current={active ? "page" : undefined}
                 >
                   {label}
@@ -554,23 +566,41 @@ export default function LandingPage() {
         {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-[#EBEBEB] px-6 py-5 space-y-1">
-            {navLinks.map(({ href, label }) => (
-              <a
-                key={href}
-                href={href}
-                onClick={(e) => {
-                  setMobileMenuOpen(false);
-                  scrollToSection(e, href.slice(1));
-                }}
-                className={`flex items-center py-2.5 px-3 rounded-lg text-[15px] font-medium transition-colors ${
-                  activeSection === href.slice(1)
-                    ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
-                    : "text-[#3D3D3D] hover:text-[#D47E30]"
-                }`}
-              >
-                {label}
-              </a>
-            ))}
+            {navLinks.map(({ href, label }) => {
+              const isRoute = href.startsWith("/");
+              const linkClasses = `flex items-center py-2.5 px-3 rounded-lg text-[15px] font-medium transition-colors ${
+                !isRoute && activeSection === href.slice(1)
+                  ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
+                  : "text-[#3D3D3D] hover:text-[#D47E30]"
+              }`;
+
+              if (isRoute) {
+                return (
+                  <Link
+                    key={href}
+                    to={href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={linkClasses}
+                  >
+                    {label}
+                  </Link>
+                );
+              }
+
+              return (
+                <a
+                  key={href}
+                  href={href}
+                  onClick={(e) => {
+                    setMobileMenuOpen(false);
+                    scrollToSection(e, href.slice(1));
+                  }}
+                  className={linkClasses}
+                >
+                  {label}
+                </a>
+              );
+            })}
             {isAuthenticated && user ? (
               <div className="mt-3 pt-3 border-t border-[#EBEBEB] space-y-2">
                 <div className="px-2 py-1 flex items-center gap-2.5">

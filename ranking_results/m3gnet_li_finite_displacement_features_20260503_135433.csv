@@ -1,6 +1,0 @@
-material_id,m3gnet_feature_status,m3gnet_feature_error
-jy6,failed,"AttributeError(""'GlobalStorage' object has no attribute 'batch_size'"")"
-uxo,failed,ValueError('structure is disordered/partially occupied; ASE requires ordered sites')
-cdk,failed,"AttributeError(""'GlobalStorage' object has no attribute 'batch_size'"")"
-2t8,failed,ValueError('structure is disordered/partially occupied; ASE requires ordered sites')
-6l9,failed,ValueError('structure is disordered/partially occupied; ASE requires ordered sites')

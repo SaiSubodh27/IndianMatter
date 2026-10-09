@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FileJson, ArrowRight, Download, Sparkles, Copy, Check, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../../lib/api";
 
 export default function CIFGenerationPage() {
   const navigate = useNavigate();
@@ -8,50 +9,73 @@ export default function CIFGenerationPage() {
   const [prototype, setPrototype] = useState("NASICON");
   const [dopingElement, setDopingElement] = useState("Sc");
   const [dopingRatio, setDopingRatio] = useState("0.1");
-  const [generated, setGenerated] = useState(true);
+  const [generated, setGenerated] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [cifString, setCifString] = useState("");
+  const [spaceGroup, setSpaceGroup] = useState("");
+  const [totalTime, setTotalTime] = useState<number | null>(null);
 
-  const sampleCIF = `data_Na3Zr2Si2PO12_NASICON
-_audit_creation_method 'IndianMatter Algorithmic Synthesis'
-_cell_length_a 8.8043
-_cell_length_b 8.8043
-_cell_length_c 22.7585
-_cell_angle_alpha 90.0000
-_cell_angle_beta 90.0000
-_cell_angle_gamma 120.0000
-_symmetry_space_group_name_H-M 'R -3 c'
-_symmetry_Int_Tables_number 167
-
-loop_
-_atom_site_label
-_atom_site_type_symbol
-_atom_site_fract_x
-_atom_site_fract_y
-_atom_site_fract_z
-_atom_site_occupancy
-Na1 Na 0.00000 0.00000 0.00000 1.0000
-Na2 Na 0.63810 0.00000 0.25000 0.6667
-Zr1 Zr 0.00000 0.00000 0.14720 0.9000
-Sc1 Sc 0.00000 0.00000 0.14720 0.1000
-Si1 Si 0.29410 0.00000 0.25000 0.6667
-P1  P  0.29410 0.00000 0.25000 0.3333
-O1  O  0.18340 0.16890 0.08640 1.0000
-O2  O  0.18820 0.01630 0.19320 1.0000`;
+  const sampleCIF = cifString;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(sampleCIF);
+    if (!cifString) return;
+    navigator.clipboard.writeText(cifString);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownload = () => {
-    const blob = new Blob([sampleCIF], { type: "text/plain;charset=utf-8" });
+    if (!cifString) return;
+    const blob = new Blob([cifString], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${formula}_${prototype}.cif`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload: Record<string, unknown> = {
+        formula: formula.trim(),
+        space_group: undefined,
+      };
+      if (dopingElement.trim()) {
+        payload.dopant_element = dopingElement.trim();
+        payload.dopant_fraction = parseFloat(dopingRatio) || undefined;
+        payload.host_formula = formula.trim();
+      }
+      const res = await fetch(`${API_BASE_URL}/cif/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.detail || `Generation failed (HTTP ${res.status})`);
+        setGenerated(false);
+        return;
+      }
+      if (!data.success || !data.cif_string) {
+        setError("Pipeline finished but returned no CIF. Try a different formula or check backend logs.");
+        setGenerated(false);
+        return;
+      }
+      setCifString(data.cif_string);
+      setSpaceGroup(data.final_space_group || "");
+      setTotalTime(data.total_elapsed_seconds ?? null);
+      setGenerated(true);
+    } catch (err) {
+      setError(`Backend unreachable at ${API_BASE_URL}. Is the FastAPI server running?`);
+      setGenerated(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -77,7 +101,7 @@ O2  O  0.18820 0.01630 0.19320 1.0000`;
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                setGenerated(true);
+                handleGenerate();
               }}
               className="space-y-4"
             >
@@ -150,6 +174,7 @@ O2  O  0.18820 0.01630 0.19320 1.0000`;
                   className="w-full bg-[#F1641D] text-white py-3 rounded-xl text-xs font-semibold hover:bg-[#D9520F] transition-all shadow-soft flex items-center justify-center gap-2 active:scale-98"
                 >
                   Synthesize Crystallographic Unit Cell <Sparkles size={14} />
+                  {loading ? "  (generating...)" : ""}
                 </button>
               </div>
             </form>
@@ -158,6 +183,11 @@ O2  O  0.18820 0.01630 0.19320 1.0000`;
 
         {/* Right Column: 3D Visualization & CIF Text Output */}
         <div className="lg:col-span-7 space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-xs">
+              {error}
+            </div>
+          )}
           {generated && (
             <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-card border border-[#EFE5DC] space-y-5">
               <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-4">
@@ -165,7 +195,10 @@ O2  O  0.18820 0.01630 0.19320 1.0000`;
                   <h3 className="font-headline font-bold text-lg text-[#1E2227]">
                     Generated CIF: {formula}
                   </h3>
-                  <p className="text-xs text-[#8C929C]">Space Group: R -3 c (No. 167) • Trigonal</p>
+                  <p className="text-xs text-[#8C929C]">
+                    {spaceGroup ? `Space Group: ${spaceGroup}` : "Generated structure"}
+                    {totalTime !== null ? ` • ${totalTime}s` : ""}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -232,8 +265,9 @@ O2  O  0.18820 0.01630 0.19320 1.0000`;
                   <Eye size={14} /> Open in 3D Viewer
                 </button>
                 <button
-                  onClick={() => navigate("/app/predict")}
-                  className="px-5 py-2 bg-[#1E2227] text-white rounded-xl text-xs font-medium hover:bg-black flex items-center gap-1.5"
+                  onClick={() => navigate("/app/predict", { state: { cifString, formula } })}
+                  disabled={!cifString}
+                  className="px-5 py-2 bg-[#1E2227] text-white rounded-xl text-xs font-medium hover:bg-black flex items-center gap-1.5 disabled:opacity-40"
                 >
                   Predict Properties for Structure <ArrowRight size={14} />
                 </button>

@@ -3,6 +3,7 @@ import MainLayout from "./layouts/MainLayout";
 import PublicLayout from "./layouts/PublicLayout";
 
 import LandingPage from "./pages/public/LandingPage";
+import ResearchPapersPage from "./pages/public/ResearchPapersPage";
 import SignInPage from "./pages/public/SignInPage";
 
 import DashboardPage from "./pages/dashboard/DashboardPage";
@@ -29,6 +30,7 @@ export default function App() {
           {/* Public Shell Routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/research" element={<ResearchPapersPage />} />
             <Route path="/signin" element={<SignInPage />} />
           </Route>
 
