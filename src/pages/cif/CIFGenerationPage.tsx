@@ -218,7 +218,7 @@ export default function CIFGenerationPage() {
             ? `${ds.dopant_fraction} (${ds.dopant_fraction_pct})`
             : ds.dopant_fraction || "?";
           setDetectedDopingText(
-            `Doping detected — ${ds.dopant_species || "?"} → ${ds.host_site_species || "?"} site (${fracDisplay}) in host ${ds.host_formula || "matrix"}`
+            `Doping detected: ${ds.dopant_species || "?"} → ${ds.host_site_species || "?"} site (${fracDisplay}) in host ${ds.host_formula || "matrix"}`
           );
 
           // Auto-fill doping fields if user hasn't explicitly customized
