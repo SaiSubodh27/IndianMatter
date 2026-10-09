@@ -340,7 +340,6 @@ export default function LandingPage() {
     { href: "#explore", label: "Explore" },
     { href: "#about", label: "About" },
     { href: "#resources", label: "Resources" },
-    { href: "/research", label: "Research" },
     { href: "#contact", label: "Contact" },
   ];
 
