@@ -53,8 +53,15 @@ function formatValue(key: string, value: any): string {
     if (key.includes("bulk_modulus") || key.includes("shear_modulus") || key.includes("youngs_modulus")) {
       return `${value.toFixed(2)} GPa`;
     }
+    if (key.includes("fracture_toughness")) {
+      return `${value.toFixed(2)} MPa·m½`;
+    }
     if (key.includes("formation_energy") || key.includes("energy_per_atom")) {
       return `${value.toFixed(4)} eV/atom`;
+    }
+    if (key.includes("ehull")) {
+      const meV = value * 1000;
+      return `${value.toFixed(4)} eV (${meV >= 0 ? "+" : ""}${meV.toFixed(1)} meV)`;
     }
     if (key.includes("band_gap")) {
       return `${value.toFixed(3)} eV`;
@@ -82,7 +89,7 @@ function formatValue(key: string, value: any): string {
 export default function BatchPredictionPage() {
   const [availableProps, setAvailableProps] = useState<BatchPropertyOption[]>([]);
   const [selectedProps, setSelectedProps] = useState<string[]>([
-    "formula", "crystal_system", "density", "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy", "band_gap", "ionic_conductivity", "activation_energy"
+    "formula", "crystal_system", "density", "bulk_modulus", "shear_modulus", "youngs_modulus", "fracture_toughness", "formation_energy", "ehull", "is_stable", "band_gap", "electronic_conductivity", "ionic_conductivity", "activation_energy"
   ]);
   const [temperature, setTemperature] = useState<number>(298.15);
 
@@ -210,27 +217,32 @@ export default function BatchPredictionPage() {
     );
   };
 
-  const setPreset = (preset: "battery" | "mechanical" | "bfsy" | "all" | "clear") => {
+  const setPreset = (preset: "battery" | "mechanical" | "crystalformer" | "bfsy" | "all" | "clear") => {
     if (preset === "all") {
       setSelectedProps(availableProps.map((p) => p.key));
     } else if (preset === "clear") {
       setSelectedProps([]);
-    } else if (preset === "bfsy") {
+    } else if (preset === "crystalformer" || preset === "bfsy") {
       setSelectedProps([
         "formula", "crystal_system", "density",
-        "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy",
-        "poisson_ratio", "compressibility", "pughs_ratio"
+        "bulk_modulus", "shear_modulus", "youngs_modulus", "fracture_toughness",
+        "formation_energy", "ehull", "is_stable",
+        "band_gap", "electronic_conductivity",
+        "poisson_ratio", "pughs_ratio", "compressibility"
       ]);
     } else if (preset === "battery") {
       setSelectedProps([
         "formula", "crystal_system", "density", "volume",
-        "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy",
-        "band_gap", "ionic_conductivity", "activation_energy"
+        "bulk_modulus", "shear_modulus", "youngs_modulus", "fracture_toughness",
+        "formation_energy", "ehull", "is_stable",
+        "band_gap", "electronic_conductivity",
+        "ionic_conductivity", "activation_energy"
       ]);
     } else if (preset === "mechanical") {
       setSelectedProps([
         "formula", "crystal_system", "density",
-        "bulk_modulus", "shear_modulus", "youngs_modulus", "formation_energy",
+        "bulk_modulus", "shear_modulus", "youngs_modulus", "fracture_toughness",
+        "formation_energy", "ehull", "is_stable",
         "poisson_ratio", "compressibility", "pughs_ratio"
       ]);
     }
@@ -333,6 +345,37 @@ export default function BatchPredictionPage() {
     .filter((v): v is number => typeof v === "number" && !isNaN(v));
   const meanEf = avgEf.length > 0
     ? avgEf.reduce((a, b) => a + b, 0) / avgEf.length
+    : null;
+
+  const avgEhull = results
+    .map((r) => r.ehull_eV_per_atom)
+    .filter((v): v is number => typeof v === "number" && !isNaN(v));
+  const meanEhull = avgEhull.length > 0
+    ? avgEhull.reduce((a, b) => a + b, 0) / avgEhull.length
+    : null;
+
+  const stableCount = results.filter((r) => r.is_stable === true).length;
+  const stableRate = results.length > 0 ? (stableCount / results.length) * 100 : null;
+
+  const avgFracture = results
+    .map((r) => r.fracture_toughness_MPa_m05)
+    .filter((v): v is number => typeof v === "number" && !isNaN(v));
+  const meanFracture = avgFracture.length > 0
+    ? avgFracture.reduce((a, b) => a + b, 0) / avgFracture.length
+    : null;
+
+  const avgBandGap = results
+    .map((r) => r.band_gap_eV)
+    .filter((v): v is number => typeof v === "number" && !isNaN(v));
+  const meanBandGap = avgBandGap.length > 0
+    ? avgBandGap.reduce((a, b) => a + b, 0) / avgBandGap.length
+    : null;
+
+  const avgElectronicCond = results
+    .map((r) => r.electronic_conductivity_S_cm)
+    .filter((v): v is number => typeof v === "number" && !isNaN(v));
+  const meanElectronicCond = avgElectronicCond.length > 0
+    ? avgElectronicCond.reduce((a, b) => a + b, 0) / avgElectronicCond.length
     : null;
 
   const categories = ["Structural", "Mechanical", "Thermodynamics", "Electronic", "Thermal", "Ionic Transport"];
@@ -487,10 +530,10 @@ export default function BatchPredictionPage() {
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setPreset("bfsy")}
+                  onClick={() => setPreset("crystalformer")}
                   className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-[#E3ECFC] text-[#1D4FA3] hover:bg-[#D0E0FA] transition-colors cursor-pointer"
                 >
-                  BFSY Suite
+                  CrystalFormer Suite
                 </button>
                 <button
                   type="button"
@@ -693,6 +736,22 @@ export default function BatchPredictionPage() {
                 </span>
               </div>
             )}
+            {meanFracture !== null && (
+              <div className="p-3.5 rounded-xl border border-[#E3ECFC] bg-[#E3ECFC]/30">
+                <span className="text-[10px] font-semibold text-[#1D4FA3] uppercase block">Avg Fracture (K_Ic)</span>
+                <span className="text-xl font-headline font-bold text-[#1D4FA3] mt-1 block">
+                  {meanFracture.toFixed(2)} MPa·m½
+                </span>
+              </div>
+            )}
+            {meanBandGap !== null && (
+              <div className="p-3.5 rounded-xl border border-[#F3E8FF] bg-[#F3E8FF]/30">
+                <span className="text-[10px] font-semibold text-[#7E22CE] uppercase block">Avg Band Gap (Eg)</span>
+                <span className="text-xl font-headline font-bold text-[#7E22CE] mt-1 block">
+                  {meanBandGap.toFixed(2)} eV
+                </span>
+              </div>
+            )}
             {meanEf !== null && (
               <div className="p-3.5 rounded-xl border border-[#FDE4E1] bg-[#FDE4E1]/30">
                 <span className="text-[10px] font-semibold text-[#E05638] uppercase block">Avg Formation En. (Ef)</span>
@@ -701,11 +760,35 @@ export default function BatchPredictionPage() {
                 </span>
               </div>
             )}
+            {meanEhull !== null && (
+              <div className="p-3.5 rounded-xl border border-[#FFF1CF] bg-[#FFF1CF]/30">
+                <span className="text-[10px] font-semibold text-[#9A6A00] uppercase block">Avg Convex Hull Dist. (E_hull)</span>
+                <span className="text-xl font-headline font-bold text-[#9A6A00] mt-1 block">
+                  {formatValue("ehull", meanEhull)}
+                </span>
+              </div>
+            )}
+            {stableRate !== null && (
+              <div className="p-3.5 rounded-xl border border-[#DFF5E1] bg-[#DFF5E1]/40">
+                <span className="text-[10px] font-semibold text-[#1E7B34] uppercase block">Stable Materials Rate</span>
+                <span className="text-xl font-headline font-bold text-[#1E7B34] mt-1 block">
+                  {stableCount} / {results.length} ({stableRate.toFixed(1)}%)
+                </span>
+              </div>
+            )}
             {meanCond !== null && (
               <div className="p-3.5 rounded-xl border border-accent-soft bg-accent-soft/30">
                 <span className="text-[10px] font-semibold text-accent uppercase block">Avg Ionic Cond. (σ)</span>
                 <span className="text-sm font-headline font-bold text-accent mt-1 block">
                   {formatValue("ionic_conductivity_S_cm", meanCond)}
+                </span>
+              </div>
+            )}
+            {meanElectronicCond !== null && (
+              <div className="p-3.5 rounded-xl border border-[#E3ECFC] bg-[#E3ECFC]/30">
+                <span className="text-[10px] font-semibold text-[#1D4FA3] uppercase block">Avg Electronic Cond.</span>
+                <span className="text-sm font-headline font-bold text-[#1D4FA3] mt-1 block">
+                  {formatValue("electronic_conductivity_S_cm", meanElectronicCond)}
                 </span>
               </div>
             )}
@@ -747,8 +830,17 @@ export default function BatchPredictionPage() {
                     {selectedProps.includes("youngs_modulus") && (
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Young's Mod. (E)</th>
                     )}
+                    {selectedProps.includes("fracture_toughness") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Fracture Tough. (K_Ic)</th>
+                    )}
                     {selectedProps.includes("formation_energy") && (
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Formation En. (Ef)</th>
+                    )}
+                    {selectedProps.includes("ehull") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">E_hull (Dist to Hull)</th>
+                    )}
+                    {selectedProps.includes("is_stable") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Stability Class</th>
                     )}
                     {selectedProps.includes("poisson_ratio") && (
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Poisson (ν)</th>
@@ -757,7 +849,13 @@ export default function BatchPredictionPage() {
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Pugh (K/G)</th>
                     )}
                     {selectedProps.includes("band_gap") && (
-                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Band Gap</th>
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Band Gap (Eg)</th>
+                    )}
+                    {selectedProps.includes("electronic_conductivity") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Electronic Cond. (σ_e)</th>
+                    )}
+                    {selectedProps.includes("electronic_state") && (
+                      <th className="py-3 px-4 font-semibold text-[#1E2227]">Electronic State</th>
                     )}
                     {selectedProps.includes("ionic_conductivity") && (
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Ionic Cond. (σ)</th>
@@ -765,7 +863,7 @@ export default function BatchPredictionPage() {
                     {selectedProps.includes("activation_energy") && (
                       <th className="py-3 px-4 font-semibold text-[#1E2227]">Act. Energy (Ea)</th>
                     )}
-                    <th className="py-3 px-4 font-semibold text-[#1E2227]">Status</th>
+                    <th className="py-3 px-4 font-semibold text-[#1E2227]">Engine / Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2E7DC]">
@@ -800,9 +898,44 @@ export default function BatchPredictionPage() {
                           {formatValue("youngs_modulus", row.youngs_modulus_GPa)}
                         </td>
                       )}
+                      {selectedProps.includes("fracture_toughness") && (
+                        <td className="py-3 px-4 font-medium text-[#1E2227]">
+                          {formatValue("fracture_toughness", row.fracture_toughness_MPa_m05)}
+                        </td>
+                      )}
                       {selectedProps.includes("formation_energy") && (
                         <td className="py-3 px-4 font-medium text-[#E05638]">
                           {formatValue("formation_energy", row.formation_energy_eV_atom)}
+                        </td>
+                      )}
+                      {selectedProps.includes("ehull") && (
+                        <td className="py-3 px-4 font-mono font-medium">
+                          <span className={row.ehull_eV_per_atom !== null && row.ehull_eV_per_atom !== undefined && row.ehull_eV_per_atom <= 0.025 ? "text-[#1E7B34] font-semibold" : "text-[#B3261E]"}>
+                            {formatValue("ehull", row.ehull_eV_per_atom)}
+                          </span>
+                        </td>
+                      )}
+                      {selectedProps.includes("is_stable") && (
+                        <td className="py-3 px-4">
+                          {row.stability_status ? (
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                row.is_stable
+                                  ? "bg-[#DFF5E1] text-[#1E7B34] border border-[#BDE8C4]"
+                                  : row.ehull_eV_per_atom !== null && row.ehull_eV_per_atom !== undefined && row.ehull_eV_per_atom <= 0.1
+                                  ? "bg-[#FFF1CF] text-[#9A6A00] border border-[#FBE09B]"
+                                  : "bg-[#FDE4E1] text-[#B3261E] border border-[#F9C5BF]"
+                              }`}
+                            >
+                              {row.stability_status}
+                            </span>
+                          ) : row.is_stable !== null && row.is_stable !== undefined ? (
+                            <span className={row.is_stable ? "text-[#1E7B34] font-semibold" : "text-[#B3261E] font-semibold"}>
+                              {row.is_stable ? "Stable" : "Unstable"}
+                            </span>
+                          ) : (
+                            <span className="text-[#8C929C]">—</span>
+                          )}
                         </td>
                       )}
                       {selectedProps.includes("poisson_ratio") && (
@@ -820,6 +953,18 @@ export default function BatchPredictionPage() {
                           {formatValue("band_gap", row.band_gap_eV)}
                         </td>
                       )}
+                      {selectedProps.includes("electronic_conductivity") && (
+                        <td className="py-3 px-4 font-mono font-medium text-[#1D4FA3]">
+                          {formatValue("conductivity_S_cm", row.electronic_conductivity_S_cm)}
+                        </td>
+                      )}
+                      {selectedProps.includes("electronic_state") && (
+                        <td className="py-3 px-4">
+                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-[#E3ECFC] text-[#1D4FA3]">
+                            {row.electronic_state || "—"}
+                          </span>
+                        </td>
+                      )}
                       {selectedProps.includes("ionic_conductivity") && (
                         <td className="py-3 px-4 font-mono font-semibold text-[#1E7B34]">
                           {formatValue("ionic_conductivity_S_cm", row.ionic_conductivity_S_cm)}
@@ -831,17 +976,22 @@ export default function BatchPredictionPage() {
                         </td>
                       )}
                       <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                            row.status === "success"
-                              ? "bg-[#DFF5E1] text-[#1E7B34]"
-                              : row.status === "warning"
-                              ? "bg-[#FFF1CF] text-[#9A6A00]"
-                              : "bg-[#FDE4E1] text-[#B3261E]"
-                          }`}
-                        >
-                          {row.status === "success" ? "Success" : row.status === "warning" ? "Warning" : "Failed"}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#FAF4EE] border border-[#E9DFD4] text-[#5F6771]">
+                            {row.model_source || "CrystalFormer"}
+                          </span>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                              row.status === "success"
+                                ? "bg-[#DFF5E1] text-[#1E7B34]"
+                                : row.status === "warning"
+                                ? "bg-[#FFF1CF] text-[#9A6A00]"
+                                : "bg-[#FDE4E1] text-[#B3261E]"
+                            }`}
+                          >
+                            {row.status === "success" ? "Success" : row.status === "warning" ? "Warning" : "Failed"}
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   ))}

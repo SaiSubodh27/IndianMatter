@@ -101,6 +101,34 @@ const ALL_PROPERTIES: PropertyOption[] = [
     format: numeric(3),
   },
   {
+    key: "ehull",
+    title: "Energy Above Convex Hull (E_hull)",
+    category: "Energy",
+    unit: "eV/atom",
+    requiresModel: "gnn",
+    format: (v, unit) => {
+      if (typeof v === "number" && !isNaN(v)) {
+        const meV = v * 1000;
+        return `${v.toFixed(4)} ${unit} (${meV >= 0 ? "+" : ""}${meV.toFixed(1)} meV)`;
+      }
+      return "N/A";
+    },
+  },
+  {
+    key: "is_stable",
+    title: "Thermodynamic Stability",
+    category: "Energy",
+    unit: "",
+    requiresModel: "gnn",
+    format: (v) => {
+      if (typeof v === "boolean") {
+        return v ? "Stable (≤ 25 meV/atom)" : "Unstable (> 25 meV/atom)";
+      }
+      if (typeof v === "string") return v;
+      return "N/A";
+    },
+  },
+  {
     key: "potential_energy",
     title: "Potential Energy per Atom",
     category: "Energy",

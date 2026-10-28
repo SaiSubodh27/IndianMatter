@@ -354,10 +354,19 @@ export interface BfsyBatchResult {
   youngs_modulus_GPa: number | null;
   poisson_ratio: number | null;
   formation_energy_eV_atom: number | null;
-  energy_per_atom_eV: number | null;
+  ehull_eV_per_atom?: number | null;
+  ehull_meV_per_atom?: number | null;
+  is_stable?: boolean | null;
+  stability_status?: string | null;
+  band_gap_eV?: number | null;
+  fracture_toughness_MPa_m05?: number | null;
+  electronic_conductivity_S_cm?: number | null;
+  electronic_nature?: string | null;
+  energy_per_atom_eV?: number | null;
   compressibility_GPa_inv: number | null;
   pughs_ratio: number | null;
   status: string;
+  model_source?: string;
   error_message?: string | null;
 }
 
@@ -371,10 +380,89 @@ export interface BfsyBatchResponse {
   csv_content: string;
 }
 
-export async function batchPredictBfsy(files: File[]): Promise<BfsyBatchResponse> {
+export type CrystalFormerBatchResult = BfsyBatchResult;
+export type CrystalFormerBatchResponse = BfsyBatchResponse;
+
+export async function batchPredictCrystalFormer(files: File[]): Promise<CrystalFormerBatchResponse> {
   const form = new FormData();
   files.forEach((file) => form.append("files", file));
-  return request<BfsyBatchResponse>("/api/calculations/batch-predict-bfsy", {
+  return request<CrystalFormerBatchResponse>("/api/calculations/batch-predict-crystalformer", {
+    method: "POST",
+    body: form,
+  });
+}
+
+export async function batchPredictBfsy(files: File[]): Promise<BfsyBatchResponse> {
+  return batchPredictCrystalFormer(files);
+}
+
+export interface CrystalFormerPredictRequest {
+  file?: File | null;
+  formula?: string;
+  temperature?: number;
+  space_group?: string;
+}
+
+export interface CrystalFormerPredictResponse {
+  status: string;
+  filename?: string;
+  formula: string;
+  num_atoms: number;
+  volume_per_atom_A3?: number;
+  model_source: string;
+  is_fallback: boolean;
+  temperature_k: number;
+  cif_string?: string;
+  metadata?: Record<string, unknown>;
+  core_properties: {
+    formation_energy_eV_atom: number;
+    band_gap_eV: number;
+    bulk_modulus_GPa: number;
+    shear_modulus_GPa: number;
+  };
+  derived_properties: {
+    youngs_modulus_GPa: number;
+    fracture_toughness_MPa_m05: number;
+    electronic_conductivity_S_cm: number;
+  };
+  auxiliary_metrics: {
+    poisson_ratio: number;
+    pughs_ratio: number;
+    compressibility_GPa_inv: number;
+    electronic_nature: string;
+    ehull_eV_per_atom?: number | null;
+    is_stable?: boolean | null;
+    stability_status?: string;
+  };
+  stability?: {
+    ehull_eV_per_atom: number | null;
+    ehull_meV_per_atom: number | null;
+    is_stable: boolean | null;
+    stability_status: string;
+    mp_id?: string | null;
+    source?: string;
+    notes?: string;
+  };
+}
+
+export async function predictCrystalFormer(
+  params: CrystalFormerPredictRequest
+): Promise<CrystalFormerPredictResponse> {
+  const form = new FormData();
+  if (params.file) {
+    form.append("file", params.file);
+  }
+  if (params.formula) {
+    form.append("formula", params.formula);
+  }
+  if (params.temperature !== undefined) {
+    form.append("temperature", String(params.temperature));
+  }
+  if (params.space_group) {
+    form.append("space_group", params.space_group);
+  }
+
+  return request<CrystalFormerPredictResponse>("/api/calculations/crystalformer/predict", {
     method: "POST",
     body: form,
   });
