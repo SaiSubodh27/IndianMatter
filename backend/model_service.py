@@ -29,7 +29,10 @@ except ImportError:
     MATMINER_AVAILABLE = False
 
 try:
-    from Surrogative_models.final_validation import PredictionValidator
+    try:
+        from property_prediction_models.Surrogative_models.final_validation import PredictionValidator
+    except ImportError:
+        from Surrogative_models.final_validation import PredictionValidator
 except ImportError:
     PredictionValidator = None
 

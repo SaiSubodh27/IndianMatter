@@ -93,7 +93,14 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # Cross-version unpickling compatibility bridge for scikit-learn across Python 3.9 - 3.13
 try:
     import sklearn._loss
-    sys.modules.setdefault('_loss', sklearn._loss)
+    try:
+        import sklearn._loss._loss as _sub_loss
+        sys.modules['_loss'] = _sub_loss
+        for _attr in dir(_sub_loss):
+            if not hasattr(sklearn._loss, _attr):
+                setattr(sklearn._loss, _attr, getattr(_sub_loss, _attr))
+    except Exception:
+        sys.modules.setdefault('_loss', sklearn._loss)
     for sub in ['loss', '_loss', 'link', 'distribution']:
         if hasattr(sklearn._loss, sub):
             sys.modules.setdefault(f'_loss.{sub}', getattr(sklearn._loss, sub))
@@ -104,7 +111,8 @@ except Exception:
 
 try:
     import sklearn.ensemble._hist_gradient_boosting._loss as _hgb_loss
-    sys.modules.setdefault('_loss', _hgb_loss)
+    if '_loss' not in sys.modules:
+        sys.modules['_loss'] = _hgb_loss
     sys.modules.setdefault('_loss.loss', _hgb_loss)
 except Exception:
     pass
@@ -137,7 +145,9 @@ warnings.filterwarnings("ignore")
 
 ROOT = Path(__file__).resolve().parent
 WORKSPACE = ROOT.parent
-MODELS_DIR = WORKSPACE / "pretrained_models"
+MODELS_DIR = WORKSPACE / "property_prediction_models" / "pretrained_models"
+if not MODELS_DIR.exists():
+    MODELS_DIR = WORKSPACE / "pretrained_models" 
 DEFAULT_TEMP_K = 298.15
 K_B = 8.617333262145e-5
 

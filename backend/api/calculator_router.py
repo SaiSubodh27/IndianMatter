@@ -51,11 +51,11 @@ IONCAST_MODELS_BASE = MODELS_BASE
 # 1. CrystalFormer Service & Pipeline (Bulk, Shear, Formation Energy, Band Gap + Derived Properties)
 try:
     try:
+        from property_prediction_models.CrystalFormer.crystalformer_service import get_crystalformer_service
+        from property_prediction_models.CrystalFormer.cif_generator_bridge import generate_cif_from_formula
+    except ImportError:
         from CrystalFormer.crystalformer_service import get_crystalformer_service
         from CrystalFormer.cif_generator_bridge import generate_cif_from_formula
-    except ImportError:
-        from backend.CrystalFormer.crystalformer_service import get_crystalformer_service
-        from backend.CrystalFormer.cif_generator_bridge import generate_cif_from_formula
     crystalformer_service = get_crystalformer_service()
     CRYSTALFORMER_LOADED = True
     print("CrystalFormer service loaded successfully (Bulk, Shear, Formation Energy, Band Gap + Derived Properties).")
@@ -67,9 +67,9 @@ except Exception as e:
 # Unified BFSY Pipeline Fallback
 try:
     try:
-        from prediction.BFSY_pipeline import BFSYPipeline
+        from property_prediction_models.prediction.BFSY_pipeline import BFSYPipeline
     except ImportError:
-        from backend.prediction.BFSY_pipeline import BFSYPipeline
+        from prediction.BFSY_pipeline import BFSYPipeline
     bfsy_pipeline = BFSYPipeline(models_dir=MODELS_BASE)
     BFSY_LOADED = True
     MECHANICAL_LOADED = True
@@ -386,8 +386,9 @@ async def predict_properties(
                 calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "failed", "warnings": [str(prop_err)]}
 
         base_energy = -3.42
-        if bfsy_result and bfsy_result.get("energy_per_atom_eV") is not None:
-            base_energy = bfsy_result["energy_per_atom_eV"]
+        bfsy_obj = locals().get("bfsy_result") or locals().get("bfsy_res")
+        if bfsy_obj and bfsy_obj.get("energy_per_atom_eV") is not None:
+            base_energy = bfsy_obj["energy_per_atom_eV"]
 
         response_payload = {
             "status": "success",

@@ -37,16 +37,15 @@ def generate_cif_from_formula(
         raise ValueError("A non-empty material formula or chemical name is required.")
 
     try:
-        from cif_pipeline.models import CompoundQuery
-        from cif_pipeline.orchestrator import run_pipeline, structure_to_cif
-        from cif_pipeline.config import get_mp_api_key
-    except ImportError as e:
-        # If relative import fails, try backend.cif_pipeline
+        from cif_generator.cif_pipeline.models import CompoundQuery
+        from cif_generator.cif_pipeline.orchestrator import run_pipeline, structure_to_cif
+        from cif_generator.cif_pipeline.config import get_mp_api_key
+    except ImportError:
         try:
-            from backend.cif_pipeline.models import CompoundQuery
-            from backend.cif_pipeline.orchestrator import run_pipeline, structure_to_cif
-            from backend.cif_pipeline.config import get_mp_api_key
-        except ImportError:
+            from cif_pipeline.models import CompoundQuery
+            from cif_pipeline.orchestrator import run_pipeline, structure_to_cif
+            from cif_pipeline.config import get_mp_api_key
+        except ImportError as e:
             raise RuntimeError(f"cif_pipeline could not be loaded: {e}")
 
     api_key = mp_api_key or get_mp_api_key()

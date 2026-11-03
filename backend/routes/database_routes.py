@@ -6,10 +6,13 @@ from fastapi import APIRouter, Query, HTTPException
 
 router = APIRouter()
 
-# Dataset path. The frontend keeps the IndianMatter data under src/data.
-CSV_FILE_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "src", "data", "indianmatter", "38510.csv")
-)
+# Dataset path. Checks frontend/src/data as well as root src/data.
+_possible_paths = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "src", "data", "indianmatter", "38510.csv")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src", "data", "indianmatter", "38510.csv")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "indianmatter", "38510.csv")),
+]
+CSV_FILE_PATH = next((p for p in _possible_paths if os.path.exists(p)), _possible_paths[0])
 
 # Global DataFrame cache
 df_cache: Optional[pd.DataFrame] = None

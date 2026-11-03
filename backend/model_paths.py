@@ -9,6 +9,8 @@ PROJECT_ROOT = BACKEND_DIR.parent
 def resolve_pretrained_models_dir(required_filename: str = "v5_base_models.pkl") -> str:
     """Return the first pretrained_models directory containing the requested file."""
     candidate_dirs = [
+        PROJECT_ROOT / "property_prediction_models" / "pretrained_models",
+        PROJECT_ROOT / "property_prediction_models" / "final_models",
         PROJECT_ROOT / "pretrained_models",
         BACKEND_DIR / "pretrained_models",
         PROJECT_ROOT / "final_models" / "pretrained_models",

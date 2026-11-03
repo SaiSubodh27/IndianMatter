@@ -40,9 +40,12 @@ import io
 
 router = APIRouter()
 
-DATA_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "src", "data", "indianmatter")
-)
+_possible_dirs = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "src", "data", "indianmatter")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src", "data", "indianmatter")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "indianmatter")),
+]
+DATA_DIR = next((d for d in _possible_dirs if os.path.exists(d)), _possible_dirs[0])
 MAIN_CSV = os.path.join(DATA_DIR, "38510.csv")
 MATMINER_CSV = os.path.join(DATA_DIR, "pymatgen_matminer.csv")
 CIF_DIR = os.path.join(DATA_DIR, "38510_CIFs")

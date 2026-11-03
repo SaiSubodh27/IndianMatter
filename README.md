@@ -217,67 +217,108 @@ sequenceDiagram
 
 ## 📁 Project Directory Layout
 
+The platform is structured into **four specialized, decoupled directories**:
+
 ```text
 Final_ validation/
-├── .env.example                               # Frontend environment template
-├── .env.gpu                                   # GPU-specific Vite mode environment
-├── package.json                               # Frontend dependencies and npm scripts
-├── vite.config.ts                             # Vite configuration with path aliases (@/*)
-├── tailwind.config.js                         # Custom design system and palette tokens
-├── tsconfig.json                              # TypeScript compiler configuration
-├── index.html                                 # HTML entry point with web fonts
 │
-├── src/                                       # Frontend Source Code
-│   ├── App.tsx                                # Central client-side router & providers
-│   ├── main.tsx                               # Application bootstrap
-│   ├── components/                            # Reusable UI widgets & protected route wrappers
-│   ├── contexts/                              # Global context (AuthContext, etc.)
-│   ├── layouts/                               # Shell layouts (MainLayout, PublicLayout)
-│   ├── lib/                                   # Shared API clients (materialsPredictionApi, supabase)
-│   ├── data/                                  # Static presets, benchmarks, IndianMatter datasets
-│   └── pages/                                 # Feature pages
-│       ├── public/                            # LandingPage, SignInPage, ResearchPapersPage
-│       ├── dashboard/                         # DashboardPage (cinematic interactive cards)
-│       ├── materials/                         # MaterialsSearchPage, MaterialDetailsPage
-│       ├── dft/                               # DFTValidationPage
-│       ├── cif/                               # CIFGenerationPage (formula-to-structure synthesis)
-│       ├── prediction/                        # PropertyPredictionPage, BatchPredictionPage
-│       ├── structure/                         # StructureVizPage (3D Three.js viewer)
-│       ├── literature/                        # LiteraturePage (diversity search & papers)
-│       ├── results/                           # SavedResultsPage
-│       ├── settings/                          # SettingsPage
-│       └── help/                              # HelpPage
-│
-├── backend/                                   # FastAPI Backend Server
-│   ├── main.py                                # Application entry point, lifespan, & router mounting
+├── 1) backend/                                # Core API Gateway & Platform Services
+│   ├── main.py                                # FastAPI application entry point, lifespan, & sub-app mounting
 │   ├── requirements.txt                       # Python dependencies
 │   ├── auth.py / database.py                  # JWT authentication logic & MongoDB connection
+│   ├── db_models.py                           # Pydantic & database schema models
 │   ├── model_service.py                       # IonCast v5/v6 stacking ensemble loader
-│   ├── webapp.py                              # Sub-mounted CIF Generator application
+│   ├── model_paths.py                         # Dynamic path resolver for pre-trained weights
+│   ├── predict_ionic_conductivity.py          # Unified Arrhenius & feature extractor runner
 │   ├── api/
 │   │   └── calculator_router.py               # Main prediction, batch, and metric router
-│   ├── routes/                                # Domain-specific API routers
+│   ├── routes/                                # Domain-specific REST API routers
 │   │   ├── auth_routes.py                     # Register, Login, OAuth2 callbacks
 │   │   ├── user_routes.py                     # User profile, history, bookmarks
 │   │   ├── cif_routes.py                      # CIF parsing & descriptor extraction
 │   │   ├── transport_router.py                # Ionic conductivity & Arrhenius evaluation
 │   │   ├── materials_routes.py                # Materials Project integration
 │   │   ├── oqmd.py / aflow.py / jarvis.py     # External federated database endpoints
+│   │   ├── database_routes.py                 # Dataset pagination and querying
 │   │   └── indianmatter.py                    # IndianMatter custom database queries
-│   ├── CrystalFormer/                         # CrystalFormer GNN Package & Checkpoints
+│   ├── services/                              # Background services (MongoDB, export packages, DB federation)
+│   ├── utils/                                 # Structural analysis, GNN feature helpers
+│   ├── workers/                               # Asynchronous batch prediction workers
+│   └── mp_cache/                              # Local JSON cache for chemical phase diagrams
+│
+├── 2) frontend/                               # React 18 + Vite + Three.js Web Application
+│   ├── package.json                           # Frontend dependencies & npm build scripts
+│   ├── vite.config.ts                         # Vite configuration with path aliases (@/*)
+│   ├── tailwind.config.js                     # Custom design system and palette tokens
+│   ├── tsconfig.json                          # TypeScript compiler configuration
+│   ├── index.html                             # Single-Page Application HTML entry point
+│   ├── dist/                                  # Production compiled bundle
+│   ├── public/                                # Static media, 3D assets, logos, and textures
+│   └── src/                                   # Application source code
+│       ├── App.tsx                            # Central client-side router & providers
+│       ├── main.tsx                           # Application bootstrap
+│       ├── components/                        # Reusable UI widgets & protected route wrappers
+│       ├── contexts/                          # Global state contexts (AuthContext, etc.)
+│       ├── layouts/                           # Shell layouts (MainLayout, PublicLayout)
+│       ├── lib/                               # Shared API clients (materialsPredictionApi, supabase)
+│       ├── data/                              # Static presets, benchmarks, IndianMatter datasets
+│       └── pages/                             # Feature pages (LandingPage, Dashboard, Predict, Structures, etc.)
+│
+├── 3) cif_generator/                          # Algorithmic CIF Generation & Crystal Synthesis
+│   ├── __init__.py                            # Python package entry
+│   ├── webapp.py                              # Standalone & mountable CIF Generator FastAPI app (mounted at /cif)
+│   ├── cif_descriptors.py                     # Crystallographic descriptor extraction
+│   ├── cif_pipeline/                          # Core algorithmic synthesis engine
+│   │   ├── orchestrator.py                    # Multi-stage synthesis pipeline coordinator
+│   │   ├── classify.py / filter_rules.py      # Chemical formula classification & validation
+│   │   ├── generate.py / supercell.py         # Prototype lattice builders & supercells
+│   │   ├── doping.py / general_doping.py      # Fractional site substitution & cation doping
+│   │   ├── spinel_build.py / spinel_cif.py    # Spinel-specific coordination & occupancy builders
+│   │   ├── symmetry_matrix.py                 # Wyckoff site and symmetry constraints
+│   │   └── relax.py                           # MACE-MP-0 float64 ionic relaxation
+│   ├── cif_analyzer/                          # Standalone CIF verification and analyzer tools
+│   └── frontend/                              # Dedicated web UI for CIF synthesis pipeline
+│
+├── 4) property_prediction_models/             # Scientific ML, GNN Surrogates & Model Weights
+│   ├── __init__.py                            # Python package entry
+│   ├── CrystalFormer/                         # Space-group-aware geometric transformer package
 │   │   ├── crystalformer_service.py           # Unified service wrapper for GNN inference
 │   │   ├── derived_properties.py              # Analytical mechanics (Young's, fracture toughness)
+│   │   ├── cif_generator_bridge.py            # Bridge connecting cif_pipeline and CrystalFormer
 │   │   └── weights/                           # Checkpoints (Bulk, Shear, Ef, Band Gap)
-│   ├── prediction/                            # Prediction Services
+│   ├── Surrogative_models/                    # Stored ML artifacts & validation
+│   │   ├── feature_extractor.py               # Magpie & structural featurizer
+│   │   └── final_validation/                  # Prediction validation & confidence bounds
+│   ├── prediction/                            # Property prediction pipelines
 │   │   ├── BFSY_pipeline.py                   # Fallback property surrogate pipeline
+│   │   ├── bfsy_pipeline.pkl                  # Serialized BFSY model pipeline
 │   │   └── EHull_Prediction_Tool/             # Convex hull thermodynamic stability engine
-│   │       ├── ehull_service.py               # Singleton service managing phase diagrams
-│   │       └── ehull_tool.py                  # Direct Materials Project convex hull logic
-│   ├── cif_pipeline/                          # Core algorithmic CIF generation & doping
-│   ├── mp_cache/                              # Local JSON cache for chemical phase diagrams
-│   └── Surrogative_models/                    # Stored ML artifacts & notebooks
+│   ├── calculations/                          # Quantum mechanical & continuum mechanics algorithms
+│   │   ├── descriptor_pipeline.py             # Geometric and neighbor-distance statistics
+│   │   ├── continuum_mechanics.py             # Voigt-Reuss-Hill elastic tensor averaging
+│   │   └── alignn_properties.py               # ALIGNN graph neural network property inference
+│   ├── models/ & prediction_models/           # Adapters for CHGNet, M3GNet, MACE, and Model Registry
+│   ├── pretrained_models/                     # Production pre-trained models (.pkl)
+│   │   ├── v5_base_models.pkl                 # Base learners (LightGBM, XGBoost, CatBoost, HGB, ET)
+│   │   ├── v5_meta_model.pkl                  # Meta-learner for activation energy (Ea)
+│   │   ├── v5_mlp_models.pkl                  # Multi-layer perceptron neural surrogate
+│   │   ├── v5_model2_A.pkl                    # Pre-exponential factor (logA) predictor
+│   │   ├── v5_quantile_transformer.pkl        # 343-feature fitted quantile transformer
+│   │   ├── v6_corrector_model.pkl             # Residual error corrector
+│   │   ├── chgnet_bandgap_model.pkl           # Band gap surrogate
+│   │   ├── chgnet_Ef_model.pkl                # Formation energy surrogate
+│   │   ├── chgnet_logG_model.pkl              # Shear modulus surrogate
+│   │   ├── chgnet_logK_model.pkl              # Bulk modulus surrogate
+│   │   ├── chgnet_thermal_model.pkl           # Thermal conductivity surrogate
+│   │   ├── a_cols.pkl                         # Model A feature column definitions
+│   │   └── base_cols.pkl                      # Base 343 feature column definitions
+│   └── final_models/                          # Universal neural potentials
+│       ├── chgnet_weights/                    # CHGNet PyTorch checkpoint
+│       ├── m3gnet_weights/                    # M3GNet PyTorch checkpoint
+│       └── mace_weights/                      # MACE-MP-0 PyTorch checkpoint
 │
-└── docs/                                      # Master documentation & slide decks
+├── offline_training_and_research/             # Offline notebooks, dataset caches, training scripts
+└── docs/                                      # Master documentation & architecture records
 ```
 
 ---

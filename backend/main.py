@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -20,8 +21,14 @@ except Exception:
 
 from api.calculator_router import router as calculator_router
 
-# Ensure the backend directory is in the system path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure backend, cif_generator, and property_prediction_models are in sys.path
+BACKEND_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BACKEND_DIR.parent
+
+for p in [PROJECT_ROOT, BACKEND_DIR, PROJECT_ROOT / "cif_generator", PROJECT_ROOT / "property_prediction_models"]:
+    p_str = str(p)
+    if p_str not in sys.path:
+        sys.path.insert(0, p_str)
 
 from routes import (
     auth_routes,
