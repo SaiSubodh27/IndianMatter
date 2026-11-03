@@ -1,0 +1,7 @@
+old,new,sha256,reason,time
+download_all_models.py,ml/legacy_scripts\download_all_models.py,45526c3329c37dbd3445f7c6201763dac3c8236f138f5cde6d4d1d74a68b4835,"loose root script, no importers, no launcher mentions",2026-10-28T16:09:05
+download_m3gnet.py,ml/legacy_scripts\download_m3gnet.py,b7147f58bd568e83d6883394964fcc82bfc1e477f49d76c7c9703c6de957b832,"loose root script, no importers, no launcher mentions",2026-10-28T16:09:05
+download_m3gnet_hf.py,ml/legacy_scripts\download_m3gnet_hf.py,b6cec96a0ccc4777b970dd015d3570dee03840271294d8287e99a76b0e3e7345,"loose root script, no importers, no launcher mentions",2026-10-28T16:09:05
+download_m3gnet_manual.py,ml/legacy_scripts\download_m3gnet_manual.py,1d58b01115c10429ba04323a3fdeea9a5d1fba62147b7757e259f25549b84569,"loose root script, no importers, no launcher mentions",2026-10-28T16:09:05
+redownload_m3gnet.py,ml/legacy_scripts\redownload_m3gnet.py,ca08a568c32a12f46729bdc5fcbb30e411d949d8bce9a5931fae6e9632ae8683,"loose root script, no importers, no launcher mentions",2026-10-28T16:09:05
+unified_m3gnet_approach.py,ml/legacy_scripts\unified_m3gnet_approach.py,89aed3738fa892221e9219cc10d888d7b7288de7950a07934c981b68cd49323a,"loose root script, no importers, no launcher mentions",2026-10-28T16:09:05

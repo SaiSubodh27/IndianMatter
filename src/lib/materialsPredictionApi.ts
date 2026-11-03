@@ -163,11 +163,13 @@ export async function predictFromCifFile(
   file: File,
   requestedProperties: string[] = ["bulk_modulus", "shear_modulus", "thermal"],
   temperature: number = 298.15,
+  bypassCache: boolean = false,
 ): Promise<DirectPredictionResponse> {
   const form = new FormData();
   form.append("file", file);
   form.append("properties", requestedProperties.join(","));
   form.append("temperature", String(temperature));
+  form.append("bypass_cache", String(bypassCache));
 
   return request<DirectPredictionResponse>(
     "/api/calculations/predict-properties",
@@ -467,4 +469,131 @@ export async function predictCrystalFormer(
     body: form,
   });
 }
-
+
+
+
+// ==========================================
+// MongoDB Materials Database & Cache API
+// ==========================================
+
+export interface StoredDatabaseItem {
+  id: string;
+  formula: string;
+  reduced_formula?: string;
+  filename?: string;
+  source_model?: string;
+  temperature_k?: number;
+  metadata?: {
+    volume_A3?: number;
+    density_g_cm3?: number;
+    num_sites?: number;
+  };
+  metrics?: {
+    bulk_modulus_GPa?: number | null;
+    shear_modulus_GPa?: number | null;
+    youngs_modulus_GPa?: number | null;
+    formation_energy_eV_atom?: number | null;
+    band_gap_eV?: number | null;
+    ehull_eV_per_atom?: number | null;
+    is_stable?: boolean | null;
+    stability_status?: string;
+    electronic_conductivity_S_cm?: number | null;
+    ionic_conductivity_S_cm?: number | null;
+  };
+  created_at?: string;
+  updated_at?: string;
+  has_cif?: boolean;
+}
+
+export interface DatabaseRecordsResponse {
+  total: number;
+  page: number;
+  limit: number;
+  items: StoredDatabaseItem[];
+  connected?: boolean;
+}
+
+export interface DatabaseOverviewResponse {
+  connected: boolean;
+  database_name?: string;
+  collection_name?: string;
+  total_records?: number;
+  stable_records?: number;
+  metastable_records?: number;
+  latest_material?: string;
+  last_updated?: string;
+  message?: string;
+  error?: string;
+}
+
+export async function fetchDatabaseOverview(): Promise<DatabaseOverviewResponse> {
+  return request<DatabaseOverviewResponse>("/api/calculations/database/overview");
+}
+
+export async function fetchDatabaseRecords(
+  query?: string,
+  isStable?: boolean,
+  page: number = 1,
+  limit: number = 50
+): Promise<DatabaseRecordsResponse> {
+  const params = new URLSearchParams();
+  if (query && query.trim()) params.set("query", query.trim());
+  if (isStable !== undefined) params.set("is_stable", String(isStable));
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+
+  return request<DatabaseRecordsResponse>(`/api/calculations/database/records?${params.toString()}`);
+}
+
+export async function fetchDatabaseRecordDetail(recordId: string): Promise<Record<string, any>> {
+  return request<Record<string, any>>(`/api/calculations/database/records/${encodeURIComponent(recordId)}`);
+}
+
+export async function deleteDatabaseRecord(recordId: string): Promise<{ status: string; message: string }> {
+  return request<{ status: string; message: string }>(
+    `/api/calculations/database/records/${encodeURIComponent(recordId)}`,
+    { method: "DELETE" }
+  );
+}
+
+
+export interface MaterialLookupResponse {
+  found: boolean;
+  material_id?: string;
+  formula?: string;
+  reduced_formula?: string;
+  filename?: string;
+  source?: string;
+  metadata?: {
+    volume_A3?: number;
+    density_g_cm3?: number;
+    num_sites?: number;
+    space_group?: string;
+    crystal_system?: string;
+  };
+  space_group?: string;
+  crystal_system?: string;
+  metrics?: {
+    bulk_modulus_GPa?: number | null;
+    shear_modulus_GPa?: number | null;
+    youngs_modulus_GPa?: number | null;
+    formation_energy_eV_atom?: number | null;
+    band_gap_eV?: number | null;
+    ehull_eV_per_atom?: number | null;
+    is_stable?: boolean | null;
+    stability_status?: string;
+    electronic_conductivity_S_cm?: number | null;
+    ionic_conductivity_S_cm?: number | null;
+    activation_energy_eV?: number | null;
+  };
+  full_prediction?: DirectPredictionResponse | null;
+  has_cif?: boolean;
+  cif_content?: string;
+  cached_at?: string;
+  db_id?: string;
+  message?: string;
+}
+
+export async function lookupMaterialInDatabase(query: string): Promise<MaterialLookupResponse> {
+  return request<MaterialLookupResponse>(`/api/calculations/lookup?query=${encodeURIComponent(query.trim())}`);
+}

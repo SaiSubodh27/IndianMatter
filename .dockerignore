@@ -1,0 +1,29 @@
+# Git & IDE
+.git
+.gitignore
+.vscode
+.agents
+Final_ validation.code-workspace
+
+# Offline Training, Research & Scratch Files (Exclude on Deploy)
+offline_training_and_research/
+datasets/raw_archives/
+
+# Node / Frontend Build
+node_modules/
+dist/
+
+# Python Virtual Environments & Bytecode
+.venv/
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Temporary & Log files
+*.log
+.DS_Store
+Thumbs.db
+

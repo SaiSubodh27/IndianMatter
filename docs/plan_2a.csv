@@ -1,0 +1,7 @@
+old,new,reason
+download_all_models.py,ml/legacy_scripts\download_all_models.py,"loose root script, no importers, no launcher mentions"
+download_m3gnet.py,ml/legacy_scripts\download_m3gnet.py,"loose root script, no importers, no launcher mentions"
+download_m3gnet_hf.py,ml/legacy_scripts\download_m3gnet_hf.py,"loose root script, no importers, no launcher mentions"
+download_m3gnet_manual.py,ml/legacy_scripts\download_m3gnet_manual.py,"loose root script, no importers, no launcher mentions"
+redownload_m3gnet.py,ml/legacy_scripts\redownload_m3gnet.py,"loose root script, no importers, no launcher mentions"
+unified_m3gnet_approach.py,ml/legacy_scripts\unified_m3gnet_approach.py,"loose root script, no importers, no launcher mentions"

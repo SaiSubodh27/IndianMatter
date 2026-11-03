@@ -1,0 +1,4 @@
+- done: Phase 1 inventory; docs/INVENTORY.md, MODEL_REGISTRY.md, DEPENDENCY_MAP.md created
+- in-progress: none
+- next: Phase 2 (needs approved)
+- open questions: model version labels TBD

@@ -1,0 +1,9 @@
+offline_training_and_research/
+datasets/raw_archives/
+backend/
+pretrained_models/
+final_models/
+.venv/
+venv/
+node_modules/
+

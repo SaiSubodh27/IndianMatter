@@ -35,3 +35,5 @@ backend/.env
 node_modules/
 .env.gpu
 
+
+*.zip

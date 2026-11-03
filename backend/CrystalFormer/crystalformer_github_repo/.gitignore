@@ -1,0 +1,27 @@
+# secrets
+mp_api_key.txt
+*.key
+.env
+
+# the authors' code (clone it, do not copy it into this repo) and large/binary files
+crystalframer/
+weights/
+*.ckpt
+*.pt
+*.zip
+
+# your data and results
+inputs/
+outputs/
+predictions*.csv
+ehull_model.csv
+*_log*.txt
+tune_log.txt
+
+# python / editors / OS
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.vscode/
+.DS_Store
+Thumbs.db

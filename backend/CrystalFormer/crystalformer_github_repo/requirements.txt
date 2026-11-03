@@ -1,0 +1,31 @@
+# CrystalFormer prediction environment: Python 3.11, CUDA 12.1 (NVIDIA A100 or any GPU with driver >= 525).
+# Versions are the ones listed by `pip list` inside the Docker image that produced the results in the README.
+# Safest option is still the Docker route (see README.md): it also provides the CUDA 12.1 headers cupy needs.
+#
+#   pip install -r requirements.txt
+#
+# (a) PyTorch 2.1.2 built for CUDA 12.1 comes from the PyTorch index
+--extra-index-url https://download.pytorch.org/whl/cu121
+# (b) the torch-scatter / sparse / cluster / spline-conv wheels come from the PyG wheel index (torch 2.1 + cu121)
+--find-links https://data.pyg.org/whl/torch-2.1.0+cu121.html
+
+torch==2.1.2+cu121
+torch-scatter==2.1.2+pt21cu121
+torch-sparse==0.6.18+pt21cu121
+torch-cluster==1.6.3+pt21cu121
+torch-spline-conv==1.2.2+pt21cu121
+torch-geometric==2.8.1
+torchmetrics==1.9.0
+pytorch-lightning==2.1.3        # version the checkpoints were trained with; needed only if the authors' code imports it
+
+cupy-cuda12x==12.3.0            # the attention kernels are compiled at run time through cupy
+
+# numpy 1.26 is required by torch 2.1; pandas 3.x does NOT work with it, so pandas is pinned to 2.2.3
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.17.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
+spglib==2.8.0
+pymatgen==2026.10.24
+requests                        # only used by ehull_from_mp.py

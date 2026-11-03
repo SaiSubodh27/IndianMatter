@@ -22,6 +22,22 @@ from model_paths import resolve_pretrained_models_dir
 from routes.transport_router import predict_conductivity_from_path
 
 # DEFINE ROUTER
+# MongoDB Materials Persistence Service
+try:
+    from services.materials_db_service import (
+        get_cached_prediction,
+        save_material_prediction,
+        list_cached_predictions,
+        get_prediction_detail,
+        delete_prediction_record,
+        get_database_overview
+    )
+    MATERIALS_DB_ENABLED = True
+    print("[Calculator Router] Connected to MongoDB materials_db_service.")
+except Exception as _db_err:
+    print(f"[Calculator Router] Warning: materials_db_service not loaded: {_db_err}")
+    MATERIALS_DB_ENABLED = False
+
 router = APIRouter(prefix="/api/calculations", tags=["Calculations"])
 
 # ---------------------------------------------------------
@@ -103,7 +119,8 @@ except Exception as e:
 async def predict_properties(
     file: UploadFile = File(...),
     properties: str = Form(default="bulk_modulus,shear_modulus,thermal_conductivity"),
-    temperature: float = Form(298.15)
+    temperature: float = Form(298.15),
+    bypass_cache: bool = Form(False)
 ):
     """
     Unified endpoint that parses structure dynamically and evaluates multiple 
@@ -114,8 +131,24 @@ async def predict_properties(
     
     try:
         content = await file.read()
-        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
+        cif_decoded = content.decode("utf-8", errors="replace")
+        structure = Structure.from_str(cif_decoded, fmt="cif")
         lattice = structure.lattice
+        formula_reduced = structure.composition.reduced_formula
+
+        # 1. Check MongoDB cache first (unless bypass_cache is requested)!
+        if MATERIALS_DB_ENABLED and not bypass_cache:
+            cached_doc = get_cached_prediction(
+                formula=formula_reduced,
+                reduced_formula=formula_reduced,
+                cif_text=cif_decoded
+            )
+            if cached_doc and "full_prediction_payload" in cached_doc:
+                cached_res = cached_doc["full_prediction_payload"]
+                cached_res["cached_from_db"] = True
+                cached_res["db_record_id"] = str(cached_doc["_id"])
+                cached_res["db_cached_at"] = str(cached_doc.get("updated_at") or cached_doc.get("created_at"))
+                return cached_res
         
         # Extract true dynamic physical properties from uploaded CIF
         metadata = {
@@ -356,13 +389,31 @@ async def predict_properties(
         if bfsy_result and bfsy_result.get("energy_per_atom_eV") is not None:
             base_energy = bfsy_result["energy_per_atom_eV"]
 
-        return {
+        response_payload = {
             "status": "success",
             "material_metadata": metadata,
             "model_used": "BFSYPipeline-Unified",
             "base_outputs": {"energy_per_atom": {"value": base_energy, "unit": "eV/atom", "status": "calculated"}},
             "properties": calculated_properties
         }
+
+        # 2. Persist calculated prediction to MongoDB
+        if MATERIALS_DB_ENABLED:
+            try:
+                save_material_prediction(
+                    formula=formula_reduced,
+                    full_payload=response_payload,
+                    reduced_formula=formula_reduced,
+                    structure=structure,
+                    cif_text=cif_decoded,
+                    filename=file.filename,
+                    source="CrystalFormer-Unified",
+                    temperature_k=temperature
+                )
+            except Exception as save_err:
+                print(f"[MongoDB] Notice: Could not save prediction to DB: {save_err}")
+
+        return response_payload
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Multi-property analysis error: {str(e)}")
 
@@ -545,6 +596,7 @@ async def crystalformer_predict_endpoint(
     dopant_element: Optional[str] = Form(None),
     dopant_fraction: Optional[float] = Form(None),
     host_site_species: Optional[str] = Form(None),
+    bypass_cache: bool = Form(False)
 ):
     """
     Evaluates CrystalFormer Core 4 (bulk, shear, formation energy, band gap)
@@ -555,14 +607,60 @@ async def crystalformer_predict_endpoint(
         raise HTTPException(status_code=500, detail="CrystalFormer service is not loaded.")
 
     try:
+        # Check MongoDB Cache for Formula
+        if formula and formula.strip() and not (file and file.filename and file.filename.strip()):
+            clean_form = formula.strip()
+            if MATERIALS_DB_ENABLED and not dopant_element and not bypass_cache:
+                cached_doc = get_cached_prediction(formula=clean_form, reduced_formula=clean_form)
+                if cached_doc and "full_prediction_payload" in cached_doc:
+                    cached_res = cached_doc["full_prediction_payload"]
+                    cached_res["cached_from_db"] = True
+                    cached_res["db_record_id"] = str(cached_doc["_id"])
+                    cached_res["db_cached_at"] = str(cached_doc.get("updated_at") or cached_doc.get("created_at"))
+                    return cached_res
+
         if file and file.filename and file.filename.strip():
             content = await file.read()
-            cif_text = content.decode("utf-8")
+            cif_text = content.decode("utf-8", errors="replace")
             structure = Structure.from_str(cif_text, fmt="cif")
+            reduced_form = structure.composition.reduced_formula
+
+            # Check MongoDB Cache for Structure/CIF
+            if MATERIALS_DB_ENABLED and not bypass_cache:
+                cached_doc = get_cached_prediction(
+                    formula=reduced_form,
+                    reduced_formula=reduced_form,
+                    cif_text=cif_text
+                )
+                if cached_doc and "full_prediction_payload" in cached_doc:
+                    cached_res = cached_doc["full_prediction_payload"]
+                    cached_res["cached_from_db"] = True
+                    cached_res["db_record_id"] = str(cached_doc["_id"])
+                    cached_res["db_cached_at"] = str(cached_doc.get("updated_at") or cached_doc.get("created_at"))
+                    return cached_res
+
             res = crystalformer_service.predict(structure, temperature_k=temperature)
             res["cif_string"] = cif_text
             res["filename"] = file.filename
+
+            # Save to MongoDB
+            if MATERIALS_DB_ENABLED:
+                try:
+                    save_material_prediction(
+                        formula=res.get("formula", reduced_form),
+                        full_payload=res,
+                        reduced_formula=reduced_form,
+                        structure=structure,
+                        cif_text=cif_text,
+                        filename=file.filename,
+                        source=res.get("model_source", "CrystalFormer"),
+                        temperature_k=temperature
+                    )
+                except Exception as save_err:
+                    print(f"[MongoDB] Notice: Could not save prediction to DB: {save_err}")
+
             return res
+
         elif formula and formula.strip():
             res = crystalformer_service.predict_from_formula(
                 formula=formula.strip(),
@@ -572,6 +670,22 @@ async def crystalformer_predict_endpoint(
                 dopant_fraction=dopant_fraction,
                 host_site_species=host_site_species,
             )
+
+            # Save to MongoDB
+            if MATERIALS_DB_ENABLED and not dopant_element and not bypass_cache:
+                try:
+                    save_material_prediction(
+                        formula=res.get("formula", formula.strip()),
+                        full_payload=res,
+                        reduced_formula=res.get("formula"),
+                        cif_text=res.get("cif_string"),
+                        filename=f"{formula.strip()}.cif",
+                        source=res.get("model_source", "CrystalFormer"),
+                        temperature_k=temperature
+                    )
+                except Exception as save_err:
+                    print(f"[MongoDB] Notice: Could not save prediction to DB: {save_err}")
+
             return res
         else:
             raise HTTPException(status_code=400, detail="Please upload a .cif file or provide a material formula.")
@@ -1155,6 +1269,22 @@ def process_single_cif_record(
         row["status"] = "failed"
         row["error_message"] = str(e)
 
+    # Persist batch row prediction into MongoDB
+    if MATERIALS_DB_ENABLED and row.get("status") in ["success", "warning"]:
+        try:
+            save_material_prediction(
+                formula=row.get("formula", "Unknown"),
+                full_payload=row,
+                reduced_formula=row.get("formula"),
+                structure=structure if 'structure' in locals() else None,
+                cif_text=cif_text,
+                filename=filename,
+                source=row.get("model_source", "BatchPipeline"),
+                temperature_k=temperature
+            )
+        except Exception as save_err:
+            pass
+
     return row
 
 
@@ -1462,4 +1592,182 @@ async def batch_predict_crystalformer(
         raise HTTPException(status_code=500, detail=f"CrystalFormer batch prediction error: {str(e)}")
 
 
-
+
+
+
+# ---------------------------------------------------------
+# MONGODB MATERIALS DATABASE INSPECTION & CACHE ENDPOINTS
+# ---------------------------------------------------------
+@router.get("/database/overview")
+def get_materials_db_stats():
+    """Returns database connection status and collection summary statistics."""
+    if not MATERIALS_DB_ENABLED:
+        return {"connected": False, "message": "MongoDB service not initialized."}
+    return get_database_overview()
+
+
+@router.get("/database/records")
+def list_database_materials(
+    query: Optional[str] = None,
+    is_stable: Optional[bool] = None,
+    page: int = 1,
+    limit: int = 50
+):
+    """
+    Returns paginated list of all material property predictions saved in MongoDB.
+    Allows searching by formula, filename, or filtering by thermodynamic stability.
+    """
+    if not MATERIALS_DB_ENABLED:
+        return {"total": 0, "page": page, "limit": limit, "items": [], "connected": False}
+    return list_cached_predictions(query=query, is_stable=is_stable, page=page, limit=limit)
+
+
+@router.get("/database/records/{record_id}")
+def get_database_material_detail(record_id: str):
+    """Fetches full prediction payload and CIF text for a specific MongoDB record."""
+    if not MATERIALS_DB_ENABLED:
+        raise HTTPException(status_code=500, detail="MongoDB service not initialized.")
+    record = get_prediction_detail(record_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Material record '{record_id}' not found in MongoDB.")
+    return record
+
+
+@router.delete("/database/records/{record_id}")
+def delete_database_material(record_id: str):
+    """Deletes a cached material prediction from MongoDB."""
+    if not MATERIALS_DB_ENABLED:
+        raise HTTPException(status_code=500, detail="MongoDB service not initialized.")
+    success = delete_prediction_record(record_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Material record '{record_id}' not found.")
+    return {"status": "success", "message": f"Record '{record_id}' removed from MongoDB."}
+
+
+@router.get("/lookup")
+def lookup_material_by_formula_or_id(
+    query: str
+):
+    """
+    Instantly looks up an existing material in MongoDB by formula, reduced formula,
+    or material_id / filename. Returns existing properties if found.
+    """
+    if not MATERIALS_DB_ENABLED:
+        return {"found": False, "message": "Database not enabled."}
+
+    clean_q = query.strip()
+    import re
+    from services.materials_db_service import normalize_formula, predictions_collection
+
+    cached = get_cached_prediction(formula=clean_q, reduced_formula=clean_q)
+    if not cached and predictions_collection is not None:
+        doc = predictions_collection.find_one({
+            "$or": [
+                {"filename": clean_q},
+                {"filename": f"{clean_q}.cif"},
+                {"material_id": clean_q},
+                {"formula": {"$regex": f"^{re.escape(clean_q)}$", "$options": "i"}},
+                {"reduced_formula": {"$regex": f"^{re.escape(clean_q)}$", "$options": "i"}}
+            ]
+        })
+        if doc:
+            doc["_id"] = str(doc["_id"])
+            cached = doc
+
+    # Also search obliex_dataset collection if not found in predictions
+    if not cached:
+        try:
+            from database import db
+            if db is not None:
+                ob_doc = db["obliex_dataset"].find_one({
+                    "$or": [
+                        {"material_id": clean_q},
+                        {"material_id": clean_q.lower()},
+                        {"filename": clean_q},
+                        {"filename": f"{clean_q}.cif"},
+                        {"formula": {"$regex": f"^{re.escape(clean_q)}$", "$options": "i"}},
+                        {"reduced_formula": {"$regex": f"^{re.escape(clean_q)}$", "$options": "i"}}
+                    ]
+                })
+                if ob_doc:
+                    # Check if predictions has evaluated it by cif_hash
+                    pred_match = predictions_collection.find_one({"cif_hash": ob_doc.get("cif_hash")})
+                    if pred_match:
+                        pred_match["_id"] = str(pred_match["_id"])
+                        cached = pred_match
+                    else:
+                        ob_doc["_id"] = str(ob_doc["_id"])
+                        cached = {
+                            "_id": ob_doc["_id"],
+                            "formula": ob_doc.get("formula"),
+                            "reduced_formula": ob_doc.get("reduced_formula"),
+                            "filename": ob_doc.get("filename"),
+                            "source_model": "OBLIEX Reference Phase",
+                            "metadata": {
+                                "volume_A3": ob_doc.get("volume_A3"),
+                                "density_g_cm3": ob_doc.get("density_g_cm3"),
+                                "num_sites": ob_doc.get("num_sites"),
+                                "space_group": ob_doc.get("space_group"),
+                                "crystal_system": ob_doc.get("crystal_system")
+                            },
+                            "summary_metrics": {},
+                            "cif_content": ob_doc.get("cif_content"),
+                            "created_at": ob_doc.get("updated_at")
+                        }
+        except Exception:
+            pass
+
+    if cached:
+        # Extract rich metrics
+        sum_m = dict(cached.get("summary_metrics", {}) or {})
+        full_p = cached.get("full_prediction_payload") or {}
+
+        # Fallback values from full_prediction_payload if summary_metrics is empty
+        if not sum_m.get("bulk_modulus_GPa") and full_p.get("bulk_modulus_GPa") is not None:
+            sum_m["bulk_modulus_GPa"] = full_p.get("bulk_modulus_GPa")
+        if not sum_m.get("shear_modulus_GPa") and full_p.get("shear_modulus_GPa") is not None:
+            sum_m["shear_modulus_GPa"] = full_p.get("shear_modulus_GPa")
+        if not sum_m.get("formation_energy_eV_atom") and full_p.get("formation_energy_eV_atom") is not None:
+            sum_m["formation_energy_eV_atom"] = full_p.get("formation_energy_eV_atom")
+        if not sum_m.get("band_gap_eV") and full_p.get("band_gap_eV") is not None:
+            sum_m["band_gap_eV"] = full_p.get("band_gap_eV")
+        if not sum_m.get("ionic_conductivity_S_cm") and full_p.get("ionic_conductivity_S_cm") is not None:
+            sum_m["ionic_conductivity_S_cm"] = full_p.get("ionic_conductivity_S_cm")
+        if not sum_m.get("activation_energy_eV") and full_p.get("activation_energy_eV") is not None:
+            sum_m["activation_energy_eV"] = full_p.get("activation_energy_eV")
+
+        meta = dict(cached.get("metadata", {}) or {})
+        if not meta.get("space_group") and cached.get("space_group"):
+            meta["space_group"] = cached.get("space_group")
+        if not meta.get("crystal_system") and cached.get("crystal_system"):
+            meta["crystal_system"] = cached.get("crystal_system")
+
+        mat_id = cached.get("material_id") or full_p.get("material_id")
+        if not mat_id and cached.get("filename"):
+            m = re.match(r"^([a-zA-Z0-9_-]+)\.cif$", cached.get("filename", ""))
+            if m:
+                mat_id = m.group(1)
+
+        return {
+            "found": True,
+            "material_id": mat_id,
+            "formula": cached.get("formula"),
+            "reduced_formula": cached.get("reduced_formula"),
+            "filename": cached.get("filename"),
+            "source": cached.get("source_model", "MongoDB Cache"),
+            "metadata": meta,
+            "space_group": meta.get("space_group") or cached.get("space_group"),
+            "crystal_system": meta.get("crystal_system") or cached.get("crystal_system"),
+            "metrics": sum_m,
+            "full_prediction": full_p if full_p else None,
+            "has_cif": bool(cached.get("cif_content")),
+            "cif_content": cached.get("cif_content"),
+            "cached_at": str(cached.get("updated_at") or cached.get("created_at")),
+            "db_id": str(cached.get("_id"))
+        }
+
+    return {
+        "found": False,
+        "query": clean_q,
+        "message": f"Material '{clean_q}' not found in MongoDB. You can run models on it to calculate properties and save it to the database."
+    }

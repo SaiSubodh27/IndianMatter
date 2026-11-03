@@ -1,0 +1,6 @@
+../offline_training_and_research/
+../datasets/raw_archives/
+venv/
+__pycache__/
+*.pyc
+

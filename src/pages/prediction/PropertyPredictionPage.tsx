@@ -21,6 +21,8 @@ import {
   predictFromCifFile,
   DirectPredictionResponse,
   PropertyResult,
+  lookupMaterialInDatabase,
+  MaterialLookupResponse,
 } from "../../lib/materialsPredictionApi";
 import { API_BASE_URL } from "../../lib/api";
 import { useLocation } from "react-router-dom";
@@ -542,6 +544,201 @@ export default function PropertyPredictionPage() {
   const [generatingCif, setGeneratingCif] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // MongoDB Real-Time Material Lookup State
+  const [lookupResult, setLookupResult] = useState<MaterialLookupResponse | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const lookupTimeoutRef = useRef<any>(null);
+
+  // Real-time lookup as user types material formula or ID
+  useEffect(() => {
+    const trimmed = materialName.trim();
+    if (trimmed.length < 2) {
+      setLookupResult(null);
+      setIsLookingUp(false);
+      return;
+    }
+
+    if (lookupTimeoutRef.current) {
+      clearTimeout(lookupTimeoutRef.current);
+    }
+
+    setIsLookingUp(true);
+    lookupTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await lookupMaterialInDatabase(trimmed);
+        if (res.found) {
+          setLookupResult(res);
+          // If structure CIF is stored with the material, load it into file state automatically
+          if (res.has_cif && res.cif_content && !file) {
+            const autoFile = new File(
+              [res.cif_content],
+              `${(res.formula || res.material_id || "structure").replace(/\s+/g, "_")}.cif`,
+              { type: "chemical/x-cif" }
+            );
+            setFile(autoFile);
+            setCifSource("uploaded");
+          }
+        } else {
+          setLookupResult(null);
+        }
+      } catch (e) {
+        // Silently skip if lookup fails
+        setLookupResult(null);
+      } finally {
+        setIsLookingUp(false);
+      }
+    }, 320);
+
+    return () => {
+      if (lookupTimeoutRef.current) clearTimeout(lookupTimeoutRef.current);
+    };
+  }, [materialName]);
+
+  const hasComputedValues = (res: MaterialLookupResponse | null): boolean => {
+    if (!res) return false;
+    if (res.full_prediction) return true;
+    const m = res.metrics;
+    if (!m) return false;
+    return (
+      m.bulk_modulus_GPa != null ||
+      m.shear_modulus_GPa != null ||
+      m.ehull_eV_per_atom != null ||
+      m.formation_energy_eV_atom != null ||
+      m.band_gap_eV != null ||
+      m.ionic_conductivity_S_cm != null
+    );
+  };
+
+  const handleLoadExistingValues = (lookup: MaterialLookupResponse) => {
+    if (lookup.cif_content && !file) {
+      const autoFile = new File(
+        [lookup.cif_content],
+        `${(lookup.formula || lookup.material_id || "structure").replace(/\s+/g, "_")}.cif`,
+        { type: "chemical/x-cif" }
+      );
+      setFile(autoFile);
+      setCifSource("uploaded");
+    }
+
+    if (lookup.full_prediction) {
+      const res = { ...lookup.full_prediction, cached_from_db: true };
+      setResult(res);
+      setViewMode("results");
+      return;
+    }
+
+    const m = lookup.metrics || {};
+    const constructed: DirectPredictionResponse = {
+      status: "success",
+      material_metadata: {
+        formula: lookup.formula || materialName,
+        volume_A3: lookup.metadata?.volume_A3 || 0,
+        density_g_cm3: lookup.metadata?.density_g_cm3 || 0,
+        num_sites: lookup.metadata?.num_sites || 0,
+      },
+      model_used: lookup.source || "MongoDB Database",
+      base_outputs: {
+        energy_per_atom: {
+          value: m.formation_energy_eV_atom ?? -2.5,
+          unit: "eV/atom",
+          status: m.formation_energy_eV_atom != null ? "calculated" : "unavailable",
+        },
+      },
+      properties: {
+        bulk_modulus: {
+          property_key: "bulk_modulus",
+          value: m.bulk_modulus_GPa ?? null,
+          unit: "GPa",
+          status: m.bulk_modulus_GPa != null ? "calculated" : "unavailable",
+          source_model: lookup.source,
+        },
+        shear_modulus: {
+          property_key: "shear_modulus",
+          value: m.shear_modulus_GPa ?? null,
+          unit: "GPa",
+          status: m.shear_modulus_GPa != null ? "calculated" : "unavailable",
+          source_model: lookup.source,
+        },
+        youngs_modulus: {
+          property_key: "youngs_modulus",
+          value: m.youngs_modulus_GPa ?? null,
+          unit: "GPa",
+          status: m.youngs_modulus_GPa != null ? "calculated" : "unavailable",
+        },
+        ehull: {
+          property_key: "ehull",
+          value: m.ehull_eV_per_atom ?? null,
+          unit: "eV/atom",
+          status: m.ehull_eV_per_atom != null ? "calculated" : "unavailable",
+          source_model: "CHGNet / Convex Hull",
+        },
+        is_stable: {
+          property_key: "is_stable",
+          value: m.is_stable ?? null,
+          unit: "",
+          status: m.is_stable != null ? "calculated" : "unavailable",
+        },
+        formation_energy: {
+          property_key: "formation_energy",
+          value: m.formation_energy_eV_atom ?? null,
+          unit: "eV/atom",
+          status: m.formation_energy_eV_atom != null ? "calculated" : "unavailable",
+        },
+        band_gap: {
+          property_key: "band_gap",
+          value: m.band_gap_eV ?? null,
+          unit: "eV",
+          status: m.band_gap_eV != null ? "calculated" : "unavailable",
+        },
+        ionic_conductivity: {
+          property_key: "ionic_conductivity",
+          value: m.ionic_conductivity_S_cm ?? null,
+          unit: "S/cm",
+          status: m.ionic_conductivity_S_cm != null ? "calculated" : "unavailable",
+          source_model: "IonCast",
+        },
+      },
+    };
+
+    (constructed as any).cached_from_db = true;
+    setResult(constructed);
+    setViewMode("results");
+  };
+
+  const handleRunModelsOnLookup = async (lookup: MaterialLookupResponse) => {
+    setError(null);
+    setLoading(true);
+    try {
+      let activeFile: File;
+      if (lookup.cif_content) {
+        activeFile = new File(
+          [lookup.cif_content],
+          `${(lookup.formula || lookup.material_id || "structure").replace(/\s+/g, "_")}.cif`,
+          { type: "chemical/x-cif" }
+        );
+        setFile(activeFile);
+        setCifSource("uploaded");
+      } else if (file) {
+        activeFile = file;
+      } else {
+        activeFile = await generateCifFromFormula(lookup.formula || materialName.trim());
+      }
+
+      setLoadingStage(
+        `Evaluating physical properties across AI models for ${lookup.formula || lookup.material_id || activeFile.name}...`
+      );
+      // bypassCache = true forces recalculation and saves freshly to MongoDB
+      const res = await predictFromCifFile(activeFile, selectedKeys, 298.15, true);
+      setResult(res);
+      setViewMode("results");
+    } catch (err: any) {
+      setError(err?.message || "Execution of AI models failed.");
+    } finally {
+      setLoading(false);
+      setLoadingStage("");
+    }
+  };
+
   // If navigated from CIF Generator or other pages with router state
   const location = useLocation();
   useEffect(() => {
@@ -763,10 +960,167 @@ export default function PropertyPredictionPage() {
               )}
             </div>
 
+            {/* Live MongoDB Lookup Result Card */}
+            {isLookingUp && (
+              <div className="flex items-center gap-2 text-xs text-[#8C929C] px-1 py-1">
+                <RefreshCw size={12} className="animate-spin text-accent" />
+                <span>Checking MongoDB database (IndianMaterialsAI)...</span>
+              </div>
+            )}
+
+            {lookupResult && lookupResult.found && (
+              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#DCFCE7] pb-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                      Found in MongoDB Database
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
+                      {lookupResult.source || "Stored Record"}
+                    </span>
+                    {lookupResult.material_id && (
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-emerald-900 font-bold">
+                        ID: {lookupResult.material_id}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] text-emerald-700 font-mono">
+                    {lookupResult.space_group && <span>SG: {lookupResult.space_group} · </span>}
+                    {lookupResult.crystal_system && <span className="capitalize">{lookupResult.crystal_system} · </span>}
+                    {lookupResult.cached_at && (
+                      <span>Updated {new Date(lookupResult.cached_at).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metric Highlights */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  {lookupResult.metrics?.bulk_modulus_GPa != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Bulk Modulus (K)</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metrics.bulk_modulus_GPa.toFixed(1)} GPa
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupResult.metrics?.shear_modulus_GPa != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Shear Modulus (G)</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metrics.shear_modulus_GPa.toFixed(1)} GPa
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupResult.metrics?.ehull_eV_per_atom != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Energy Above Hull</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metrics.ehull_eV_per_atom.toFixed(4)} eV/atom
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupResult.metrics?.formation_energy_eV_atom != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Formation Energy</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metrics.formation_energy_eV_atom.toFixed(3)} eV/atom
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupResult.metrics?.band_gap_eV != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Band Gap (Eg)</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metrics.band_gap_eV.toFixed(2)} eV
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupResult.metrics?.ionic_conductivity_S_cm != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Ionic Conductivity</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metrics.ionic_conductivity_S_cm.toExponential(2)} S/cm
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupResult.metadata?.density_g_cm3 != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Density</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metadata.density_g_cm3.toFixed(2)} g/cm³
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupResult.metadata?.volume_A3 != null && (
+                    <div className="bg-white/90 rounded-xl p-2.5 border border-emerald-100 shadow-xs">
+                      <div className="text-[10px] text-emerald-700 font-medium">Unit Cell Volume</div>
+                      <div className="text-sm font-bold text-emerald-950 font-mono mt-0.5">
+                        {lookupResult.metadata.volume_A3.toFixed(1)} Å³
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dual Action Controls */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {hasComputedValues(lookupResult) && (
+                    <button
+                      type="button"
+                      onClick={() => handleLoadExistingValues(lookupResult)}
+                      className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      <Check size={14} />
+                      <span>⚡ View Stored Values Directly</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleRunModelsOnLookup(lookupResult)}
+                    disabled={loading}
+                    className="px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Play size={13} className="text-emerald-700" />
+                    <span>
+                      {hasComputedValues(lookupResult)
+                        ? "🔄 Re-run Models & Update DB"
+                        : "🚀 Run AI Models on this Material"}
+                    </span>
+                  </button>
+
+                  {lookupResult.has_cif && (
+                    <span className="text-[11px] text-emerald-800 flex items-center gap-1 ml-auto">
+                      <FileCheck size={13} className="text-emerald-600" />
+                      CIF Structure loaded from MongoDB
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Quick Presets */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
               <span className="text-[10px] font-semibold text-[#8C929C] mr-1">Quick Presets:</span>
-              {["LiCoO2", "Fe2O3", "TiO2", "Na3Zr2Si2PO12", "NaCl", "Si"].map((sym) => (
+              {[
+                "00x",
+                "019",
+                "0iv",
+                "11b",
+                "LiGd(PO3)4",
+                "Li3PS4",
+                "LiCoO2",
+                "Na3Zr2Si2PO12",
+                "Fe2O3"
+              ].map((sym) => (
                 <button
                   key={sym}
                   type="button"
@@ -917,6 +1271,11 @@ function DedicatedResultsPage({
         </button>
 
         <div className="flex items-center gap-3">
+          {(result as any)?.cached_from_db && (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+              ⚡ Loaded from MongoDB Cache
+            </span>
+          )}
           {cifSource === "generated" && (
             <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-accent border border-orange-200">
               Synthesized via CIF Generator
