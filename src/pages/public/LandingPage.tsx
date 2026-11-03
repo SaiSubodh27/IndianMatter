@@ -399,11 +399,10 @@ export default function LandingPage() {
               const isRoute = href.startsWith("/");
               const sectionId = href.slice(1);
               const active = !isRoute && activeSection === sectionId;
-              const linkClasses = `text-[14px] font-medium transition-all duration-150 px-3.5 py-1.5 rounded-full ${
-                active
-                  ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
-                  : "text-[#6B6B6B] hover:text-[#D47E30] hover:bg-[#FDF5EE]/60"
-              }`;
+              const linkClasses = `text-[14px] font-medium transition-all duration-150 px-3.5 py-1.5 rounded-full ${active
+                ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
+                : "text-[#6B6B6B] hover:text-[#D47E30] hover:bg-[#FDF5EE]/60"
+                }`;
 
               if (isRoute) {
                 return (
@@ -480,9 +479,8 @@ export default function LandingPage() {
                   </div>
                   <ChevronDown
                     size={13}
-                    className={`text-[#8C929C] transition-transform duration-200 ${
-                      userMenuOpen ? "rotate-180" : ""
-                    }`}
+                    className={`text-[#8C929C] transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 
@@ -567,11 +565,10 @@ export default function LandingPage() {
           <div className="md:hidden bg-white border-t border-[#EBEBEB] px-6 py-5 space-y-1">
             {navLinks.map(({ href, label }) => {
               const isRoute = href.startsWith("/");
-              const linkClasses = `flex items-center py-2.5 px-3 rounded-lg text-[15px] font-medium transition-colors ${
-                !isRoute && activeSection === href.slice(1)
-                  ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
-                  : "text-[#3D3D3D] hover:text-[#D47E30]"
-              }`;
+              const linkClasses = `flex items-center py-2.5 px-3 rounded-lg text-[15px] font-medium transition-colors ${!isRoute && activeSection === href.slice(1)
+                ? "text-[#D47E30] bg-[#FBF0E6] font-semibold"
+                : "text-[#3D3D3D] hover:text-[#D47E30]"
+                }`;
 
               if (isRoute) {
                 return (
@@ -734,21 +731,21 @@ export default function LandingPage() {
 
         {/* Hero Left Content */}
         <div className="relative z-10 max-w-[580px] space-y-7 py-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-semibold tracking-wider uppercase text-amber-900 font-mono shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-            Computational Materials Discovery Platform
-          </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-[#1A1A1A] tracking-tight leading-[1.02]">
             Indian<span style={{ color: "#D47E30" }}>Matter</span>
           </h1>
 
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-headline font-normal text-[#4A4A4A] tracking-tight">
-            Structure Synthesis, GNN Inference & DFT Validation
+            Unlocking the Potential of Materials
           </h2>
 
           <p className="text-base lg:text-[17px] text-[#6B6B6B] max-w-[520px] leading-relaxed">
-            Screen over 140,000 inorganic materials across Materials Project, OQMD, and AFLOW. Predict electronic properties, generate candidate CIF structures, and benchmark against ab initio calculations.
+            An <span className="text-[#D77B2B] font-medium">AI-powered platform</span> for discovering and evaluating{" "}
+            <span className="text-[#D77B2B] font-medium"> materials</span> through{" "}
+            <span className="text-[#D77B2B] font-medium"> property prediction</span>,{" "}
+            <span className="text-[#D77B2B] font-medium">crystal structure generation</span> and{" "}
+            <span className="text-[#D77B2B] font-medium">computational validation</span>, accelerating materials research and innovation.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -927,9 +924,8 @@ export default function LandingPage() {
                   onClick={() => {
                     if (!isActive) setExploreIdx(idx);
                   }}
-                  className={`absolute top-1/2 left-1/2 w-[295px] sm:w-[360px] md:w-[390px] transition-all duration-750 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${
-                    isActive ? "cursor-default" : "cursor-pointer"
-                  } ${Math.abs(offset) >= 2 ? "max-sm:hidden" : ""}`}
+                  className={`absolute top-1/2 left-1/2 w-[295px] sm:w-[360px] md:w-[390px] transition-all duration-750 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${isActive ? "cursor-default" : "cursor-pointer"
+                    } ${Math.abs(offset) >= 2 ? "max-sm:hidden" : ""}`}
                   style={{
                     transform: cardStyle.transform,
                     zIndex: cardStyle.zIndex,
@@ -948,11 +944,10 @@ export default function LandingPage() {
                   )}
 
                   <div
-                    className={`relative w-full bg-white rounded-[2rem] border transition-all duration-500 overflow-hidden flex flex-col ${
-                      isActive
-                        ? "border-[#D47E30] shadow-[0_28px_60px_-15px_rgba(212,126,48,0.28),0_16px_32px_-8px_rgba(0,0,0,0.08)] ring-2 ring-[#D47E30]/40"
-                        : "border-[#E8E8E6] shadow-[0_12px_30px_-10px_rgba(0,0,0,0.06)] hover:border-[#D47E30]/40"
-                    }`}
+                    className={`relative w-full bg-white rounded-[2rem] border transition-all duration-500 overflow-hidden flex flex-col ${isActive
+                      ? "border-[#D47E30] shadow-[0_28px_60px_-15px_rgba(212,126,48,0.28),0_16px_32px_-8px_rgba(0,0,0,0.08)] ring-2 ring-[#D47E30]/40"
+                      : "border-[#E8E8E6] shadow-[0_12px_30px_-10px_rgba(0,0,0,0.06)] hover:border-[#D47E30]/40"
+                      }`}
                   >
                     {/* Shimmer light-beam sweep effect on card change */}
                     {isActive && (
@@ -969,9 +964,8 @@ export default function LandingPage() {
                     <div className="p-5 sm:p-6 pb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-500 ${
-                            isActive ? "bg-[#FBF0E6] scale-105" : "bg-stone-100 scale-100"
-                          }`}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-500 ${isActive ? "bg-[#FBF0E6] scale-105" : "bg-stone-100 scale-100"
+                            }`}
                         >
                           <Atom
                             size={20}
@@ -1024,11 +1018,10 @@ export default function LandingPage() {
                         <img
                           src={mat.image}
                           alt={`${mat.formula} crystal structure`}
-                          className={`w-full h-full object-contain transition-all duration-700 ${
-                            isActive
-                              ? "scale-100 drop-shadow-[0_14px_28px_rgba(141,90,43,0.24)] animate-crystal-float"
-                              : "scale-90 opacity-80"
-                          }`}
+                          className={`w-full h-full object-contain transition-all duration-700 ${isActive
+                            ? "scale-100 drop-shadow-[0_14px_28px_rgba(141,90,43,0.24)] animate-crystal-float"
+                            : "scale-90 opacity-80"
+                            }`}
                         />
                       </div>
                     </div>
@@ -1062,11 +1055,10 @@ export default function LandingPage() {
                             navigate(`/signin?redirect=${encodeURIComponent(url)}`);
                           }
                         }}
-                        className={`w-full py-3 px-4 rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-150 ${
-                          isActive
-                            ? "bg-[#D47E30] text-white hover:bg-[#B8671E] shadow-md shadow-[#D47E30]/25 active:scale-95 cursor-pointer"
-                            : "bg-[#F3EFEA] text-[#554C42] hover:bg-[#EAE4DC] cursor-pointer"
-                        }`}
+                        className={`w-full py-3 px-4 rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-150 ${isActive
+                          ? "bg-[#D47E30] text-white hover:bg-[#B8671E] shadow-md shadow-[#D47E30]/25 active:scale-95 cursor-pointer"
+                          : "bg-[#F3EFEA] text-[#554C42] hover:bg-[#EAE4DC] cursor-pointer"
+                          }`}
                       >
                         <span>View Material Details</span>
                         <ArrowRight size={14} />
