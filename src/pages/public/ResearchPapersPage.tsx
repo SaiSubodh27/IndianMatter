@@ -1,3 +1,8 @@
+/**
+ * ResearchPapersPage — published research papers from Supabase.
+ * Route: /research-papers. On mount calls getPublishedPapers (Supabase `papers`
+ * table) -> filters/sort/expanded-abstracts state. Sets SEO title/meta in effect.
+ */
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -22,6 +27,11 @@ import {
 } from "lucide-react";
 import { getPublishedPapers, Paper } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — RESEARCH PAPERS PAGE
+// Supabase `papers` table -> filters/sort/expanded abstracts; SEO title/meta.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function ResearchPapersPage() {
   const { user, isAuthenticated } = useAuth();

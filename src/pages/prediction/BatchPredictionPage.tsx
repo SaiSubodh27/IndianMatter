@@ -1,3 +1,10 @@
+/**
+ * BatchPredictionPage — batch CIF prediction.
+ * Route: /app/batch. On mount fetches the property catalog (fetchBatchProperties).
+ * Accepts drag&drop .cif/.zip files, applies presets to reduce the input set,
+ * then startBatchCifPrediction -> 1s polling of getBatchJobStatus -> on completion
+ * getBatchJobResults -> summary metrics + CSV download via getBatchCsvDownloadUrl.
+ */
 import { useEffect, useState, useRef, ChangeEvent, DragEvent } from "react";
 import {
   Upload,
@@ -78,6 +85,11 @@ function formatValue(key: string, value: any): string {
   }
   return String(value);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — BATCH PREDICTION PAGE
+// Drag&drop .cif/.zip -> startBatchCifPrediction -> 1s polling -> results + CSV.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function BatchPredictionPage() {
   const [availableProps, setAvailableProps] = useState<BatchPropertyOption[]>([]);

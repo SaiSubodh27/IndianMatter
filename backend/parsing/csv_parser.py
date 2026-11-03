@@ -1,4 +1,12 @@
-import os
+"""CSV parser for the (unwired) prediction pipeline.
+
+Role in the system
+------------------
+Parses CSV uploads with max-row guard and structure/formula column sniffing.
+Used by services/prediction_service.py.
+"""
+
+import os  # file path handling
 import pandas as pd
 from typing import Tuple, Dict, List, Optional
 from core.exceptions import DatasetValidationError

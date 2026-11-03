@@ -1,4 +1,14 @@
-import sys
+"""Device (CPU/GPU) introspection helpers for the prediction pipeline.
+
+Role in the system
+------------------
+Used by the unwired prediction pipeline (workers/prediction_worker.py) and
+scripts/check_models.py to probe torch/psutil availability and select a
+compute device. Imports torch and psutil optionally so the module still
+imports when they are absent.
+"""
+
+import sys  # sys.path / platform info for device probing
 
 try:
     import psutil

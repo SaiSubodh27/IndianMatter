@@ -38,11 +38,13 @@ to impute, and are reported as such:
     training, so the existing zero fill is already correct.
 """
 
-import math
+import math  # used for log_density / log_volume / log_n_atoms transforms
 
-import numpy as np
+import numpy as np  # array statistics (mean/sd/min/max/range) with ddof=1 sample sd
 
 try:
+    # pymatgen is an optional dependency in some test environments; guard the
+    # import so this module can still be imported (compute_descriptors returns {}).
     from pymatgen.core.periodic_table import Element
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
     PYMATGEN_AVAILABLE = True

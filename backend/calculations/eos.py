@@ -1,4 +1,12 @@
-import time
+"""Equation-of-state (Birch-Murnaghan) calculator.
+
+Role in the system
+------------------
+±8% volume scan + Murnaghan EOS fit used by the thermal/mechanical analysis.
+Part of the (unwired) ``/api/materials-prediction`` pipeline.
+"""
+
+import time  # timing for the volume scan
 import numpy as np
 from typing import Any, Optional
 from pymatgen.core import Structure

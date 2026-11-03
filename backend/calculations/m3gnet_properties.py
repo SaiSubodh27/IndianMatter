@@ -1,4 +1,12 @@
-import os
+"""M3GNet property calculator (21-dim CHGNet feature vector).
+
+Role in the system
+------------------
+Duplicate implementation of the CHGNet 21-dim feature vector (module-level
+global CHGNetCalculator). Used by the (unwired) prediction pipeline.
+"""
+
+import os  # model/cache paths
 import pathlib
 import torch
 import numpy as np

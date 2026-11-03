@@ -1,4 +1,18 @@
-import os
+"""CHGNet 21-dim feature vector extraction.
+
+Role in the system
+------------------
+Provides ``extract_mechanical_features(structure)`` returning a fixed 21-dim
+numpy vector (lattice + composition + CHGNet energy/forces/stress) used by the
+BFSY mechanical surrogates and the band-gap/thermal models. Uses a module-level
+global CHGNetCalculator (lazy-loaded via ``_ensure_chgnet_calculator`` to
+avoid ImportError at startup — see fix f9a55c18).
+
+Inputs  : a pymatgen Structure.
+Outputs : (feature_vector: np.ndarray[21], chgnet_energy: float).
+"""
+
+import os  # model/cache path resolution
 import warnings
 import torch
 import numpy as np

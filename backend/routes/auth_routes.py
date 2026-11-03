@@ -1,3 +1,34 @@
+"""
+Auth routes: email/password + OAuth (Google, GitHub) sign-in for IndianMatter.
+
+Mounted in main.py as:  app.include_router(auth_routes.router, prefix="/api/auth")
+Endpoints
+  POST /api/auth/register          -> Token                 (email + password -> JWT)
+  POST /api/auth/login             -> Token                 (email + password -> JWT)
+  GET  /api/auth/google/login      -> redirect to Google consent screen
+  GET  /api/auth/google/callback   -> 302 to FRONTEND_URL/signin#token=<JWT>
+  GET  /api/auth/github/login      -> redirect to GitHub consent screen
+  GET  /api/auth/github/callback   -> 302 to FRONTEND_URL/signin#token=<JWT>
+
+Consumers: the React frontend (Signin/Signup pages) posts to register/login and
+relies on the OAuth callbacks handing back the JWT in a URL fragment
+(#token=... is deliberately used instead of a query string so the token never
+reaches the server logs of the frontend).
+
+Dependencies: auth (JWT helpers), db_models (pydantic), database (MongoDB
+`users_collection`), authlib OAuth clients, backend/.env with
+GOOGLE_CLIENT_ID/SECRET and/or GITHUB_CLIENT_ID/SECRET (a missing pair leaves
+that provider's /login route broken at consent time, but importing still works).
+
+Gotchas
+  * load_dotenv() is run HERE, at import time, because this module is imported
+    before main.py executes its own load_dotenv() -- the OAuth registration
+    below needs the env vars already populated.
+  * datetime.utcnow() is used throughout (naive UTC); no timezone object.
+  * OAuth user records have hashed_password=None and a `providers` list;
+    email records have `provider`="email" and no `providers` key initially,
+    so callbacks read providers with the provider field as fallback.
+"""
 import os
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, status, Request
@@ -6,6 +37,10 @@ from starlette.config import Config
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from dotenv import load_dotenv
 
+# The comment lines below flag one critical bootstrap detail: unlike the other
+# route modules, this file MUST load the backend .env itself, because it is
+# imported before main.py gets a chance to call load_dotenv() -- and the
+# oauth.register() calls immediately after need GOOGLE/GITHUB credentials set.
 # Ensure environment variables are loaded *before* initializing OAuth,
 # because auth_routes.py is imported before main.py executes load_dotenv().
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -26,7 +61,8 @@ from db_models import UserCreate, UserLogin, GoogleLogin, Token
 from database import users_collection
 
 router = APIRouter()
-
+# Starlette Config wraps os.environ for authlib; the OAuth registry below then
+# reads whichever client ids/secrets made it into the process environment.
 config = Config(environ=os.environ)
 oauth = OAuth(config)
 oauth.register(
@@ -38,7 +74,7 @@ oauth.register(
 )
 oauth.register(
     name='github',
-    client_id=os.getenv("GITHUB_CLIENT_ID"),
+    client_id=os.getenv("GITHUB_CLIENT_ID"),       # None if .env lacks GitHub creds -- GitHub login then fails at consent
     client_secret=os.getenv("GITHUB_CLIENT_SECRET"),
     access_token_url='https://github.com/login/oauth/access_token',
     access_token_params=None,
@@ -51,6 +87,8 @@ oauth.register(
 
 def _user_public_dict(user: dict) -> dict:
     """Strip sensitive fields before returning a user object to the client."""
+    # Explicitly whitelisted projection: hashed_password, google_id, github_id,
+    # providers etc. are never exposed through this path..Mongo `_id` becomes a str.
     return {
         "id": str(user.get("_id")),
         "email": user.get("email"),

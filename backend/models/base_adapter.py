@@ -1,4 +1,15 @@
-from abc import ABC, abstractmethod
+"""Abstract base adapter for ML interatomic potentials (M3GNet/CHGNet/MACE).
+
+Role in the system
+------------------
+Defines the common interface (predict energy/forces/stress, relax_structure,
+calculate_single_point, strain response, energy-volume curve, unload_model)
+implemented by the three MLIP adapters. Part of the (unwired)
+``/api/materials-prediction`` pipeline; live MLIP usage goes through
+cif_pipeline (MACE) and the chgnet_features util.
+"""
+
+from abc import ABC, abstractmethod  # abstract base for MLIP adapters
 from typing import Dict, Any, Optional, Tuple, List
 import numpy as np
 

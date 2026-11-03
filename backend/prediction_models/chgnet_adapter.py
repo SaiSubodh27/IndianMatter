@@ -1,4 +1,12 @@
-import time
+"""CHGNet MLIP adapter (prediction_models/ variant — live path).
+
+Role in the system
+------------------
+Wraps CHGNet + CHGNetCalculator behind the base_adapter interface; handles
+disordered-structure -> majority-species ordering. Used by the live path.
+"""
+
+import time  # timing for predict calls
 import numpy as np
 from typing import Tuple, Optional, Any
 from prediction_models.base_adapter import BaseModelAdapter

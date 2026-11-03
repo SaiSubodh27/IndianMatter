@@ -1,4 +1,12 @@
-import time
+"""MACE MLIP adapter (models/ variant).
+
+Role in the system
+------------------
+Wraps ``mace_mp(model='small', default_dtype='float32')`` behind the
+base_adapter interface. Part of the (unwired) /api/materials-prediction pipeline.
+"""
+
+import time  # timing for predict calls
 import numpy as np
 from typing import Tuple, Optional, Any
 from models.base_adapter import BaseModelAdapter

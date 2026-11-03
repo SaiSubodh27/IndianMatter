@@ -1,5 +1,16 @@
-import os
-from pydantic_settings import BaseSettings
+"""Pydantic-settings configuration for the (unwired) prediction pipeline.
+
+Role in the system
+------------------
+Provides ``PredictionSettings`` read from env vars prefixed ``PREDICTION_``
+(MAX_CSV_ROWS, MAX_UPLOAD_SIZE_MB, DEFAULT_DEVICE, TEMP_DIR, RESULTS_DIR).
+Used by the unwired ``/api/materials-prediction`` pipeline (services/
+prediction_service.py, workers/prediction_worker.py). Instantiated once at
+import time as ``settings``; creates TEMP_DIR and RESULTS_DIR on import.
+"""
+
+import os  # directory creation + path joins
+from pydantic_settings import BaseSettings  # env-backed settings base class
 
 class PredictionSettings(BaseSettings):
     MAX_CSV_ROWS: int = 100

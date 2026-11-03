@@ -38,6 +38,10 @@ export function loadThreeDMol(): Promise<any> {
   return threeDMolLoadPromise;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — STRUCTURE VIEWER (3Dmol.js CDN injector, renders CIF into a div)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function StructureViewer({ cifText }: { cifText: string | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);

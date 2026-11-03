@@ -1,3 +1,6 @@
+/**
+ * DEAD CODE — unused page (no route in App.tsx). Safe to delete.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {

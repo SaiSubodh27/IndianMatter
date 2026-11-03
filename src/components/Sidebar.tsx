@@ -38,6 +38,10 @@ interface SidebarProps {
   setMobileOpen?: (open: boolean) => void;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — SIDEBAR (primaryNav + utilityNav, highlighted by current path)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function Sidebar({
   mobileOpen: controlledMobileOpen,
   setMobileOpen: controlledSetMobileOpen,

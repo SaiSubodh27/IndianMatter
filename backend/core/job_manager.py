@@ -1,7 +1,17 @@
-import time
-import uuid
-import threading
-from typing import Dict, Any, Optional
+"""In-memory job state + manager for the (unwired) batch prediction pipeline.
+
+Role in the system
+------------------
+``JobState`` holds status/logs/progress for one prediction job; ``JobManager``
+manages them under a thread lock with cancel support. Used by
+workers/prediction_worker.py and services/prediction_service.py for the
+``/api/materials-prediction`` flow (currently unwired in main.py).
+"""
+
+import time  # timestamps for job lifecycle
+import uuid  # job id generation
+import threading  # thread-safe job state access
+from typing import Dict, Any, Optional  # type hints
 
 class JobState:
     def __init__(self, job_id: str, dataset_id: str, total_rows: int, selected_models: list, selected_properties: list, settings: dict):

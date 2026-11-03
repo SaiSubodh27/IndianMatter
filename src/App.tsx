@@ -21,20 +21,43 @@ import SettingsPage from "./pages/settings/SettingsPage";
 import HelpPage from "./pages/help/HelpPage";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-
+/**
+ * Root component and single source of truth for all client-side routes.
+ *
+ * Structure: <BrowserRouter> → <AuthProvider> → <Routes> nest three route
+ * shells:
+ *   • PublicLayout shell (/, /signin, plus /research which redirects into the
+ *     authenticated literature page) — rendered when signed out.
+ *   • /app shell — the canonical authenticated workspace: every child route is
+ *     wrapped by <ProtectedRoute>, which renders <MainLayout> only if a user
+ *     profile exists in localStorage (client-side auth only), otherwise
+ *     redirects to /signin.
+ *   • Top-level "product URL" shells (/dashboard, /materials-search,
+ *     /materials/:id, /literature-diversity, /saved-results, /settings,
+ *     /help-support) — aliases mounted at the bare root, each carrying its own
+ *     ProtectedRoute+MainLayout pair and rendering the same page components as
+ *     their /app counterparts, so shared/generated links hit canonical URLs
+ *     while legacy /app links keep working.
+ * A global catch-all "*" redirects unknown paths back to the landing page.
+ *
+ * Imported by src/main.tsx; imports all page components plus layouts,
+ * AuthContext, and ProtectedRoute. Reads no external data itself.
+ */
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <AuthProvider> {/* Supplies useAuth(); ProtectedRoute consumes it */}
         <Routes>
-          {/* Public Shell Routes */}
+          {/* Public Shell Routes — PublicLayout provides the marketing chrome */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
+            {/* Legacy /research URL now lives behind auth; bounce to /app/literature */}
             <Route path="/research" element={<Navigate to="/app/literature" replace />} />
             <Route path="/signin" element={<SignInPage />} />
           </Route>
 
-          {/* Authenticated Computational Workspace Routes */}
+          {/* Authenticated Computational Workspace Routes — nested children
+              render inside MainLayout's <Outlet />; ProtectedRoute gates access */}
           <Route
             path="/app"
             element={
@@ -144,6 +167,8 @@ export default function App() {
         </Route>
 
         {/* Direct Shortcuts & Global Fallback */}
+        {/* Shortcut redirects: /predict maps onto the canonical /app/predict;
+            the catch-all sends any unmatched path to the public landing page */}
         <Route path="/predict" element={<Navigate to="/app/predict" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

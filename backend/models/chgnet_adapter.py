@@ -1,4 +1,13 @@
-import time
+"""CHGNet MLIP adapter (models/ variant).
+
+Role in the system
+------------------
+Wraps ``chgnet.model.CHGNet`` + ``CHGNetCalculator`` behind the base_adapter
+interface; handles disordered-structure -> majority-species ordering.
+Part of the (unwired) /api/materials-prediction pipeline.
+"""
+
+import time  # timing for predict calls
 import numpy as np
 from typing import Tuple, Optional, Any
 from prediction_models.base_adapter import BaseModelAdapter

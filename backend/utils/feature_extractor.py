@@ -1,4 +1,13 @@
-import numpy as np
+"""Draft v5 feature extraction (superseded by model_service.extract_features).
+
+Role in the system
+------------------
+Early feature-extraction sketch used during v5 development. Superseded by
+``backend/model_service.extract_features`` + ``backend/cif_descriptors``.
+Kept for reference; not on the live request path.
+"""
+
+import numpy as np  # numerical feature transforms
 import pandas as pd
 from pymatgen.core import Structure
 

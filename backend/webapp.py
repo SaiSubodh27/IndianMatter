@@ -1,8 +1,67 @@
 """
-FastAPI backend for the CIF Generator pipeline.
-Provides REST endpoints for querying compounds, retrieving CIF structures,
-element breakdown, execution timeline, and serving the modern monochrome frontend.
+FastAPI backend for the CIF Generator pipeline (mounted as a sub-app at /cif).
+
+Role in the system
+------------------
+This is a *separate* FastAPI instance that ``backend/main.py`` mounts at
+the ``/cif`` prefix (``app.mount("/cif", webapp.app)``). Keeping it in its
+own app lets the CIF pipeline carry its own request models, static frontend
+and heavy optional imports without polluting the main API.
+
+Endpoints exposed (all under /cif):
+  POST /api/generate            — full 5-stage pipeline (DB search / CrystaLLM gen / MACE relax)
+  POST /api/parse-formula       — fast classification without generation
+  POST /api/doped-cif           — dedicated doping pipeline (family/regime/SQS/...)
+  POST /api/resolve-disambiguation — translate a user's polymorph pick into an index
+  POST /api/symmetry-matrix     — min-image-legal supercell matrix
+  POST /api/mesp-check          — MESP plausibility check on a supplied CIF
+  POST /api/batch-process       — run several cases in one request
+  POST /api/auth/login          — lightweight session token (off unless CIF_AUTH_ENABLED=true)
+  GET  /api/health              — MP key / MACE model / CrystaLLM checkpoint status
+  GET  /api/data-files[/{name}] — list/download benchmark .dat cases
+
+Inputs  : HTTP requests from the React frontend (CIFGenerationPage) or the
+          standalone ``backend/frontend/`` static UI.
+Outputs : JSON responses (CIF strings, provenance, candidate matches, ...) plus
+          the optional static frontend served from ``backend/frontend/``.
+
+Important design rule: ``_web_ask_handler`` always returns None so the pipeline
+NEVER silently guesses — ambiguity is surfaced as ``ambiguous_polymorphs`` to
+the caller instead. See ``cif_pipeline/orchestrator.py`` for the stage logic.
 """
+
+import os  # read env vars (CIF_AUTH_ENABLED, CIF_AUTH_PASSWORD, CIF_SECRET_KEY) and path checks
+import time  # elapsed-time accounting for responses
+import hmac  # constant-time comparison for the optional login password
+import hashlib  # sha256 signature for the lightweight session token
+import logging  # module-level logger for the pipeline bridge
+from pathlib import Path  # locate the bundled frontend / data folders
+from typing import Optional, List, Dict, Any  # request/response type hints
+
+from fastapi import FastAPI, HTTPException  # sub-app + HTTP error responses
+from fastapi.staticfiles import StaticFiles  # serve the bundled frontend assets
+from fastapi.responses import FileResponse, Response  # file downloads / raw bodies
+from pydantic import BaseModel, Field  # validated request bodies
+from pymatgen.core import Composition, Element  # formula parsing + element breakdown
+
+from cif_pipeline.models import CompoundQuery, PipelineResult, DopingSpec  # pipeline data classes
+from cif_pipeline.orchestrator import run_pipeline  # the 5-stage entry point
+from cif_pipeline.classify import classify_compound, _normalize_formula_input  # doping classification
+from cif_pipeline.formatting import round_display, format_percent, format_float  # display rounding helpers
+
+# Module-level logger used by the user-interaction bridge and error paths.
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("cif_pipeline.webapp")
+
+# The sub-app instance that main.py mounts at /cif.
+app = FastAPI(
+    title="CIF Pipeline API",  # shown in /docs
+    description="High-Precision Crystallographic Pipeline with MACE-MP-0 float64 relaxation",
+    version="1.1.0",  # bump when the request/response contract changes
+)
+
+# Folder holding the optional standalone (non-React) frontend served by this sub-app.
+FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
 
 from __future__ import annotations
 import os

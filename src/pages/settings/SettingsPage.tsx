@@ -1,3 +1,7 @@
+/**
+ * SettingsPage — STATIC/MOCK page.
+ * Route: /app/settings. Static form; save shows an alert. No backend call.
+ */
 import { useState } from "react";
 import { Settings, Key } from "lucide-react";
 

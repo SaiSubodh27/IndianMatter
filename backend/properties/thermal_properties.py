@@ -1,4 +1,12 @@
-import numpy as np
+"""Thermal property calculators (Birch-Murnaghan EOS).
+
+Role in the system
+------------------
+``BirchMurnaghanEOS`` calculator delegating to a model adapter. Part of the
+(unwired) ``/api/materials-prediction`` property pipeline.
+"""
+
+import numpy as np  # EOS fitting
 from typing import Any, Optional
 from pymatgen.core import Structure
 from pymatgen.analysis.eos import BirchMurnaghan

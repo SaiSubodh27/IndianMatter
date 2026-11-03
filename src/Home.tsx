@@ -1,4 +1,7 @@
 // Research Atelier style reminder: use editorial hierarchy, paper-like surfaces, and one clear route into the contextual research assistant.
+/**
+ * DEAD CODE — legacy home component, not routed anywhere in App.tsx. Safe to delete.
+ */
 
 import { Link } from "react-router-dom";
 import {

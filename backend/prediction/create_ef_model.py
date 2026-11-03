@@ -1,4 +1,11 @@
-import os
+"""Builds the formation-energy surrogate (offline).
+
+Role in the system
+------------------
+Offline script that trains/saves chgnet_Ef_model.pkl. Run manually.
+"""
+
+import os  # paths
 import sys
 import joblib
 

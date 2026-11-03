@@ -1,3 +1,31 @@
+"""Training script for the band-gap LightGBM surrogate (chgnet_bandgap_model.pkl).
+
+Role
+----
+Offline trainer (run manually). Samples the matminer `matbench_mp_gap`
+dataset, extracts the 21-dim CHGNet feature vector per structure, and fits an
+LGBMRegressor on the PBE band gap (eV, linear scale — no log transform).
+
+Inputs / outputs
+----------------
+Inputs : matminer "matbench_mp_gap" ("gap pbe" column, eV). MAX_SAMPLES caps
+         runtime (CHGNet featurization on 106k rows would take many hours).
+Outputs: pretrained_models/chgnet_bandgap_model.pkl — consumed at inference
+         by the electrical properties path (band gap -> Pugh-style filters /
+         conductivity heuristics in the app).
+Side files: bandgap_features_<TAG>.npz (final cache), bandgap_partial_<TAG>.npz
+         (resumable checkpoint, deleted on success), bandgap_failures_<TAG>.csv
+         (per-row error audit).
+
+Consumers
+---------
+Nothing imports this module; the pickle is what matters. Run from project root.
+
+Dependencies
+------------
+lightgbm, matminer, scikit-learn, numpy, joblib, utils.chgnet_features.
+"""
+
 import csv
 import os
 
@@ -13,20 +41,30 @@ from utils.chgnet_features import extract_mechanical_features
 
 DATASET = "matbench_mp_gap"   # "matbench_exg" does not exist in matminer
 TARGET_COL = "gap pbe"        # PBE band gap in eV (the column is not called "gap")
-N_FEATURES = 21
+N_FEATURES = 21               # must match utils.chgnet_features output dim
 SEED = 42
 
 # CHGNet on CPU is slow. Start small; set to None for the full 106,113 (many hours).
 MAX_SAMPLES = 3000
 
+# Sampling tag used in every side-file name so cache files from a 3k run can
+# never be confused with files from a full-dataset run (TAG would be "all").
 TAG = MAX_SAMPLES or "all"
 CACHE_NPZ = f"bandgap_features_{TAG}.npz"      # finished features
 PARTIAL_NPZ = f"bandgap_partial_{TAG}.npz"     # checkpoint while running
 FAILURES_CSV = f"bandgap_failures_{TAG}.csv"
-CHECKPOINT_EVERY = 250
+CHECKPOINT_EVERY = 250   # rows between checkpoints (NPZ write is cheap-ish)
 
 
 def save_partial(X, y, n_done, n_total):
+    """Write a resumable checkpoint of featurization progress.
+
+    Params: X (list of feature rows), y (list of targets), n_done (df rows
+    processed so far, including failures), n_total (len(df)).
+    Side effects: overwrites PARTIAL_NPZ. On resume, n_total must still match
+    len(df) or the checkpoint is ignored (guards against dataset changes).
+    X/y only (raw python lists) so failures don't desync indices.
+    """
     np.savez(
         PARTIAL_NPZ,
         X=np.vstack(X) if X else np.empty((0, N_FEATURES)),
@@ -42,6 +80,13 @@ def featurize(df):
     X and y are appended together only after every check passes, so they
     can never get out of alignment. Progress is checkpointed, so Ctrl+C
     and re-running picks up where it stopped.
+
+    Params: df with "structure" and TARGET_COL columns.
+    Returns: (X, y) — (n, 21) float64 array and float64 target array.
+
+    Side effects: writes/appends FAILURES_CSV, rewrites PARTIAL_NPZ every
+    CHECKPOINT_EVERY rows. Resumes from PARTIAL_NPZ only if its recorded
+    n_total equals the current df length (otherwise starts fresh).
     """
     X, y, start = [], [], 0
 

@@ -1,4 +1,12 @@
-from typing import Any, Optional
+"""Composition-descriptor calculators.
+
+Role in the system
+------------------
+Descriptor calculators matching ``calculations/descriptor_pipeline.py``. Part
+of the (unwired) ``/api/materials-prediction`` property pipeline.
+"""
+
+from typing import Any, Optional  # type hints
 from properties.base_property import BasePropertyCalculator, PropertyResult
 from calculations.descriptor_pipeline import compute_composition_descriptors
 

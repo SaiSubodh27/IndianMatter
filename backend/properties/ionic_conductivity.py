@@ -1,4 +1,15 @@
-import os
+"""Ionic-conductivity property calculator (wraps IonCast).
+
+Role in the system
+------------------
+Writes the structure to a temp CIF, calls ``predict_ionic_conductivity.predict_one``,
+and wraps the result in a ``PropertyResult`` (Ea, logA, base/corrected σ,
+corrector delta, reliability status). Part of the (unwired)
+``/api/materials-prediction`` pipeline; the live path is
+backend/routes/transport_router.py.
+"""
+
+import os  # temp CIF file handling
 import tempfile
 from typing import Any, Optional
 from pymatgen.core import Structure

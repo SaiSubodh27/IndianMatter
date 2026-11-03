@@ -1,3 +1,8 @@
+/**
+ * DFTValidationPage — STATIC/MOCK page.
+ * Route: /app/dft. Uses setInterval to fake progress and renders hardcoded
+ * results. No backend call.
+ */
 import { useState } from "react";
 import { ShieldCheck, ArrowRight, Play, CheckCircle2, RotateCcw, Download } from "lucide-react";
 

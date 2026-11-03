@@ -1,4 +1,12 @@
-import time
+"""MACE MLIP adapter (prediction_models/ variant — live path).
+
+Role in the system
+------------------
+Wraps mace_mp(model='small', default_dtype='float32') behind the base_adapter
+interface. Used by the live path.
+"""
+
+import time  # timing for predict calls
 import numpy as np
 from typing import Tuple, Optional, Any
 from prediction_models.base_adapter import BaseModelAdapter

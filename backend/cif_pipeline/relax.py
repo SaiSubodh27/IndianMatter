@@ -32,6 +32,10 @@ log = logging.getLogger("cif_pipeline.relax")
 _MACE_CALC_CACHE: dict = {}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — MACE CALCULATOR + SPACE GROUP DETERMINATION
+# ══════════════════════════════════════════════════════════════════════════════
+
 def _get_mace_calculator(model_path: Optional[str] = None, device: str = "cpu"):
     """Lazily load and cache the MACE-MP-0 calculator."""
     cache_key = (model_path or "medium", device)
@@ -68,6 +72,10 @@ class RelaxResult:
     final_space_group: Optional[str] = None   # always computed AFTER relaxation, never inherited pre-relaxation
     relaxation_skipped: bool = False          # True when geometry is preserved without optimizer running
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — RELAXATION (FIRE optimizer + ExpCellFilter + post-relax SG)
+# ══════════════════════════════════════════════════════════════════════════════
 
 def relax_with_mace(
     structure: Structure,

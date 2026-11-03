@@ -1,4 +1,16 @@
-import os
+"""Prediction service for the (unwired) prediction pipeline.
+
+Role in the system
+------------------
+``store_uploaded_dataset`` (MAX_CSV_ROWS guard, in-memory DATASET_CACHE),
+``create_and_start_prediction_job`` (rejects ionic_conductivity keys with
+PropertyUnsupportedError), and ``PredictionService.predict_from_cif`` (synchronous
+path: parse -> adapter -> category expansion -> strain precompute). Imports
+missing ``properties.property_registry`` and ``calculations.strain_response``.
+Part of the unwired ``/api/materials-prediction`` flow.
+"""
+
+import os  # dataset upload temp paths
 import uuid
 import logging
 import pandas as pd

@@ -1,3 +1,7 @@
+/**
+ * MaterialDetailsPage — hardcoded LiCoO2 3D preview (mock).
+ * Route: /app/materials/:id. No backend call; renders a static preview.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ShieldCheck, Activity, Download, ExternalLink } from "lucide-react";

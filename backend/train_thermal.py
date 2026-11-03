@@ -1,5 +1,15 @@
-import csv
-import os
+"""Training script for the thermal (phonon-proxy) LightGBM surrogate.
+
+Role
+----
+Offline trainer (run manually, not by the API). Fits a LightGBM model on the
+21-dim CHGNet feature vector to a thermal-conductivity proxy target, dumping
+``chgnet_thermal_model.pkl`` into ``pretrained_models/``. Uses
+``thermal_features.npz`` as its cached feature matrix.
+"""
+
+import csv  # (kept for parity with the dataset export)
+import os  # paths
 
 import joblib
 import numpy as np

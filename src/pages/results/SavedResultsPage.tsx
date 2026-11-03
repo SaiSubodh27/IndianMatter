@@ -1,3 +1,7 @@
+/**
+ * SavedResultsPage — STATIC/MOCK page.
+ * Route: /app/saved. Renders a static table; actions are alert()-based. No backend call.
+ */
 import { useState } from "react";
 import { Bookmark, Download, Trash2 } from "lucide-react";
 

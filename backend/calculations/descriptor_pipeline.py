@@ -1,4 +1,12 @@
-import math
+"""Descriptor pipeline for the (unwired) prediction flow.
+
+Role in the system
+------------------
+Computes structural/composition descriptors feeding the property calculators.
+Part of the (unwired) ``/api/materials-prediction`` pipeline.
+"""
+
+import math  # log transforms
 import numpy as np
 from typing import Optional, Dict, Any
 from pymatgen.core import Structure, Composition

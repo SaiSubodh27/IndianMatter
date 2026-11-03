@@ -1,4 +1,13 @@
-import numpy as np
+"""Direct-output property calculators (energy, forces, stress).
+
+Role in the system
+------------------
+``TotalEnergy``, ``EnergyPerAtom``, ``AtomicForces``, ``StressTensor``
+calculators that delegate to a model adapter (CHGNet/M3GNet/MACE). Part of
+the (unwired) ``/api/materials-prediction`` property pipeline.
+"""
+
+import numpy as np  # numerical arrays for forces/stress
 from typing import Any, Optional, Dict
 from properties.base_property import BasePropertyCalculator, PropertyResult
 

@@ -1,3 +1,7 @@
+/**
+ * HelpPage — STATIC/MOCK page.
+ * Route: /app/help. Static FAQ. No backend call.
+ */
 import { HelpCircle } from "lucide-react";
 
 export default function HelpPage() {

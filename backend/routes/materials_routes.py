@@ -1,14 +1,33 @@
-import os
-from typing import Optional
-from dotenv import load_dotenv
-from fastapi import APIRouter, Query, HTTPException
-from mp_api.client import MPRester
+"""Materials Project explore endpoint (``/api/materials``).
 
-# Ensure backend .env is loaded
+Role in the system
+------------------
+Exposes ``GET /api/materials/explore`` and ``GET /api/materials/features``.
+Backs the frontend's MaterialsSearchPage "Materials Project" dataset tab.
+Queries the official Materials Project API (mp_api.MPRester) with formula /
+element / exclusion / band-gap / E-hull filters and normalizes each document
+into the shared row schema used by the UI table.
+
+Inputs  : query params (formula or mp-id, elements, exclude_elements,
+          min/max band_gap, min/max e_hull, limit).
+Outputs : list of normalized material rows (material_id, formula, space_group,
+          crystal_system, band_gap, formation_energy, e_hull, density,
+          is_stable). 500 if MP_API_KEY is missing.
+"""
+
+import os  # env var access for MP_API_KEY
+from typing import Optional  # optional query params
+from dotenv import load_dotenv  # load backend/.env for MP_API_KEY
+from fastapi import APIRouter, Query, HTTPException  # router + query params + errors
+from mp_api.client import MPRester  # official Materials Project client
+
+# Ensure backend/.env is loaded (override so a stale shell env doesn't win).
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path=env_path, override=True)
 
+# Router instance; main.py mounts it at /api/materials.
 router = APIRouter()
+
 
 @router.get("/features")
 def get_material_features():

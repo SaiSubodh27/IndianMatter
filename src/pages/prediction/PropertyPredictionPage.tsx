@@ -1,3 +1,12 @@
+/**
+ * PropertyPredictionPage — single-CIF property prediction.
+ * Route: /app/predict. Accepts a CIF via upload or via router state handoff
+ * from CIFGenerationPage ({ cifString, formula }). Renders a PropertyChecklist
+ * of ALL_PROPERTIES; on submit calls predictFromCifFile (POST
+ * /api/calculations/predict-properties) with the selected keys + temperature,
+ * then renders DedicatedResultsPage using getPropertyValue extraction.
+ * Mock/static sections: none — this page hits the real backend.
+ */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Activity,
@@ -494,6 +503,11 @@ function StructureViewer({ cifText }: { cifText: string | null }) {
 // ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — PROPERTY PREDICTION PAGE
+// CIF upload/props -> POST /api/calculations/predict-properties -> DedicatedResultsPage.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function PropertyPredictionPage() {
   const [viewMode, setViewMode] = useState<"predict" | "results">("predict");

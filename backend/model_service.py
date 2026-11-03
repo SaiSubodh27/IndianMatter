@@ -1,13 +1,43 @@
-import os
-os.environ.setdefault("LOKY_MAX_CPU_COUNT", "1")
-import pickle
-import re
-import joblib
-import pandas as pd
-import numpy as np
-import math
-import warnings
-warnings.filterwarnings('ignore')
+"""In-process IonCast v5/v6 ionic-conductivity prediction service.
+
+Role in the system
+------------------
+Loaded once at backend startup (``load_models()`` called from ``main.py``
+lifespan). ``predict_from_cif(cif, temperature)`` is the entry point used by
+``backend/routes/transport_router.py`` and the calculator router's ionic-
+conductivity path. It extracts OBLiEx-style features, aligns them to each
+model's expected schema, runs the v5 stacking ensemble (base models + MLPs +
+meta-learner) to get Ea, converts to Arrhenius conductivity, and optionally
+applies the v6 residual corrector.
+
+Inputs  : a CIF string + temperature (K).
+Outputs : dict with Ea, logA, base/corrected conductivity, HES score,
+          feature_coverage, temperature series 250-1000 K, trial_results and
+          honesty warnings.
+
+Model artefacts loaded from ``backend/model_paths.resolve_pretrained_models_dir``
+(v5_base_models.pkl, v5_mlp_models.pkl, v5_meta_model.pkl,
+v5_quantile_transformer.pkl, v5_model2_A.pkl, v6_corrector_model.pkl).
+
+Gotchas
+-------
+- ``LOG_A_MODEL_IS_CONSTANT`` is probed at load time; if True the Arrhenius
+  prefactor is constant and Ea becomes the only comparison metric.
+- Feature extraction deliberately does NOT reconstruct neighbour-derived /
+  cutoff-dependent stats; those are imputed and reported as coverage gaps.
+- ``LOKY_MAX_CPU_COUNT`` is pinned to 1 to avoid joblib oversubscription.
+"""
+
+import os  # env vars + filesystem paths
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", "1")  # keep joblib from oversubscribing CPUs
+import pickle  # (legacy) pickle support for some artefacts
+import re  # feature-name normalization helpers
+import joblib  # load the .pkl surrogate artefacts
+import pandas as pd  # feature frames
+import numpy as np  # numerical transforms / finiteness checks
+import math  # log/exp helpers
+import warnings  # silence noisy library warnings during model load
+warnings.filterwarnings('ignore')  # suppress chatty third-party warnings
 
 try:
     from model_paths import resolve_pretrained_models_dir
@@ -151,6 +181,12 @@ def _probe_log_a_model(model, columns) -> bool:
         return False
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — MODEL LOADING
+# Load v5 stack + optional v6 corrector; build training reference/range/percentile
+# stats used for honesty reporting and imputation.
+# ══════════════════════════════════════════════════════════════════════════════
+
 def load_models():
     """Load the deployed IonCast v5 stack and optional v6 residual corrector."""
     global v5_base_models, v5_mlp_models, v5_meta_model, v5_model_a
@@ -210,6 +246,11 @@ def load_models():
     except Exception as e:
         print(f"\n[model_service ERROR] Failed loading models: {str(e)}\n")
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — FEATURE EXTRACTION
+# CIF -> OBLiEx-style feature frame (lattice, composition, CHGNet, descriptors).
+# ══════════════════════════════════════════════════════════════════════════════
 
 def extract_features(cif_path: str) -> pd.DataFrame:
     structure = Structure.from_file(cif_path)
@@ -520,6 +561,12 @@ def classify_material(composition: str, structure=None) -> dict:
 
     return classification
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — PREDICTION
+# Run Model A + base ensembles + MLPs + meta-learner -> Ea; Arrhenius sigma;
+# optional v6 corrector; HES score; feature coverage; temperature series.
+# ══════════════════════════════════════════════════════════════════════════════
 
 def predict_from_cif(file_path: str, temperature: float = 298.0) -> dict:
     if v5_base_models is None or v5_meta_model is None or v5_model_a is None:

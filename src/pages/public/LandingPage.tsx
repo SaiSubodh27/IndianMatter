@@ -1,3 +1,17 @@
+/**
+ * LandingPage.tsx — Public marketing landing page.
+ * Route: "/" (and default fallback for unauthenticated visitors).
+ * Role: Brand hero, feature strip, auto-scrolling "Explore Materials" carousel,
+ *       "About" crystal-paradigm section, scientific-database cards, contact form, footer.
+ * Data sources: NO backend calls — all content is hardcoded module-level data
+ *       (exploreMaterials, databases, features below). Images/videos from /public/assets.
+ * Auth: reads AuthContext (isAuthenticated/user/signOut) to switch navbar CTAs and gate
+ *       carousel "View Material Details" / hero buttons — unauthenticated clicks are
+ *       redirected to /signin?redirect=<target> instead of the app route.
+ * Contact form: purely local state; handleContactSubmit fakes success with timers,
+ *       nothing is sent to any backend.
+ * Consumers: routed via the app router; links to /signin and /app (workspace).
+ */
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -26,7 +40,17 @@ import { useAuth } from "../../contexts/AuthContext";
 
 /* ─────────────────────────────────────────────────────────────
    DATA
+   All showcase content below is STATIC/hardcoded — it exists only for
+   marketing display on this landing page and is never fetched or synced
+   with the backend.
 ───────────────────────────────────────────────────────────── */
+/**
+ * exploreMaterials — the 5 headline battery materials shown in the 3D carousel.
+ * Each entry: id (stable React key + carousel dot key), formula/fullName/structure
+ * (display copy), image (asset under /public/assets), popular (badge flag),
+ * features (bullet list), detailsUrl (route navigated to on the card's CTA button —
+ * auth-gated in the click handler).
+ */
 const exploreMaterials = [
   {
     id: "nmc",
@@ -92,6 +116,12 @@ const exploreMaterials = [
   },
 ];
 
+/**
+ * databases — the "Scientific Databases" cards in the Resources section.
+ * Purely informational: each card is a plain external <a href> (target=_blank) to
+ * the provider's public site; it does NOT reflect the actual federated search
+ * backends wired into MaterialsSearchPage.
+ */
 const databases = [
   {
     id: "mp",
@@ -141,6 +171,7 @@ const databases = [
   },
 ];
 
+/** features — copy for the 3-item feature strip under the hero (icon + title + blurb). */
 const features = [
   {
     icon: BarChart3,
@@ -162,8 +193,30 @@ const features = [
 /* ─────────────────────────────────────────────────────────────
    COMPONENT
 ───────────────────────────────────────────────────────────── */
+/**
+ * LandingPage — full-page marketing site component (no props).
+ * State variables:
+ *  - mobileMenuOpen        hamburger menu visibility (< md breakpoint).
+ *  - userMenuOpen          desktop avatar dropdown visibility (closed by outside-click effect).
+ *  - userMenuRef           DOM ref on the dropdown wrapper, used to detect outside mousedown.
+ *  - activeSection         id of the section currently in view ("home"|"explore"|"about"|
+ *                          "resources"|"contact") — drives nav pill highlighting.
+ *  - exploreIdx            index of the carousel card currently at front (starts at 2 = LiCoO2).
+ *  - isCarouselHovered     pauses the auto-advance interval while pointer is over the carousel.
+ *  - contactForm           controlled contact form fields {name,email,subject,message} —
+ *                          LOCAL ONLY, never leaves the browser.
+ *  - contactState          fake submit state machine: idle→loading (1200ms)→success (4000ms)→idle.
+ */
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — LANDING PAGE COMPONENT
+// Hero, feature strip, auto-scrolling carousel, about, database cards, contact
+// form, footer. Auth-gated CTAs redirect unauthenticated users to /signin.
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function LandingPage() {
   const navigate = useNavigate();
+  // Auth state from AuthContext: drives navbar CTA swap (avatar menu vs Sign In button)
+  // and auth-gating of hero/carousel actions.
   const { isAuthenticated, user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -181,7 +234,11 @@ export default function LandingPage() {
     "idle" | "loading" | "success" | "error"
   >("idle");
 
-  // Close user menu on outside click
+  /**
+   * Effect: close the desktop avatar dropdown when the user clicks anywhere outside it.
+   * Trigger: userMenuOpen becoming true. Cleanup removes the mousedown listener.
+   * Gotcha: no-ops while the menu is closed so the listener is only attached when needed.
+   */
   useEffect(() => {
     if (!userMenuOpen) return;
     const handler = (e: MouseEvent) => {
@@ -198,6 +255,13 @@ export default function LandingPage() {
 
   // Ultra-smooth cross-browser scrolling engine using requestAnimationFrame
   // Guarantees smooth easing animation even if the user's OS or browser has reduced motion or native smooth scroll disabled
+  /**
+   * smoothScrollTo — rAF-driven eased scroll to an absolute Y position (~650ms default).
+   * Unlike native `behavior:"smooth"` this works even when the OS marks scroll as
+   * instant / reduced-motion. Reads current scrollY defensively across browsers,
+   * then animates via cubic ease-in-out until progress hits 1. No cleanup needed
+   * (rAF loop self-terminates); an interrupted navigation just stops repainting.
+   */
   const smoothScrollTo = (targetPosition: number, duration = 650) => {
     const startPosition =
       window.scrollY ||
@@ -231,6 +295,14 @@ export default function LandingPage() {
   };
 
   // Dedicated smooth scroll function ensuring fixed navbar offset (72px)
+  /**
+   * scrollToSection — click handler for the nav/hero anchor links.
+   * Flow: preventDefault → resolve target id (strips "#", defaults to "explore") →
+   * compute element Y minus the 72px fixed-navbar offset → smoothScrollTo →
+   * pushState the hash (so URL stays shareable without a native jump) →
+   * setActiveSection so the nav pill updates immediately instead of waiting
+   * for the intersection observer.
+   */
   const scrollToSection = (e?: React.MouseEvent, targetId?: string) => {
     if (e) e.preventDefault();
     const id = (targetId || "explore").replace(/^#/, "");
@@ -254,7 +326,13 @@ export default function LandingPage() {
     }
   };
 
-  // Scroll to hash target on initial load / hashchange with navbar offset
+  /**
+   * Effect: on mount (and on `hashchange`), if the URL carries a #hash, smoothly
+   * scroll to that section with the navbar offset after a 150ms delay (lets layout
+   * / fonts settle so rects are accurate). If there is no hash, nothing runs —
+   * note the cleanup `clearTimeout` is only returned from inside the `if (el)`
+   * branch, which is fine because otherwise no timer was created.
+   */
   useEffect(() => {
     const handleInitialHash = () => {
       const hash = window.location.hash;
@@ -287,7 +365,13 @@ export default function LandingPage() {
     return () => window.removeEventListener("hashchange", handleInitialHash);
   }, []);
 
-  // Intersection observer for active nav
+  /**
+   * Effect: active-nav intersection observers — one observer per section id
+   * (threshold 0.4 = the section wins when ≥40% visible). Whichever intersects
+   * last sets `activeSection`, keeping the top nav pill in sync with manual
+   * scrolling (not just link clicks). Cleanup disconnects ALL observers on
+   * unmount to avoid leaking observers on removed DOM.
+   */
   useEffect(() => {
     const sections = ["home", "explore", "about", "resources", "contact"];
     const observers: IntersectionObserver[] = [];
@@ -306,6 +390,12 @@ export default function LandingPage() {
     return () => observers.forEach((o) => o.disconnect());
   }, []);
 
+  /**
+   * Effect: carousel auto-advance — every 3.8s move the front card one slot to the
+   * right (wrap with modulo). Trigger: re-created whenever `isCarouselHovered`
+   * flips; the early return when hovered means the interval is torn down by the
+   * cleanup + never re-created, i.e. hover = pause. Cleanup clears the interval.
+   */
   // Automatic scrolling from left to right: card to card with pause-on-hover
   useEffect(() => {
     if (isCarouselHovered) return;
@@ -315,14 +405,23 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, [isCarouselHovered]);
 
+  /** nextMaterial — advance carousel one card (wraps last→first); used by the right chevron. */
   const nextMaterial = () => {
     setExploreIdx((prev) => (prev + 1) % exploreMaterials.length);
   };
 
+  /** prevMaterial — move carousel one card back (wraps first→last); left chevron. */
   const prevMaterial = () => {
     setExploreIdx((prev) => (prev - 1 + exploreMaterials.length) % exploreMaterials.length);
   };
 
+  /**
+   * handleContactSubmit — fake submit. NO backend call: sets loading, then via
+   * nested setTimeout flips to success after 1.2s and back to idle (with the form
+   * cleared) after another 4s. Gotcha: timers are not cancelled on unmount, so
+   * navigating away mid-submit triggers setState on an unmounted component (harmless
+   * warning only). Replace with a real POST when a contact API exists.
+   */
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setContactState("loading");
@@ -427,13 +526,16 @@ export default function LandingPage() {
           </nav>
 
           {/* Right */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* ── Navbar right cluster: theme toggle (decorative, non-functional), auth-gated avatar dropdown or Sign In button, plus mobile hamburger. ── */}
+        <div className="flex items-center gap-3 shrink-0">
             <button
               aria-label="Toggle light/dark mode"
               className="w-9 h-9 rounded-full flex items-center justify-center text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#F2F2F0] transition-all"
             >
               <Sun size={17} />
             </button>
+            {/* AUTH GATE: signed-in users get the avatar dropdown (userMenuRef wraps it so the
+                outside-click effect can close it); anonymous users get a Sign In link to /signin. */}
             {isAuthenticated && user ? (
               <div className="relative hidden sm:block" ref={userMenuRef}>
                 <button
@@ -748,7 +850,9 @@ export default function LandingPage() {
             <span className="text-[#D77B2B] font-medium">computational validation</span>, accelerating materials research and innovation.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 pt-2">
+          {/* Auth-gated hero CTA: signed-in → straight into the workspace (/app);
+            anonymous → /signin carrying redirect=/app so sign-in returns the user here. */}
+        <div className="flex flex-wrap items-center gap-4 pt-2">
             <button
               type="button"
               onClick={() => {
@@ -864,6 +968,11 @@ export default function LandingPage() {
             onMouseEnter={() => setIsCarouselHovered(true)}
             onMouseLeave={() => setIsCarouselHovered(false)}
           >
+            {/* CAROUSEL TRACK: each card is positioned by its wrapped circular offset from the
+                front card (offset ∈ [-2..2] after the wrap fixups). getCardTransform() maps
+                offset → 3D transform / z-index / opacity stack: front card is full-size and
+                crisp, ±1 neighbors are scaled 0.86 and dimmed, ±2 further back and dimmer,
+                everything else fades out completely. Clicking a background card brings it to front. */}
             {exploreMaterials.map((mat, idx) => {
               const total = exploreMaterials.length;
               let offset = idx - exploreIdx;
@@ -1044,6 +1153,10 @@ export default function LandingPage() {
                       </div>
 
                       {/* Action Button */}
+                      {/* AUTH-GATED card CTA: same pattern as the hero button — authenticated
+                          users go to the material's route; anonymous users bounce to /signin
+                          with the redirect encoded. stopPropagation keeps the click from also
+                          selecting this background card as front. */}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1115,6 +1228,9 @@ export default function LandingPage() {
           </div>
 
           {/* Progress Countdown Bar */}
+          {/* Progress bar: `key={exploreIdx}` remounts the fill div every card change so the
+              CSS progressTimer animation (3.8s linear) restarts in sync with the auto-advance
+              interval; hover pauses by freezing the bar full-width at 40% opacity. */}
           <div className="max-w-[200px] sm:max-w-[260px] mx-auto mt-4">
             <div className="w-full h-1 bg-[#E8E8E6] rounded-full overflow-hidden">
               <div
@@ -1618,7 +1734,10 @@ export default function LandingPage() {
                 </div>
 
                 {/* Submit states */}
-                {contactState === "success" ? (
+                {/* CONDITIONAL SUBMIT UI: success → green confirmation banner replaces the button
+                entirely; loading → spinner + "Sending…" and disabled; else the normal send button.
+                All states are driven by the local-only contactState fake state machine. */}
+            {contactState === "success" ? (
                   <div className="flex items-center gap-2.5 py-3 px-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
                     <CheckCircle2 size={16} className="shrink-0" />
                     Thank you! We'll be in touch soon.

@@ -164,6 +164,10 @@ interface PeriodicTableProps {
   onElementClick: (symbol: string) => void;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — PERIODIC TABLE (interactive element selector for search filters)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function PeriodicTable({
   includeElements,
   excludeElements,

@@ -1,4 +1,14 @@
-from pymatgen.core import Structure, Lattice
+"""Structural metrics from a JSON lattice+atoms description.
+
+Role in the system
+------------------
+``calculate_structural_metrics`` parses a drawer-style JSON payload (lattice
+vectors + atom list) into a pymatgen Structure and returns crystal system,
+space group and packing fraction. Used by calculator_router's
+/analyze-cif-file and /calculate-metrics endpoints.
+"""
+
+from pymatgen.core import Structure, Lattice  # pymatgen structure + lattice
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 def calculate_structural_metrics(data: dict) -> dict:

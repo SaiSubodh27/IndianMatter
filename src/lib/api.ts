@@ -230,6 +230,10 @@ export async function predictFromCIF({
     formData.append("properties", JSON.stringify(properties));
   }
 
+  // NOTE: "/trial/predict" is a DEAD route — the backend (main.py) does not
+  // register any /trial router. This call will always 404 against the current
+  // backend. The real ionic-conductivity prediction is served by
+  // /api/calculations/ionic-conductivity (see materialsPredictionApi.ts).
   const body = await requestJson(
     "/trial/predict",
     { method: "POST", body: formData },

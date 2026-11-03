@@ -1,4 +1,13 @@
-from typing import Dict, Optional
+"""Registry of MLIP adapters (m3gnet, chgnet, mace) — live path.
+
+Role in the system
+------------------
+Maps names to adapter classes and provides ``get_capabilities()`` (used by
+scripts/check_models.py and the (unwired) /api/materials-prediction/models/
+capabilities endpoint).
+"""
+
+from typing import Dict, Optional  # type hints
 from prediction_models.base_adapter import BaseModelAdapter
 from prediction_models.m3gnet_adapter import M3GNetAdapter
 from prediction_models.chgnet_adapter import CHGNetAdapter

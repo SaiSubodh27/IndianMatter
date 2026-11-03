@@ -68,7 +68,41 @@ Usage (unchanged, plus one new optional flag)
   # 4) optionally add real Materials Project data for band gap / hull / elastic columns
   python predict_ionic_conductivity.py --cif path\\to\\file.cif --mp-api-key YOUR_KEY
   #   (or: set the MP_API_KEY environment variable and omit --mp-api-key)
+
+  FUNCTION INDEX (one-line role per public helper)
+  ------------------------------------------------
+  SchemaMismatchError     — raised when extracted features don't line up with a model
+  AlignOpts               — alignment strictness + default-fraction limits
+  norm_name / canon_name  — feature-name normalization helpers
+  family_of               — map a column name to its feature family
+  json_safe               — make values JSON-serializable for reports
+  numeric_only            — keep only numeric feature entries
+  load_models             — load v5 stack + optional v6 corrector from disk
+  build_training_reference / build_training_range / build_percentile_curves
+                          — training-distribution stats for honesty reporting
+  compute_relative_features — dataset-relative (percentile) features
+  expected_columns        — schema columns a model expects
+  ordered_approximation   — order a disordered structure by majority species
+  featurize_structure     — featurize one pymatgen Structure
+  configure_mlip / configure_mp — set up MLIP / Materials Project clients
+  fetch_mp_features       — pull band gap / hull / elastic from MP
+  _derive_db_combo_features — derived combos from DB fields
+  _element_reference_features — per-element reference (atomic mass, radius, EN)
+  _wstats                 — weighted mean/std helper
+  _neighbor_distance_features — CrystalNN bond-length/CN features
+  _bond_geometry_stats    — bond angles / anion-pair distances
+  _wyckoff_stats          — Wyckoff multiplicity stats
+  _li_dimensionality      — Li percolation dimensionality (cutoff 4.0 A)
+  extract_extra_features  — orchestrates all extra feature groups
+  extract_obliex_style_features — top-level CIF -> (structure, features, metadata)
+  align_features          — schema-safe alignment with default-fraction diagnostics
+  predict_one             — end-to-end single-CIF prediction (Arrhenius + corrector)
+  print_report            — human-readable prediction report
+  diagnose                — --diagnose mode: full feature audit
+  run_batch               — --csv/--cif-dir batch mode
+  main                    — CLI entry point
 """
+
 from __future__ import annotations
 
 import argparse
@@ -215,6 +249,14 @@ def numeric_only(features: dict[str, Any]) -> dict[str, float]:
 # models
 # --------------------------------------------------------------------------- #
 def load_models() -> dict[str, Any]:
+    """Load the IonCast v5 stack (+ optional v6 corrector) from disk.
+
+    Reads v5_base_models.pkl, v5_model2_A.pkl, v5_meta_model.pkl,
+    v5_mlp_models.pkl, v5_quantile_transformer.pkl from MODELS_DIR and builds
+    training reference/range/percentile stats. The v6 corrector is loaded only
+    if v6_corrector_model.pkl exists. Raises FileNotFoundError if any required
+    file is missing.
+    """
     required = {
         "base_models": "v5_base_models.pkl",
         "model_A": "v5_model2_A.pkl",
@@ -907,6 +949,14 @@ def extract_extra_features(structure: Structure, features: dict[str, Any]) -> di
 
 
 def extract_obliex_style_features(cif_path: Path) -> tuple[Structure, dict[str, Any], dict[str, Any]]:
+    """Extract the full OBLiEx-style feature set from a CIF.
+
+    Pipeline: parse CIF -> Structure; featurize (MAGPIE, density, symmetry,
+    CrystalNN bonds, Li-site geometry, Wyckoff, percolation); optionally fetch
+    MP DFT fields. Returns (structure, features_dict, notes_dict). Notes
+    describe which groups were computed vs imputed, feeding the PROVISIONAL
+    reliability flag and the feature_coverage report.
+    """
     structure = Structure.from_file(str(cif_path))
     comp = Composition(structure.composition.reduced_formula)
 
@@ -1015,6 +1065,14 @@ def extract_obliex_style_features(cif_path: Path) -> tuple[Structure, dict[str, 
 # --------------------------------------------------------------------------- #
 def align_features(numeric: dict[str, float], expected: list[str], opts: AlignOpts | None = None
                    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Schema-safe alignment of extracted features to a model's expected columns.
+
+    Maps extracted features (by normalized name) onto the model's expected
+    column list, imputing training medians for missing columns and recording
+    per-column default fractions. Returns (aligned DataFrame, diagnostics dict).
+    Respects AlignOpts strictness and default-fraction limits; raises
+    SchemaMismatchError when the mismatch is too large.
+    """
     opts = opts or AlignOpts()
     if not expected:
         raise SchemaMismatchError("Could not read the expected feature names from this model.")
@@ -1099,6 +1157,14 @@ def top_importances(model: Any, top_n: int = 12) -> list[dict[str, Any]]:
 # --------------------------------------------------------------------------- #
 def predict_one(cif_path: Path, temperature: float, models: dict[str, Any],
                 apply_corrector: bool = True, opts: AlignOpts | None = None) -> dict[str, Any]:
+    """End-to-end single-CIF ionic-conductivity prediction.
+
+    Extracts features, aligns to each model schema, runs Model A (log10
+    prefactor) + base ensembles + MLPs + meta-learner to get Ea, converts to
+    Arrhenius conductivity at the given temperature, and optionally applies
+    the v6 residual corrector. Returns a dict with material info, conductivity
+    (base + corrected), model outputs, reliability, and feature diagnostics.
+    """
     opts = opts or AlignOpts()
     structure, features, extraction_report = extract_obliex_style_features(cif_path)
     numeric_features = numeric_only(features)

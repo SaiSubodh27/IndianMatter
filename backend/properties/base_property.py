@@ -1,4 +1,14 @@
-from abc import ABC, abstractmethod
+"""Base property result schema and calculator ABC.
+
+Role in the system
+------------------
+Defines ``PropertyResult`` (key, name, category, value, unit, source_model,
+calculation_method, status, inputs, warnings, limitations, raw_details) and
+``BasePropertyCalculator`` (abstract). Used by the (unwired)
+``/api/materials-prediction`` property pipeline.
+"""
+
+from abc import ABC, abstractmethod  # abstract base for property calculators
 from typing import Dict, Any, List, Optional
 
 class PropertyResult:

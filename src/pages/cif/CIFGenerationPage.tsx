@@ -1,3 +1,10 @@
+/**
+ * CIFGenerationPage — CIF generation UI.
+ * Route: /app/cif. Form -> POST /cif/api/generate -> stores CIF text in state ->
+ * copy/download buttons. "Send to Predict" navigates to /app/predict with
+ * router state { cifString, formula } so PropertyPredictionPage can pick it up.
+ * Also supports parse-formula preview and doped-cif dedicated pipeline calls.
+ */
 import { useState, useEffect, useRef } from "react";
 import {
   FileJson,
@@ -107,6 +114,11 @@ interface CoDopantEntry {
   host_site_species: string;
   dopant_fraction: string;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — CIF GENERATION PAGE
+// Form -> POST /cif/api/generate; copy/download; handoff to /app/predict via router state.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function CIFGenerationPage() {
   const navigate = useNavigate();

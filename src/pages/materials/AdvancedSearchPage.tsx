@@ -1,3 +1,8 @@
+/**
+ * AdvancedSearchPage — local-state-only advanced search (no navigation/API).
+ * Route: /app/advance-search. All filters are client-side; nothing is sent
+ * to the backend.
+ */
 import { useState } from "react";
 import { SlidersHorizontal, Search, RotateCcw, X } from "lucide-react";
 import { Link } from "react-router-dom";

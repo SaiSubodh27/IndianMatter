@@ -1,27 +1,65 @@
-import os
-import math
-import joblib
-import tempfile
-import uuid
-import io
-import zipfile
-import csv
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Response
-from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional, Tuple
+"""Unified property-prediction router (``/api/calculations``).
 
-# Pymatgen & Matminer
+Role in the system
+------------------
+Mounted in main.py at ``/api/calculations`` (alongside transport_router). Hosts
+the multi-property prediction, CIF analysis, batch prediction (with status/
+results/CSV download), BFSY batch, and the property catalog endpoints. This is
+the backend behind the React ``PropertyPredictionPage`` and ``BatchPredictionPage``.
+
+Endpoints (key ones)
+--------------------
+POST /predict-properties      — parse a CIF, run BFSY + thermal + band-gap +
+                                IonCast ionic conductivity for selected props
+POST /analyze-cif            — structure + SpacegroupAnalyzer + Magpie summary
+POST /calculate-metrics      — JSON lattice+atoms -> crystal system/SG/packing
+POST /analyze-mechanical     — single-property mechanical surrogates
+POST /analyze-bfsy           — BFSY 4-property batch (single CIF)
+POST /analyze-electrical     — band-gap surrogate
+POST /analyze-thermal         — thermal proxies
+GET  /batch-properties       — catalog of 20 available per-CIF properties
+POST /batch-predict           — .cif/.zip upload -> background job
+GET  /batch-predict/status/{job_id}
+GET  /batch-predict/results/{job_id}
+GET  /batch-predict/download/{job_id}
+POST /batch-predict-bfsy     — synchronous 4-property batch + CSV string
+GET  /batch-sample-cifs      — serves test_curr.cif / test2.cif
+
+Inputs  : uploaded .cif/.zip files + form fields (properties CSV, temperature).
+Outputs : JSON result dicts and CSV download responses.
+
+Gotchas
+-------
+- Surrogates are loaded at import time; missing files disable the relevant
+  capability but the router still imports.
+- Batch jobs are kept in an in-memory ``BATCH_JOBS`` dict (not persisted).
+- ``/batch-predict`` runs a background worker thread per job.
+"""
+
+import os  # env vars + temp file paths
+import math  # (kept for parity with property formulas)
+import joblib  # load .pkl surrogates (band-gap, thermal)
+import tempfile  # temp CIF files for ionic conductivity
+import uuid  # batch job ids
+import io  # in-memory CSV buffers
+import zipfile  # .zip upload extraction
+import csv  # CSV writing for batch results
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Response  # router + upload + bg tasks
+from pydantic import BaseModel, Field  # request bodies (batch params)
+from typing import Dict, Any, List, Optional, Tuple  # type hints
+
+# Pymatgen & Matminer — structure parsing + composition featurization.
 from pymatgen.core import Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from matminer.featurizers.composition import ElementProperty
 
-# Custom Utils
+# Custom Utils — structural metrics + CHGNet 21-dim feature vector.
 from utils.structural_analyzer import calculate_structural_metrics
 from utils.chgnet_features import extract_mechanical_features
-from model_paths import resolve_pretrained_models_dir
-from routes.transport_router import predict_conductivity_from_path
+from model_paths import resolve_pretrained_models_dir  # locate surrogate .pkl files
+from routes.transport_router import predict_conductivity_from_path  # IonCast bridge
 
-# DEFINE ROUTER
+# DEFINE ROUTER — prefix /api/calculations, tag "Calculations".
 router = APIRouter(prefix="/api/calculations", tags=["Calculations"])
 
 # ---------------------------------------------------------
@@ -275,6 +313,10 @@ async def predict_properties(
 # ---------------------------------------------------------
 # ENDPOINT 1: Basic CIF Analysis (Pymatgen + Matminer)
 # ---------------------------------------------------------
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — CIF ANALYSIS (structure + space group + Magpie summary)
+# ══════════════════════════════════════════════════════════════════════════════
+
 @router.post("/analyze-cif")
 async def analyze_cif_features(file: UploadFile = File(...)):
     if not file.filename.endswith('.cif'):
@@ -721,6 +763,10 @@ AVAILABLE_BATCH_PROPERTIES = [
 BATCH_JOBS: Dict[str, Dict[str, Any]] = {}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — BATCH PREDICTION HELPERS (CSV serialization + per-CIF worker)
+# ══════════════════════════════════════════════════════════════════════════════
+
 def generate_csv_string(records: List[dict]) -> str:
     """Generates standard CSV content from records with logical column ordering."""
     if not records:
@@ -963,6 +1009,10 @@ def run_batch_prediction_worker(
         "failed": failed
     }
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — BATCH PREDICTION ENDPOINTS (catalog, upload, status, results, CSV)
+# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/batch-properties")
 def get_batch_properties():

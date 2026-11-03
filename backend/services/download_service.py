@@ -1,4 +1,13 @@
-import os
+"""Download packaging for the (unwired) prediction pipeline.
+
+Role in the system
+------------------
+``generate_download_package`` builds CSV (flat) / JSON / validation report /
+logs / ZIP bundles from job results. Used by workers/prediction_worker.py.
+Part of the unwired ``/api/materials-prediction`` flow.
+"""
+
+import os  # temp file / archive paths
 import json
 import zipfile
 import pandas as pd

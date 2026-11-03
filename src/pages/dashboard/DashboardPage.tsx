@@ -118,6 +118,11 @@ const featuresData = [
   }
 ];
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — DASHBOARD PAGE
+// Cinematic scroll carousel + 5 feature cards -> navigate to feature routes.
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);

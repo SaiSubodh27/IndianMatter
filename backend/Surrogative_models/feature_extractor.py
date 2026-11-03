@@ -14,6 +14,9 @@ Features Include:
 
 CPU-Optimized: No GPU required, uses standard Python libraries
 
+NOTE: This file contains DUPLICATE class definitions (ElementalDatabase and
+SSEFeatureExtractor are defined twice). The second copy is dead code.
+
 ═══════════════════════════════════════════════════════════════════════════════════════════════
 """
 
@@ -575,6 +578,9 @@ Features Include:
   • Compositional statistics (means, mins, maxs, stds)
 
 CPU-Optimized: No GPU required, uses standard Python libraries
+
+NOTE: This file contains DUPLICATE class definitions (ElementalDatabase and
+SSEFeatureExtractor are defined twice). The second copy is dead code.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════
 """

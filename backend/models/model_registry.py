@@ -1,4 +1,12 @@
-from typing import Dict, Optional, List
+"""Registry of MLIP adapters (m3gnet, chgnet, mace) + capabilities().
+
+Role in the system
+------------------
+Used by the (unwired) ``/api/materials-prediction/models/capabilities``
+endpoint and scripts/check_models.py.
+"""
+
+from typing import Dict, Optional, List  # type hints
 from models.base_adapter import BaseModelAdapter
 from models.m3gnet_adapter import M3GNetAdapter
 from models.chgnet_adapter import CHGNetAdapter

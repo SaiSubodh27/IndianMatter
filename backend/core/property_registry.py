@@ -1,4 +1,16 @@
-from typing import Dict, Any, Optional
+"""Definitional property registry for the (unwired) prediction pipeline.
+
+Role in the system
+------------------
+Defines ``PropertyDefinition`` (key, display name, category direct/transformer/ml,
+embedding model, unit, description, enabled) and ``PropertyRegistry`` holding
+the list of available properties. This is a *definitional* registry only — it
+does not contain calculators. The actual calculators live in
+``backend/properties/`` and ``backend/properties/property_registry`` (missing)
+is referenced by tests. Used by the unwired ``/api/materials-prediction`` flow.
+"""
+
+from typing import Dict, Any, Optional  # type hints for property definitions
 
 class PropertyDefinition:
     def __init__(

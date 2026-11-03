@@ -1,5 +1,14 @@
 
-import os
+"""ALIGNN property calculator (PLACEHOLDER).
+
+Role in the system
+------------------
+Returns a constant -2.35 eV formation energy — explicitly marked as a
+placeholder, not a real ALIGNN prediction. Part of the (unwired)
+``/api/materials-prediction`` pipeline.
+"""
+
+import os  # (kept for parity)
 import pathlib
 import torch
 import numpy as np

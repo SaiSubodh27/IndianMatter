@@ -1,4 +1,25 @@
 // src/pages/materials/MaterialsSearchPage.tsx
+/**
+ * MaterialsSearchPage — federated materials explorer.
+ * Route: /app/materials. Reads query state from the URL (?q, ?database, ?elements,
+ * ?exclude_elements) via useSearchParams. Search is a POST through
+ * searchDatasetMaterials (lib/datasetapi) which fans out per selected dataset;
+ * results render in a sortable/filterable table with sticky ID column, per-column
+ * filters (some delegated to the backend, e.g. band gap / E_hull ranges),
+ * client-side text+numeric refinement, CSV export, and windowed pagination.
+ * PeriodicTable drives element filters; TopHeader search box navigates here.
+ */
+/**
+ * MaterialsSearchPage — main federated materials explorer.
+ * Route: /app/materials. Reads its query state from the URL (?q, ?database,
+ * ?elements, ?exclude_elements) via useSearchParams so searches are linkable
+ * and restoreable. Search itself is a POST through searchDatasetMaterials
+ * (lib/datasetapi) which fans out per selected dataset; results are rendered in
+ * a sortable/filterable table with sticky ID column, per-column filters
+ * (some delegated to the backend, e.g. band gap / E_hull ranges), client-side
+ * text+numeric refinement, CSV export, and windowed pagination.
+ * Consumers: entry point for unit-cell → predict flows; exports rows to CSV locally.
+ */
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Columns3, Download, Filter, RotateCcw, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -40,12 +61,25 @@ interface ColumnDef {
   colorScale?: "goodLow" | "goodHigh" | "neutral";
 }
 
+/**
+ * num — narrow a possibly-null/undefined/NaN value into a plain number | null
+ * so accessors can be compared consistently during filtering/sorting.
+ */
 function num(value: number | null | undefined) {
   return value === null || value === undefined || Number.isNaN(value)
     ? null
     : value;
 }
 
+/**
+ * COLUMNS — single source of truth for the results table: the keys rendered,
+ * their human labels, numeric-vs-text filter behavior, how to read the raw
+ * value off a MaterialRecord (`accessor` — note verbose dataset key names like
+ * "Band Gap E_g (eV)" are mapped here, not in the components), how to render it
+ * (`format`), and whether the filter should be pushed to the backend query
+ * (`backendFilter`: e_hull & band_gap ranges are computed server-side) versus
+ * applied client-side after fetch. colorScale powers the traffic-light badges.
+ */
 const COLUMNS: ColumnDef[] = [
   {
     key: "mv_id",
@@ -173,6 +207,7 @@ const COLUMNS: ColumnDef[] = [
   },
 ];
 
+/** compare — evaluate one numeric filter comparator ("&gt;=", "&lt;=", "=", "&gt;", "&lt;"). */
 function compare(value: number, comparator: Comparator, target: number) {
   switch (comparator) {
     case ">=":
@@ -245,12 +280,48 @@ const VALID_ELEMENTS = new Set([
   "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
 ]);
 
+/** Parse element symbols out of a formula string (regex on Capital-letter tokens). */
 function parseElementsFromFormula(formula: string): Set<string> {
   if (!formula) return new Set();
   const matches = String(formula).match(/[A-Z][a-z]?/g);
   if (!matches) return new Set();
   return new Set(matches.filter((sym) => VALID_ELEMENTS.has(sym)));
 }
+
+/**
+ * MaterialsSearchPage — page component (no props).
+ * State variables:
+ *  - params/setParams      URL search params; seeds query/database/element sets and
+ *                          is rewritten on every search so results are shareable.
+ *  - query                 search box text (formula or material ID).
+ *  - database              selected federal database (indianmatter|materials_project|oqmd|jarvis|aflow).
+ *  - includeElements       symbols required to appear in the material's formula (periodic table + URL).
+ *  - excludeElements       symbols that must NOT appear.
+ *  - selectionMode         whether the next element click adds to include or exclude list.
+ *  - min/maxBandGap        SQL band-gap range; sent to the backend on next search.
+ *  - min/maxHull           E-above-hull range; likewise backend-filtered.
+ *  - page/limit            pagination cursor (limit fixed at 100 rows per request).
+ *  - submitted             "a search has actually been run" — gates the empty prompt vs results UI.
+ *  - materials/total       fetched result rows + total hit count for pagination.
+ *  - loading/error         request status surfaced in the results toolbar.
+ *  - resultsRef            scroll target to bring results into view after a search.
+ *  - searchInputRef        focus target for the combobox wrapper click.
+ *  - shouldScrollToResultsRef  boolean ref flag so the scroll effect fires only for
+ *                          real searches (not page changes) — refs avoid effect deps.
+ *  - searchNonce           bumped by runSearch to force the fetch effect even when
+ *                          none of its other deps changed (e.g. repeat identical search).
+ *  - columnsPanelRef/showColumnsPanel  columns-chooser dropdown + outside-click ref.
+ *  - hiddenColumns         set of column keys hidden by the user in the chooser panel.
+ *  - openFilterColumn      which column's filter popover is open (null = closed).
+ *  - textFilters           client-side "contains" filters keyed by column.
+ *  - numericFilters        client-side comparator filters keyed by column
+ *                          ({comparator, value}); backendFilter columns skip these.
+ *  - sort                  current sort {key, dir} or null for dataset order.
+ */
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — MATERIALS SEARCH PAGE
+// q/periodic-table filters -> searchDatasetMaterials (per dataset) -> table + CSV.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function MaterialsSearchPage() {
   const [params, setParams] = useSearchParams();

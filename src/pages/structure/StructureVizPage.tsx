@@ -1,3 +1,9 @@
+/**
+ * StructureVizPage — 3D crystal structure viewer.
+ * Route: /app/structure. Offers 3 presets (LiCoO2, LiFePO4, LLZO) via presetToCif
+ * or a CIF upload (parseCifFile) -> StructureViewer / CrystalViewerCanvas render.
+ * Renders with 3Dmol.js (CDN) and bundled three.js WebGL renderer.
+ */
 import { useMemo, useState } from "react";
 import {
   Atom,
@@ -104,6 +110,11 @@ const presets: Preset[] = [
     ],
   },
 ];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — STRUCTURE VISUALIZATION PAGE
+// Presets (LiCoO2, LiFePO4, LLZO) via presetToCif OR CIF upload -> StructureViewer.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function StructureVizPage() {
   const [selectedId, setSelectedId] = useState("LiCoO2");

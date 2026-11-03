@@ -1,5 +1,9 @@
 import { Outlet } from "react-router-dom";
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — PUBLIC LAYOUT (marketing header/footer shell)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function PublicLayout() {
   return (
     <div className="min-h-screen bg-im-bg text-im-text flex flex-col font-sans">

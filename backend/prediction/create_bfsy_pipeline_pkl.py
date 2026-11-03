@@ -1,4 +1,11 @@
-import os
+"""Builds the BFSY pipeline pickle (offline).
+
+Role in the system
+------------------
+Offline script that trains/saves the BFSYPipeline artefacts. Run manually.
+"""
+
+import os  # paths
 import sys
 import joblib
 sys.path.insert(0, os.path.dirname(__file__))

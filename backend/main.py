@@ -1,12 +1,46 @@
-import os
-import sys
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
-from dotenv import load_dotenv
+"""Entry point for the IndianMaterialsAI FastAPI backend.
 
-# Load environment variables from .env file
+Role in the system
+------------------
+This module constructs the top-level FastAPI app, wires every router under
+its prefix, applies CORS + session middleware, runs the ML-model load in the
+lifespan hook, and mounts the CIF Generator sub-app at /cif. Run with
+``uvicorn main:app`` from inside ``backend/`` (default port 8000).
+
+Wiring (see the router block below):
+  /api/auth           — auth_routes (register/login/OAuth)
+  /api/users          — user_routes (profile/dashboard/mock predict/save)
+  /api/cif            — cif_routes (CIF parsing)
+  /api/materials      — materials_routes (Materials Project explore)
+  /api/oqmd           — oqmd
+  /api/aflow          — aflow
+  /api/jarvis         — jarvis
+  /api/dataset        — database_routes (local CSV search)
+  /api/indianmatter   — indianmatter (local CSV explore + CIF download)
+  /api/calculations   — calculator_router + transport_router (property prediction)
+  /cif (mounted sub-app) — webapp (CIF generation pipeline)
+
+Inputs  : environment variables from backend/.env (MP_API_KEY, GOOGLE_*,
+          GITHUB_*, SESSION_SECRET, FRONTEND_URL, MACE_*, CRYSTALLM_*).
+Outputs : the running FastAPI application object ``app``.
+
+Gotchas
+-------
+- The CIF sub-app import is wrapped in try/except so heavy ML import failures
+  do NOT take down the main API.
+- The ASE ExpCellFilter shim (below) MUST run before any optimizer code.
+- Auth/user routers are the only ones depending on MongoDB at request time.
+"""
+
+import os  # env vars + path helpers
+import sys  # sys.path manipulation so backend/ is importable
+from contextlib import asynccontextmanager  # lifespan hook (startup/shutdown)
+from fastapi import FastAPI  # app factory
+from fastapi.middleware.cors import CORSMiddleware  # cross-origin requests from the React dev server
+from starlette.middleware.sessions import SessionMiddleware  # OAuth state storage
+from dotenv import load_dotenv  # load backend/.env into os.environ
+
+# Load environment variables from backend/.env before anything else reads them.
 load_dotenv()
 
 # Compatibility shim for newer ASE versions where ExpCellFilter moved to ase.filters

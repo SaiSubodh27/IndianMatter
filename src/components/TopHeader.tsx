@@ -7,6 +7,10 @@ interface TopHeaderProps {
   onToggleMobileMenu?: () => void;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — TOP HEADER (search box -> /app/materials?q=..., user dropdown)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();

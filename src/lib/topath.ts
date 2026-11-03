@@ -1,5 +1,11 @@
 // Research Atelier style reminder: make system state and provenance visible; a disconnected assistant must be clear, calm, and actionable.
 
+/**
+ * DEAD CODE — this module is defined but has NO consumers anywhere in src/.
+ * It targets a `/chat` endpoint on VITE_TOPATH_URL that is not part of the
+ * IndianMatter backend. Kept for reference only; safe to delete.
+ */
+
 export type ToPathResponse = {
   response: string;
   path_used?: number;

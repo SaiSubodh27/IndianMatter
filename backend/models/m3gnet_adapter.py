@@ -1,4 +1,13 @@
-import time
+"""M3GNet MLIP adapter (models/ variant).
+
+Role in the system
+------------------
+Wraps ``matgl.load_model('M3GNet-MP-2021.2.8-PES'/'DIRECT')`` + M3GNetCalculator;
+``predict_mechanical_instant`` computes K/G via finite-strain stress.
+Part of the (unwired) /api/materials-prediction pipeline.
+"""
+
+import time  # timing for predict calls
 import numpy as np
 from typing import Tuple, Optional, Any
 from models.base_adapter import BaseModelAdapter

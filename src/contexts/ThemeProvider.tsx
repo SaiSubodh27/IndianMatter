@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-
+/**
+ * ThemeProvider — dark/light/system theme management, shadcn-style.
+ *
+ * Persists the choice under localStorage key "vite-ui-theme" and applies it by
+ * toggling the "dark"/"light" class on <html>. All Tailwind dark: variants and
+ * theme-aware components (Sidebar, TopHeader, cards, viewer canvases) react to
+ * that root class, so they need not consume this context directly.
+ * Mounted in src/main.tsx around <App />.
+ */
 type Theme = "dark" | "light" | "system";
 
 type ThemeProviderProps = {
@@ -13,12 +21,18 @@ type ThemeProviderState = {
   setTheme: (theme: Theme) => void;
 };
 
+/** Generic fallback value so context consumers before mount don't crash (the
+ *  no-op setTheme only fires if someone renders outside the real provider). */
 const initialState: ThemeProviderState = {
   theme: "system",
   setTheme: () => null,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — THEME PROVIDER (dark/light theme context)
+// ══════════════════════════════════════════════════════════════════════════════
 
 export function ThemeProvider({
   children,

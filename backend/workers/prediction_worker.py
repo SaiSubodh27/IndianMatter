@@ -1,4 +1,16 @@
-import os
+"""Background worker for the (unwired) batch prediction pipeline.
+
+Role in the system
+------------------
+``execute_prediction_job`` iterates rows x models x properties, runs per-model
+adapter install checks, strain perturbation precompute for mechanical props,
+missing-model fallback to "unavailable" results, progress percent + logs on
+``core.job_manager.JobState``, optional Celery/Redis execution, then
+``services.download_service.generate_download_package`` (CSV/JSON/report/logs/ZIP).
+Part of the unwired ``/api/materials-prediction`` flow.
+"""
+
+import os  # temp/result paths
 import time
 import json
 import threading

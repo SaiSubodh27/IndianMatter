@@ -1,4 +1,13 @@
-import os
+"""Structure parser for the (unwired) prediction pipeline.
+
+Role in the system
+------------------
+Parses file path / inline CIF / JSON dict / POSCAR text into a pymatgen
+Structure + metadata (valid, formula, space_group, atoms, lattice). Used by
+services/prediction_service.py and workers/prediction_worker.py.
+"""
+
+import os  # file path handling
 import json
 from typing import Optional, Tuple, Any
 from pymatgen.core import Structure

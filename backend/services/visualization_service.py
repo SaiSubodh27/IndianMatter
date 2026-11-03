@@ -1,4 +1,12 @@
-from typing import Dict, Any, List
+"""Visualization helpers for the prediction pipeline (unwired).
+
+Role in the system
+------------------
+Helpers for rendering prediction results for the frontend. Part of the unwired
+``/api/materials-prediction`` flow.
+"""
+
+from typing import Dict, Any, List  # type hints
 
 def build_visualization_payload(job_results: List[dict]) -> dict:
     elastic_heatmaps = []

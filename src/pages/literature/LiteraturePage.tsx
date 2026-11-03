@@ -1,3 +1,7 @@
+/**
+ * LiteraturePage — STATIC/MOCK page.
+ * Route: /app/literature. Renders hardcoded papers. No backend call.
+ */
 import { useState, useEffect, useMemo } from "react";
 import {
   BookOpen,

@@ -1,4 +1,12 @@
-from typing import Dict, List, Any
+"""Per-property requirement validator for the (unwired) prediction pipeline.
+
+Role in the system
+------------------
+Enforces the "ionic conductivity excluded" policy and per-property requirement
+maps. Used by services/prediction_service.py.
+"""
+
+from typing import Dict, List, Any  # type hints
 import pandas as pd
 
 # Define property input requirements

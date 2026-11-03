@@ -28,6 +28,17 @@ Each iteration:
                                               fmax tolerance slightly
    Stops after `max_iterations` and reports full diagnostics either way.
 
+Callers: orchestrator.run_pipeline stage 4a (undoped), and doping.resolve_parent_structure
+         (stage 4b) when the pristine host formula is not in any database.
+Inputs : normalized/reduced formula string (from matching.normalize_formula_with_trace),
+         optional target space group from the user query.
+Outputs: PipelineResult(cif_string=..., source="generated_undoped"|"failed") plus a
+         per-iteration GenerationDiagnostics trail in diagnostics_history.
+Generation knobs: temperature starts at 0.7 (CrystaLLM's recommended default) and only
+rises, capped at 1.5, fed back by _decide_next_adjustment when a dominant failure mode
+suggests the sampler is stuck in one bad basin. top_k=10 and max_new_tokens=3000 are the
+official CrystaLLM sampling defaults (3000 tokens comfortably fits a full CIF block).
+
 CrystaLLM Integration Notes:
   - Uses the locally cloned CrystaLLM package (crystallm_repo/) installed via
     `pip install -e crystallm_repo`.
@@ -62,12 +73,29 @@ _CRYSTALLM_TOKENIZER = None
 _CRYSTALLM_DEVICE = "cpu"
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — CRYSTALLM LOADING + PROMPT BUILDING
+# ══════════════════════════════════════════════════════════════════════════════
+
 def _ensure_crystallm_loaded(checkpoint_path: str, device: str = "cpu"):
     """Lazily load the CrystaLLM model and tokenizer from the given checkpoint
     directory (must contain ckpt.pt).
 
     Uses the real crystallm package (CIFTokenizer, GPT, GPTConfig) installed
     from the locally cloned CrystaLLM repository.
+
+    Params:
+        checkpoint_path: directory containing ckpt.pt, or the ckpt.pt file
+            itself (from CRYSTALLM_CHECKPOINT_PATH in .env).
+        device: "cpu" or "cuda"; reuse MACE's device so both models share GPU
+            memory instead of competing for it.
+
+    Gotchas:
+        - Loading is deliberately a global singleton: a GPT-2 style nanoGPT
+          checkpoint can be hundreds of MB, and reloading per iteration
+          inside the feedback loop would dominate runtime.
+        - torch.load(weights_only=False) is required because the checkpoint
+          stores GPTConfig objects, not just tensors — trusted local file only.
     """
     global _CRYSTALLM_MODEL, _CRYSTALLM_TOKENIZER, _CRYSTALLM_DEVICE
 
@@ -107,10 +135,19 @@ def _ensure_crystallm_loaded(checkpoint_path: str, device: str = "cpu"):
         gptconf = GPTConfig(**checkpoint["model_args"])
 
         with torch.device("meta"):
+            # Meta-device trick: instantiate the GPT skeleton without allocating
+            # any tensor storage, then copy real weights in with to_empty +
+            # assign=True. Avoids double-allocating the model during load.
             meta_model = GPT(gptconf)
 
         state_dict = checkpoint["model"]
-        # Strip compile wrapper prefix if present (added by torch.compile)
+        # WORKAROUND / BAND-AID: if the checkpoint was saved from a
+        # torch.compile()-wrapped model, every state-dict key is prefixed with
+        # "_orig_mod." (the compiled module's attribute). Without stripping,
+        # load_state_dict would fail with a sea of "missing keys" because the
+        # freshly constructed GPT has unprefixed names. We rewrite keys in
+        # place rather than building a new dict so the pop() frees the old
+        # prefixed tensors.
         unwanted_prefix = "_orig_mod."
         for k in list(state_dict.keys()):
             if k.startswith(unwanted_prefix):
@@ -237,18 +274,22 @@ def _call_crystallm(formula: str, n_samples: int, temperature: float,
         )
 
         generated_cifs = []
-        with torch.no_grad():
-            with ctx:
+        with torch.no_grad():        # inference only: never build autograd graph
+            with ctx:                # bf16 autocast on CUDA for speed; no-op on CPU
                 for i in range(n_samples):
                     try:
                         y = model.generate(
                             x,
-                            max_new_tokens=max_new_tokens,
-                            temperature=temperature,
-                            top_k=top_k,
+                            max_new_tokens=max_new_tokens,  # 3000 default: room for a whole CIF
+                            temperature=temperature,        # 0.7→1.5 across feedback iterations
+                            top_k=top_k,                    # top-k=10 limits sampling to 10 tokens
                         )
                         output = tokenizer.decode(y[0].tolist())
-                        # The full output starts from the prompt — extract CIF block
+                        # The full output starts from the prompt — slice off from
+                        # the first "data_" tag to get a standalone CIF block. If
+                        # the model never emitted "data_" the sample is useless;
+                        # skip it (filter_rules will count it as a parse failure
+                        # only if we kept a block, so dropping here is cleaner).
                         if "data_" in output:
                             cif_block = output[output.index("data_"):]
                             generated_cifs.append(cif_block)
@@ -272,6 +313,20 @@ def _call_crystallm(formula: str, n_samples: int, temperature: float,
 def _decide_next_adjustment(failures: dict, relax_nonconverged: int, current_temperature: float):
     """Look at the failure breakdown from the last iteration and decide how to
     adjust generation parameters for the next one. Returns (new_temperature, notes).
+
+    Params:
+        failures: mapping of failure-bucket name -> list of examples, as produced
+            by filter_rules.filter_candidates ("parse", "bond_length", "symmetry",
+            "charge_balance", "duplicate").
+        relax_nonconverged: number of survivors that failed MACE relaxation.
+        current_temperature: CrystaLLM sampling temperature used this iteration.
+
+    Returns:
+        (new_temperature, human-readable note to append to diagnostics).
+
+    Gotchas: temperature only ever INCREASES (never resets or decreases), capped
+    at 1.5 to keep samples chemically coherent. +0.15 per iteration gives ~5
+    escalation steps across a typical max_iterations=5 run, ending at 1.3-1.5.
     """
     counts = {k: len(v) for k, v in failures.items()}
     dominant = max(counts, key=counts.get) if any(counts.values()) else None
@@ -291,6 +346,10 @@ def _decide_next_adjustment(failures: dict, relax_nonconverged: int, current_tem
 # ---------------------------------------------------------------------------
 # Main generation entry point
 # ---------------------------------------------------------------------------
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION — FEEDBACK LOOP (the main CrystaLLM generation driver)
+# ══════════════════════════════════════════════════════════════════════════════
 
 def generate_with_feedback_loop(
     formula: str,

@@ -1,4 +1,7 @@
 // Research Atelier style paper model: preview research dataset for IndianMatter AI Copilot.
+/**
+ * DEAD CODE — static research paper data, not imported anywhere in src/. Safe to delete.
+ */
 
 export type DatasetStatus = "available" | "partial" | "unavailable";
 

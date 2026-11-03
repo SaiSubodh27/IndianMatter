@@ -3,6 +3,10 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopHeader from "../components/TopHeader";
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — MAIN LAYOUT (authenticated shell: Sidebar + TopHeader + Outlet)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 

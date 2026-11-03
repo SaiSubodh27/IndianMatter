@@ -58,6 +58,10 @@ function vectorsFromLattice(lattice: CrystalViewerProps["lattice"]) {
   return { a, b, c: new THREE.Vector3(cx, cy, cz) };
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — CRYSTAL VIEWER CANVAS (bundled three.js WebGL renderer)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function CrystalViewerCanvas({
   atoms,
   lattice,

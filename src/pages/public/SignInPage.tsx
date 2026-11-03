@@ -1,3 +1,10 @@
+/**
+ * SignInPage — authentication entry.
+ * Route: /signin. Email submit fakes signIn (client-side only, localStorage).
+ * Google/GitHub buttons redirect to backend /api/auth/{google,github}/login;
+ * token returned in URL hash is parsed and /api/users/profile is fetched.
+ * Honors the `redirect` query param restored by ProtectedRoute.
+ */
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -10,6 +17,11 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — SIGN-IN PAGE
+// Email dev sign-in + Google/GitHub OAuth redirect; honors `redirect` query param.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function SignInPage() {
   const navigate = useNavigate();

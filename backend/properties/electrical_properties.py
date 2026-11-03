@@ -1,4 +1,15 @@
-from typing import Any, Optional
+"""Electrical property calculators (band gap, electronic state).
+
+Role in the system
+------------------
+``BandGap`` only returns a value when an external band gap is supplied (NN
+potentials cannot predict band structure); ``ElectronicState`` is a heuristic
+metal/insulator classifier by element metallicity. Explicitly EXCLUDES ionic
+conductivity / activation energy (status 'unsupported'). Part of the (unwired)
+``/api/materials-prediction`` pipeline.
+"""
+
+from typing import Any, Optional  # type hints
 from properties.base_property import BasePropertyCalculator, PropertyResult
 
 class BandGapCalculator(BasePropertyCalculator):

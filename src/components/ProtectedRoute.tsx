@@ -6,6 +6,10 @@ interface ProtectedRouteProps {
   children?: React.ReactNode;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION — PROTECTED ROUTE (auth gate + redirect memory)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated } = useAuth();
   const location = useLocation();

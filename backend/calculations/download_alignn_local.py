@@ -1,5 +1,14 @@
 
-import os
+"""Pre-download ALIGNN weights into final_models/alignn_weights.
+
+Role in the system
+------------------
+Downloads ALIGNN pretrained weights so the alignn_properties calculator can run
+offline. The target folder is absent on disk in this snapshot, so ALIGNN
+returns the placeholder value.
+"""
+
+import os  # download paths
 import pathlib
 from pymatgen.core import Structure, Lattice
 

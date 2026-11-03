@@ -1,4 +1,13 @@
-from abc import ABC, abstractmethod
+"""Abstract base adapter for MLIPs (prediction_models/ variant).
+
+Role in the system
+------------------
+Same interface as models/base_adapter.py but this is the variant actually
+imported by prediction_models/model_registry.py used in the live path
+(scripts/check_models.py, run_inference_cif.py).
+"""
+
+from abc import ABC, abstractmethod  # abstract base for MLIP adapters
 from typing import Dict, Any, Optional, Tuple, List
 import numpy as np
 
