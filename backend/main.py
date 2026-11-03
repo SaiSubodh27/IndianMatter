@@ -17,7 +17,7 @@ try:
     if not hasattr(ase.constraints, "ExpCellFilter") and hasattr(ase.filters, "ExpCellFilter"):
         ase.constraints.ExpCellFilter = ase.filters.ExpCellFilter
 except Exception:
-    pass
+    pass #it is related to atomic coordinates and external unit cell vectors (lattic lengths)
 
 from api.calculator_router import router as calculator_router
 
@@ -93,7 +93,7 @@ app = FastAPI(
 # CORS Middleware Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

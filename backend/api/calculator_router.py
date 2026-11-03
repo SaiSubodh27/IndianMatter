@@ -15,16 +15,13 @@ from pymatgen.core import Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from matminer.featurizers.composition import ElementProperty
 
-# Custom Utils
-from utils.structural_analyzer import calculate_structural_metrics
-from utils.chgnet_features import extract_mechanical_features
 from model_paths import resolve_pretrained_models_dir
 from routes.transport_router import predict_conductivity_from_path
 
 # DEFINE ROUTER
 # MongoDB Materials Persistence Service
 try:
-    from services.materials_db_service import (
+    from materials_db_service import (
         get_cached_prediction,
         save_material_prediction,
         list_cached_predictions,
@@ -41,12 +38,10 @@ except Exception as _db_err:
 router = APIRouter(prefix="/api/calculations", tags=["Calculations"])
 
 # ---------------------------------------------------------
-# STARTUP: Load All Property Surrogates & IonCast Models Separately
+# STARTUP: Load CrystalFormer & IonCast v5 Property Models
 # ---------------------------------------------------------
-MODELS_BASE = resolve_pretrained_models_dir("chgnet_logK_model.pkl")
+MODELS_BASE = resolve_pretrained_models_dir("v5_base_models.pkl")
 IONCAST_MODELS_BASE = MODELS_BASE  
-
-
 
 # 1. CrystalFormer Service & Pipeline (Bulk, Shear, Formation Energy, Band Gap + Derived Properties)
 try:
@@ -64,41 +59,7 @@ except Exception as e:
     CRYSTALFORMER_LOADED = False
     print(f"WARNING: CrystalFormer service not loaded: {e}")
 
-# Unified BFSY Pipeline Fallback
-try:
-    try:
-        from property_prediction_models.prediction.BFSY_pipeline import BFSYPipeline
-    except ImportError:
-        from prediction.BFSY_pipeline import BFSYPipeline
-    bfsy_pipeline = BFSYPipeline(models_dir=MODELS_BASE)
-    BFSY_LOADED = True
-    MECHANICAL_LOADED = True
-    print("BFSY fallback pipeline loaded.")
-except Exception as e:
-    bfsy_pipeline = None
-    BFSY_LOADED = False
-    MECHANICAL_LOADED = False
-    print(f"WARNING: BFSY fallback pipeline not loaded: {e}")
-
-# 2. Electrical Model (Band Gap)
-try:
-    chgnet_model_bg = joblib.load(os.path.join(MODELS_BASE, "chgnet_bandgap_model.pkl"))
-    ELECTRICAL_LOADED = True
-    print("Electrical surrogate model loaded.")
-except Exception as e:
-    ELECTRICAL_LOADED = False
-    print(f"WARNING: Electrical model not loaded: {e}")
-
-# 3. Thermal Model (Phonon Proxy)
-try:
-    chgnet_model_th = joblib.load(os.path.join(MODELS_BASE, "chgnet_thermal_model.pkl"))
-    THERMAL_LOADED = True
-    print("Thermal surrogate model loaded.")
-except Exception as e:
-    THERMAL_LOADED = False
-    print(f"WARNING: Thermal model not loaded: {e}")
-
-# 4. Full IonCast Models Stack
+# 2. Full IonCast Models Stack (v5 Ensemble + v6 Corrector)
 try:
     try:
         from predict_ionic_conductivity import load_models
@@ -112,13 +73,70 @@ except Exception as e:
     print(f"WARNING: IonCast models not loaded from {IONCAST_MODELS_BASE}: {e}")
 
 
+def calculate_ionic_transport_for_structure(structure: Structure, temperature_k: float = 298.15) -> dict:
+    """Calculates ionic conductivity (S/cm) and activation energy (eV) via IonCast v5/v6 ensemble."""
+    if not IONIC_LOADED:
+        return {
+            "status": "failed",
+            "conductivity_s_cm": None,
+            "activation_energy_ev": None,
+            "raw_details": {},
+            "warnings": ["IonCast models not loaded on server."]
+        }
+
+    import pathlib
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".cif", mode="w", encoding="utf-8") as tmp:
+        tmp.write(structure.to(fmt="cif"))
+        temp_path = tmp.name
+    try:
+        try:
+            from predict_ionic_conductivity import predict_one, AlignOpts
+        except ImportError:
+            from backend.predict_ionic_conductivity import predict_one, AlignOpts
+        opts = AlignOpts(strict=False)
+        pred = predict_one(pathlib.Path(temp_path), temperature_k, IONIC_MODELS, apply_corrector=True, opts=opts)
+        cond = pred.get("conductivity", {})
+        m_out = pred.get("model_outputs", {})
+        corr = cond.get("corrected") or {}
+        cond_s_cm = corr.get("corrected_conductivity_S_per_cm", cond.get("base_conductivity_S_per_cm", 0.0))
+        ea_ev = m_out.get("Ea_eV", 0.0)
+        raw_details = {
+            "activation_energy_ev": ea_ev,
+            "logA": m_out.get("log10_A", 0.0),
+            "temperature_k": float(temperature_k),
+            "conductivity_s_cm": cond_s_cm,
+            "base_conductivity_s_cm": cond.get("base_conductivity_S_per_cm", 0.0),
+            "corrected_conductivity_s_cm": corr.get("corrected_conductivity_S_per_cm", 0.0),
+            "corrector_applied": bool(corr),
+            "reliability_status": pred.get("reliability", {}).get("status", "OK"),
+        }
+        return {
+            "status": "calculated",
+            "conductivity_s_cm": cond_s_cm,
+            "activation_energy_ev": ea_ev,
+            "raw_details": raw_details,
+            "warnings": pred.get("warnings", [])
+        }
+    except Exception as ex:
+        return {
+            "status": "failed",
+            "conductivity_s_cm": None,
+            "activation_energy_ev": None,
+            "raw_details": {},
+            "warnings": [f"Ionic transport prediction failed: {str(ex)}"]
+        }
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
 # ---------------------------------------------------------
 # UNIFIED MULTI-PROPERTY PREDICTION ENDPOINT (Fixes Mocks)
 # ---------------------------------------------------------
 @router.post("/predict-properties")
 async def predict_properties(
     file: UploadFile = File(...),
-    properties: str = Form(default="bulk_modulus,shear_modulus,thermal_conductivity"),
+    properties: str = Form(default="thermal_conductivity"),
     temperature: float = Form(298.15),
     bypass_cache: bool = Form(False)
 ):
@@ -161,14 +179,6 @@ async def predict_properties(
         requested_keys = [k.strip() for k in properties.split(",") if k.strip()]
         calculated_properties = {}
         
-        # Extract GNN mechanical/structural feature vectors if applicable
-        feature_vector = None
-        try:
-            chgnet_features = extract_mechanical_features(structure)
-            feature_vector = chgnet_features.get('feature_vector')
-        except Exception:
-            pass
-
         crystalformer_keys = {
             "bulk_modulus", "bulk_modulus_vrh_GPa", "bulk",
             "shear_modulus", "shear_modulus_vrh_GPa", "sher_modulus", "shear",
@@ -189,55 +199,6 @@ async def predict_properties(
                     cf_result = crystalformer_service.predict(structure, temperature_k=temperature)
                 except Exception as cf_err:
                     print(f"CrystalFormer prediction failed: {cf_err}")
-            
-            # Fallback to legacy BFSY if CrystalFormer service prediction failed
-            if cf_result is None and BFSY_LOADED and bfsy_pipeline:
-                try:
-                    bfsy_res = bfsy_pipeline.predict(structure, feature_vector=feature_vector)
-                    if bfsy_res.get("status") == "success":
-                        k_val = bfsy_res.get("bulk_modulus_GPa", 95.0)
-                        g_val = bfsy_res.get("shear_modulus_GPa", 48.0)
-                        ef_val = bfsy_res.get("formation_energy_eV_atom", -2.0)
-                        bg_val = 2.45
-                        if ELECTRICAL_LOADED and feature_vector is not None:
-                            try:
-                                bg_val = float(chgnet_model_bg.predict([feature_vector])[0])
-                            except Exception:
-                                pass
-                        natoms = len(structure)
-                        v0 = float(structure.lattice.volume) / max(1, natoms)
-                        try:
-                            from CrystalFormer.derived_properties import derive_properties
-                            der = derive_properties(k_val, g_val, bg_val, v0)
-                        except Exception:
-                            der = {
-                                "youngs_modulus_GPa": 9.0 * k_val * g_val / (3.0 * k_val + g_val),
-                                "fracture_toughness_MPa_m05": 0.01 * (v0 ** (1.0 / 6.0)) * g_val * math.sqrt(k_val / g_val),
-                                "electronic_conductivity_S_cm": 1.0e-16 if bg_val > 2.4 else 1.0e-4,
-                            }
-                        cf_result = {
-                            "status": "success",
-                            "model_source": "BFSYPipeline-Fallback",
-                            "core_properties": {
-                                "bulk_modulus_GPa": k_val,
-                                "shear_modulus_GPa": g_val,
-                                "formation_energy_eV_atom": ef_val,
-                                "band_gap_eV": bg_val,
-                            },
-                            "derived_properties": {
-                                "youngs_modulus_GPa": der["youngs_modulus_GPa"],
-                                "fracture_toughness_MPa_m05": der["fracture_toughness_MPa_m05"],
-                                "electronic_conductivity_S_cm": der["electronic_conductivity_S_cm"],
-                            },
-                            "auxiliary_metrics": {
-                                "poisson_ratio": bfsy_res.get("poisson_ratio", 0.25),
-                                "pughs_ratio": bfsy_res.get("pughs_ratio", 2.0),
-                                "compressibility_GPa_inv": bfsy_res.get("compressibility_GPa_inv", 0.01),
-                                "electronic_nature": "Insulator" if bg_val > 2.0 else "Semiconductor",
-                            }
-                        }
-                except Exception as b_err:
-                    print(f"Fallback BFSY prediction failed: {b_err}")
 
         for key in requested_keys:
             try:
@@ -294,90 +255,36 @@ async def predict_properties(
                         unit_fallback = "eV/atom" if "formation" in key or "hull" in key else ("eV" if "band" in key else "GPa")
                         calculated_properties[key] = {"property_key": key, "value": None, "unit": unit_fallback, "status": "unavailable"}
 
-                elif key in ["thermal_conductivity", "thermal", "debye_temperature", "phonon_frequency_proxy_cm_inv"]:
-                    if THERMAL_LOADED and feature_vector is not None:
-                        thermal_proxy = float(chgnet_model_th.predict([feature_vector])[0])
-                        unit_val = "cm⁻¹" if "thermal" in key or "phonon" in key else "K"
-                        calculated_properties[key] = {
-                            "property_key": key,
-                            "value": round(thermal_proxy, 3),
-                            "unit": unit_val,
-                            "status": "calculated"
-                        }
-                    else:
-                        calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "unavailable"}
 
-                elif key in ["band_gap", "band_gap_eV", "electronic_state"]:
-                    if ELECTRICAL_LOADED and feature_vector is not None:
-                        bg = float(chgnet_model_bg.predict([feature_vector])[0])
-                        val = bg if "band_gap" in key else ("Insulator" if bg > 2.0 else "Semiconductor")
-                        calculated_properties[key] = {
-                            "property_key": key,
-                            "value": round(val, 3) if isinstance(val, float) else val,
-                            "unit": "eV" if "band_gap" in key else "",
-                            "status": "calculated"
-                        }
-                    else:
-                        calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "unavailable"}
-                elif key in ["ionic_conductivity", "ionic_conductivity_activation_energy", "activation_energy_eV"]:
+                elif key in ["ionic_conductivity", "ionic_conductivity_activation_energy", "activation_energy_eV", "activation_energy"]:
                     if IONIC_LOADED:
-                        try:
-                            from properties.ionic_conductivity import IonicConductivityCalculator
-                            calc = IonicConductivityCalculator(key=key)
-                            res = calc.calculate(structure, settings={"temperature_k": temperature})
-                            
-                            if res.status == "calculated":
-                                is_conductivity = key == "ionic_conductivity"
-                                if is_conductivity:
-                                    if res.raw_details and "conductivity_s_cm" in res.raw_details:
-                                        val = res.raw_details["conductivity_s_cm"]
-                                        unit = "S/cm"
-                                    else:
-                                        val = res.value
-                                        unit = res.unit
-                                else:
-                                    if res.raw_details:
-                                        val = res.raw_details.get("activation_energy_ev")
-                                        unit = "eV"
-                                    else:
-                                        val = res.value
-                                        unit = res.unit
-                                
-                                # Use significant figures instead of fixed decimals
-                                # to preserve precision for very small conductivities
-                                formatted_val = None
-                                if val is not None:
-                                    fval = float(val)
-                                    formatted_val = float(f"{fval:.6g}")
-                                
-                                calculated_properties[key] = {
-                                    "property_key": key,
-                                    "value": formatted_val,
-                                    "unit": unit,
-                                    "status": "calculated",
-                                    "raw_details": res.raw_details if res.raw_details else {}
-                                }
-                            else:
-                                calculated_properties[key] = {
-                                    "property_key": key,
-                                    "value": None,
-                                    "unit": "mS/cm" if "conductivity" in key else "eV",
-                                    "status": "failed",
-                                    "warnings": res.warnings
-                                }
-                        except Exception as inner_ex:
+                        res = calculate_ionic_transport_for_structure(structure, temperature_k=temperature)
+                        if res["status"] == "calculated":
+                            is_cond = "conductivity" in key
+                            val = res["conductivity_s_cm"] if is_cond else res["activation_energy_ev"]
+                            unit = "S/cm" if is_cond else "eV"
+                            fval = float(f"{float(val):.6g}") if val is not None else None
+                            calculated_properties[key] = {
+                                "property_key": key,
+                                "value": fval,
+                                "unit": unit,
+                                "status": "calculated",
+                                "source_model": "IonCast-v5/v6",
+                                "raw_details": res.get("raw_details", {})
+                            }
+                        else:
                             calculated_properties[key] = {
                                 "property_key": key,
                                 "value": None,
-                                "unit": "mS/cm" if "conductivity" in key else "eV",
+                                "unit": "S/cm" if "conductivity" in key else "eV",
                                 "status": "failed",
-                                "warnings": [str(inner_ex)]
+                                "warnings": res.get("warnings", [])
                             }
                     else:
                         calculated_properties[key] = {
                             "property_key": key,
                             "value": None,
-                            "unit": "",
+                            "unit": "S/cm" if "conductivity" in key else "eV",
                             "status": "unavailable",
                             "warnings": ["IonCast models not loaded on server"]
                         }
@@ -469,120 +376,6 @@ async def analyze_cif_features(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
-
-
-# ---------------------------------------------------------
-# ENDPOINT 2: Structural Metrics via JSON Payload
-# ---------------------------------------------------------
-class CrystalStructureInput(BaseModel):
-    data_block: Optional[str] = Field(default="mp-unknown", example="mp-2286")
-    formula: Optional[str] = Field(default="Li2Se", example="Li2Se")
-    space_group: Optional[str] = Field(default="Fm-3m", example="Fm-3m")
-    space_group_number: Optional[int] = Field(default=225, example=225)
-    lattice: Dict[str, float] = Field(
-        example={"a": 4.208, "b": 4.208, "c": 4.208, "alpha": 60.0, "beta": 60.0, "gamma": 60.0, "volume": 52.716}
-    )
-    atom_count: Optional[int] = Field(default=3, example=3)
-    atoms: List[Dict[str, Any]] = Field(
-        example=[
-            {"species": "Li", "fractional_coordinates": [0.25, 0.25, 0.25], "occupancy": None},
-            {"species": "Li", "fractional_coordinates": [0.75, 0.75, 0.75], "occupancy": None},
-            {"species": "Se", "fractional_coordinates": [0, 0, 0], "occupancy": None}
-        ]
-    )
-
-@router.post("/calculate-metrics")
-def process_structure_metrics(payload: CrystalStructureInput):
-    try:
-        metrics = calculate_structural_metrics(payload.model_dump())
-        return {"status": "success", "metrics": metrics}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Metrics calculation error: {str(e)}")
-
-
-# ---------------------------------------------------------
-# ENDPOINT 3: Structural Metrics via CIF Upload
-# ---------------------------------------------------------
-@router.post("/analyze-cif-file")
-async def analyze_cif_file(file: UploadFile = File(...)):
-    if not file.filename.endswith('.cif'):
-        raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-    
-    try:
-        content = await file.read()
-        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
-        lattice = structure.lattice
-        
-        atoms_list = [{
-            "species": site.species_string,
-            "fractional_coordinates": [float(site.a), float(site.b), float(site.c)],
-            "occupancy": float(site.occu.get(site.species_string, 1.0)) if hasattr(site, 'occu') else 1.0
-        } for site in structure]
-            
-        payload_dict = {
-            "data_block": file.filename.replace(".cif", ""),
-            "formula": structure.composition.reduced_formula,
-            "space_group": "Unknown",
-            "lattice": {
-                "a": float(lattice.a), "b": float(lattice.b), "c": float(lattice.c),
-                "alpha": float(lattice.alpha), "beta": float(lattice.beta), "gamma": float(lattice.gamma),
-                "volume": float(lattice.volume)
-            },
-            "atom_count": len(structure),
-            "atoms": atoms_list
-        }
-        
-        metrics = calculate_structural_metrics(payload_dict)
-        return {"status": "success", "filename": file.filename, "metrics": metrics}
-    except Exception as e:
-       raise HTTPException(status_code=500, detail=f"CIF processing error: {str(e)}")
-
-
-# ---------------------------------------------------------
-# ENDPOINT 4: Mechanical Analysis (Bulk, Shear, Young's, Poisson, Formation Energy)
-# ---------------------------------------------------------
-@router.post("/analyze-mechanical")
-async def analyze_mechanical_properties(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.lower().endswith('.cif'):
-        raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-    
-    try:
-        content = await file.read()
-        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
-        chgnet_features = extract_mechanical_features(structure)
-        feature_vector = chgnet_features['feature_vector']
-        
-        if not BFSY_LOADED:
-            raise HTTPException(status_code=500, detail="BFSY prediction pipeline not loaded.")
-            
-        bfsy_res = bfsy_pipeline.predict(structure, feature_vector=feature_vector)
-        if bfsy_res.get("status") == "error":
-            raise HTTPException(status_code=500, detail=f"BFSY prediction error: {bfsy_res.get('error')}")
-
-        K = bfsy_res.get("bulk_modulus_GPa")
-        G = bfsy_res.get("shear_modulus_GPa")
-        E = bfsy_res.get("youngs_modulus_GPa")
-        nu = bfsy_res.get("poisson_ratio")
-        Ef = bfsy_res.get("formation_energy_eV_atom")
-        
-        return {
-            "status": "success",
-            "filename": file.filename,
-            "formula": structure.composition.reduced_formula,
-            "mechanical_predictions": {
-                "bulk_modulus_vrh_GPa": round(K, 2) if K is not None else None,
-                "shear_modulus_vrh_GPa": round(G, 2) if G is not None else None,
-                "youngs_modulus_GPa": round(E, 2) if E is not None else None,
-                "poissons_ratio": round(nu, 3) if nu is not None else None,
-                "formation_energy_eV_atom": round(Ef, 4) if Ef is not None else None,
-                "pughs_ratio": round(bfsy_res.get("pughs_ratio"), 3) if bfsy_res.get("pughs_ratio") is not None else None,
-                "compressibility_GPa_inv": bfsy_res.get("compressibility_GPa_inv"),
-                "model_source": "BFSYPipeline-CHGNet-Unified"
-            },
-            "chgnet_mechanical_analysis": chgnet_features
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Mechanical analysis error: {str(e)}")
 
 
 # ---------------------------------------------------------
@@ -692,140 +485,6 @@ async def crystalformer_predict_endpoint(
             raise HTTPException(status_code=400, detail="Please upload a .cif file or provide a material formula.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"CrystalFormer prediction error: {str(e)}")
-
-
-@router.post("/analyze-crystalformer")
-@router.post("/analyze-bfsy")
-async def analyze_crystalformer_properties(file: UploadFile = File(...)):
-    """
-    Evaluates Core 4 properties (Bulk, Shear, Formation energy, Band gap)
-    and Derived 3 properties (Young's modulus, Fracture toughness, Electronic conductivity).
-    """
-    if not file.filename or not file.filename.lower().endswith('.cif'):
-        raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-
-    try:
-        content = await file.read()
-        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
-        
-        if CRYSTALFORMER_LOADED and crystalformer_service:
-            res = crystalformer_service.predict(structure)
-            if res.get("status") == "error":
-                raise HTTPException(status_code=500, detail=res.get("error", "Prediction failed"))
-            core = res.get("core_properties", {})
-            derived = res.get("derived_properties", {})
-            aux = res.get("auxiliary_metrics", {})
-            stability = res.get("stability", {})
-            return {
-                "status": "success",
-                "filename": file.filename,
-                "composition": res["formula"],
-                "num_atoms": res["num_atoms"],
-                "predictions": {
-                    "bulk_modulus_GPa": core.get("bulk_modulus_GPa"),
-                    "shear_modulus_GPa": core.get("shear_modulus_GPa"),
-                    "formation_energy_eV_atom": core.get("formation_energy_eV_atom"),
-                    "band_gap_eV": core.get("band_gap_eV"),
-                    "youngs_modulus_GPa": derived.get("youngs_modulus_GPa"),
-                    "fracture_toughness_MPa_m05": derived.get("fracture_toughness_MPa_m05"),
-                    "electronic_conductivity_S_cm": derived.get("electronic_conductivity_S_cm"),
-                    "poisson_ratio": aux.get("poisson_ratio"),
-                    "pughs_ratio": aux.get("pughs_ratio"),
-                    "compressibility_GPa_inv": aux.get("compressibility_GPa_inv"),
-                    "electronic_nature": aux.get("electronic_nature"),
-                    "ehull_eV_per_atom": stability.get("ehull_eV_per_atom"),
-                    "ehull_meV_per_atom": stability.get("ehull_meV_per_atom"),
-                    "is_stable": stability.get("is_stable"),
-                    "stability_status": stability.get("stability_status"),
-                },
-                "stability": stability,
-                "model_source": res.get("model_source", "CrystalFormer"),
-                "is_fallback": res.get("is_fallback", False)
-            }
-        elif BFSY_LOADED and bfsy_pipeline:
-            res = bfsy_pipeline.predict(structure)
-            if res.get("status") == "error":
-                raise HTTPException(status_code=500, detail=res.get("error", "BFSY prediction failed"))
-            return {
-                "status": "success",
-                "filename": file.filename,
-                "composition": res["composition"],
-                "num_atoms": res["num_atoms"],
-                "predictions": res,
-                "model_source": "BFSYPipeline-Fallback"
-            }
-        else:
-            raise HTTPException(status_code=500, detail="No prediction pipeline loaded.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"CrystalFormer analysis error: {str(e)}")
-
-
-# ---------------------------------------------------------
-# ENDPOINT 5: Electrical Analysis (Band Gap & Electronic Nature)
-# ---------------------------------------------------------
-@router.post("/analyze-electrical")
-async def analyze_electrical_properties(file: UploadFile = File(...)):
-    if not file.filename.endswith('.cif'):
-        raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-    
-    try:
-        content = await file.read()
-        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
-        chgnet_features = extract_mechanical_features(structure)
-        feature_vector = chgnet_features['feature_vector']
-        
-        if not ELECTRICAL_LOADED:
-            raise HTTPException(status_code=500, detail="Electrical surrogate model not loaded.")
-            
-        band_gap = float(chgnet_model_bg.predict([feature_vector])[0])
-        electronic_nature = "Insulator" if band_gap > 2.0 else "Semiconductor/Conductor"
-        
-        return {
-            "status": "success",
-            "filename": file.filename,
-            "formula": structure.composition.reduced_formula,
-            "electrical_predictions": {
-                "band_gap_eV": round(band_gap, 2),
-                "electronic_nature": electronic_nature,
-                "model_source": "IndianMatter-CHGNet-BandGapSurrogate"
-            },
-            "chgnet_mechanical_analysis": chgnet_features
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Electrical analysis error: {str(e)}")
-
-
-# ---------------------------------------------------------
-# ENDPOINT 6: Thermal Analysis (Phonon Frequency Proxy)
-# ---------------------------------------------------------
-@router.post("/analyze-thermal")
-async def analyze_thermal_properties(file: UploadFile = File(...)):
-    if not file.filename.endswith('.cif'):
-        raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-    
-    try:
-        content = await file.read()
-        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
-        chgnet_features = extract_mechanical_features(structure)
-        feature_vector = chgnet_features['feature_vector']
-        
-        if not THERMAL_LOADED:
-            raise HTTPException(status_code=500, detail="Thermal surrogate model not loaded.")
-            
-        thermal_proxy = float(chgnet_model_th.predict([feature_vector])[0])
-        
-        return {
-            "status": "success",
-            "filename": file.filename,
-            "formula": structure.composition.reduced_formula,
-            "thermal_predictions": {
-                "phonon_frequency_proxy_cm_inv": round(thermal_proxy, 2),
-                "model_source": "IndianMatter-CHGNet-ThermalSurrogate"
-            },
-            "chgnet_mechanical_analysis": chgnet_features
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Thermal analysis error: {str(e)}")
 
 
 # =========================================================
@@ -993,22 +652,7 @@ AVAILABLE_BATCH_PROPERTIES = [
         "default": True,
         "description": "Classification into Insulator, Semiconductor, or Metal."
     },
-    {
-        "key": "thermal_conductivity",
-        "name": "Thermal Conductivity",
-        "category": "Thermal",
-        "unit": "W/m·K",
-        "default": False,
-        "description": "Predicted lattice thermal conductivity via phonon surrogate."
-    },
-    {
-        "key": "debye_temperature",
-        "name": "Debye Temperature",
-        "category": "Thermal",
-        "unit": "K",
-        "default": False,
-        "description": "Characteristic temperature representing highest normal mode of vibration."
-    },
+
     {
         "key": "ionic_conductivity",
         "name": "Ionic Conductivity (σ)",
@@ -1044,7 +688,6 @@ def generate_csv_string(records: List[dict]) -> str:
         "formation_energy_eV_atom",
         "ehull_eV_per_atom", "ehull_meV_per_atom", "is_stable", "stability_status",
         "band_gap_eV", "electronic_conductivity_S_cm", "electronic_state",
-        "thermal_conductivity_W_mK", "debye_temperature_K", "phonon_frequency_proxy_cm_inv",
         "ionic_conductivity_S_cm", "activation_energy_eV",
         "model_source", "status", "error_message"
     ]
@@ -1177,79 +820,18 @@ def process_single_cif_record(
                         row["error_message"] = f"CrystalFormer error: {cf_res.get('error')}"
                 except Exception as cf_err:
                     row["error_message"] = f"CrystalFormer warning: {str(cf_err)}"
-            elif BFSY_LOADED and bfsy_pipeline:
-                try:
-                    feature_vector = None
-                    try:
-                        chgnet_feats = extract_mechanical_features(structure)
-                        feature_vector = chgnet_feats.get("feature_vector")
-                    except Exception:
-                        pass
-                    bfsy_res = bfsy_pipeline.predict(structure, feature_vector=feature_vector)
-                    if bfsy_res.get("status") == "success":
-                        K = bfsy_res.get("bulk_modulus_GPa", 95.0)
-                        G = bfsy_res.get("shear_modulus_GPa", 48.0)
-                        Ef = bfsy_res.get("formation_energy_eV_atom", -2.0)
-                        bg = 2.45
-                        if ELECTRICAL_LOADED and feature_vector is not None:
-                            try:
-                                bg = float(chgnet_model_bg.predict([feature_vector])[0])
-                            except Exception:
-                                pass
-                        natoms = len(structure)
-                        v0 = float(structure.lattice.volume) / max(1, natoms)
-                        try:
-                            from CrystalFormer.derived_properties import derive_properties
-                            der = derive_properties(K, G, bg, v0)
-                        except Exception:
-                            der = {
-                                "youngs_modulus_GPa": 9.0 * K * G / (3.0 * K + G),
-                                "fracture_toughness_MPa_m05": 0.01 * (v0 ** (1.0 / 6.0)) * G * math.sqrt(K / G),
-                                "electronic_conductivity_S_cm": 1.0e-16 if bg > 2.4 else 1.0e-4,
-                            }
-                        if "bulk_modulus" in requested_set: row["bulk_modulus_GPa"] = round(K, 3)
-                        if "shear_modulus" in requested_set: row["shear_modulus_GPa"] = round(G, 3)
-                        if "youngs_modulus" in requested_set: row["youngs_modulus_GPa"] = round(der["youngs_modulus_GPa"], 3)
-                        if "fracture_toughness" in requested_set: row["fracture_toughness_MPa_m05"] = round(der["fracture_toughness_MPa_m05"], 4)
-                        if "poisson_ratio" in requested_set: row["poisson_ratio"] = round(bfsy_res.get("poisson_ratio", 0.25), 4)
-                        if "compressibility" in requested_set: row["compressibility_GPa_inv"] = bfsy_res.get("compressibility_GPa_inv")
-                        if "pughs_ratio" in requested_set: row["pughs_ratio"] = bfsy_res.get("pughs_ratio")
-                        if "elastic_anisotropy" in requested_set: row["elastic_anisotropy"] = 1.2
-                        if any(k in requested_set for k in ["formation_energy", "formation_energy_per_atom", "formation_energy_eV_atom"]):
-                            row["formation_energy_eV_atom"] = round(Ef, 4)
-                        if "band_gap" in requested_set: row["band_gap_eV"] = round(bg, 3)
-                        if "electronic_conductivity" in requested_set: row["electronic_conductivity_S_cm"] = der["electronic_conductivity_S_cm"]
-                        if "electronic_state" in requested_set: row["electronic_state"] = "Insulator" if bg > 2.0 else "Semiconductor"
-                        row["model_source"] = "BFSYPipeline-Fallback"
-                except Exception as b_err:
-                    row["error_message"] = f"Fallback BFSY warning: {str(b_err)}"
+            elif not (CRYSTALFORMER_LOADED and crystalformer_service):
+                row["error_message"] = "CrystalFormer service unavailable on server."
 
-        # 3. Thermal Properties
-        if requested_set & therm_keys:
-            if THERMAL_LOADED and feature_vector is not None:
-                th = float(chgnet_model_th.predict([feature_vector])[0])
-                if "thermal_conductivity" in requested_set:
-                    row["thermal_conductivity_W_mK"] = round(abs(th) * 0.05, 3)
-                if "debye_temperature" in requested_set:
-                    row["debye_temperature_K"] = round(abs(th) * 1.5, 1)
-                if "phonon_frequency_proxy" in requested_set:
-                    row["phonon_frequency_proxy_cm_inv"] = round(th, 2)
-            else:
-                for k in therm_keys & requested_set:
-                    row[k] = None
-
-        # 4. Ionic Transport Properties
+        # 2. Ionic Transport Properties (IonCast v5 Stack)
         ionic_keys = {"ionic_conductivity", "activation_energy"}
         if requested_set & ionic_keys:
             if IONIC_LOADED:
                 try:
-                    from properties.ionic_conductivity import IonicConductivityCalculator
-                    calc = IonicConductivityCalculator()
-                    res = calc.calculate(structure, settings={"temperature_k": temperature})
-                    if res.status == "calculated":
-                        raw = res.raw_details or {}
-                        cond = raw.get("conductivity_s_cm", res.value)
-                        ea = raw.get("activation_energy_ev")
+                    res = calculate_ionic_transport_for_structure(structure, temperature_k=temperature)
+                    if res["status"] == "calculated":
+                        cond = res.get("conductivity_s_cm")
+                        ea = res.get("activation_energy_ev")
                         if "ionic_conductivity" in requested_set:
                             row["ionic_conductivity_S_cm"] = float(f"{float(cond):.6g}") if cond is not None else None
                         if "activation_energy" in requested_set:
@@ -1499,7 +1081,6 @@ def download_batch_prediction_csv(job_id: str):
 # DEDICATED CRYSTALFORMER BATCH PREDICTION ENDPOINT
 # ---------------------------------------------------------
 @router.post("/batch-predict-crystalformer")
-@router.post("/batch-predict-bfsy")
 async def batch_predict_crystalformer(
     files: List[UploadFile] = File(...)
 ):
@@ -1553,26 +1134,6 @@ async def batch_predict_crystalformer(
                         "error_message": r.get("error", "Prediction failed")
                     })
             model_name = "CrystalFormerService"
-        elif BFSY_LOADED and bfsy_pipeline:
-            raw_results = bfsy_pipeline.predict_batch(cif_files=cif_items, save_files=False)
-            for r in raw_results:
-                records.append({
-                    "filename": r.get("cif_file", "unknown.cif"),
-                    "formula": r.get("composition", "Unknown"),
-                    "num_atoms": r.get("num_atoms", 0),
-                    "bulk_modulus_GPa": r.get("bulk_modulus_GPa"),
-                    "shear_modulus_GPa": r.get("shear_modulus_GPa"),
-                    "youngs_modulus_GPa": r.get("youngs_modulus_GPa"),
-                    "poisson_ratio": r.get("poisson_ratio"),
-                    "formation_energy_eV_atom": r.get("formation_energy_eV_atom"),
-                    "energy_per_atom_eV": r.get("energy_per_atom_eV"),
-                    "compressibility_GPa_inv": r.get("compressibility_GPa_inv"),
-                    "pughs_ratio": r.get("pughs_ratio"),
-                    "status": r.get("status", "error"),
-                    "model_source": "BFSYPipeline-Fallback",
-                    "error_message": r.get("error")
-                })
-            model_name = "BFSYPipeline-Fallback"
         else:
             raise HTTPException(status_code=500, detail="No prediction engine available on server.")
 
@@ -1658,7 +1219,7 @@ def lookup_material_by_formula_or_id(
 
     clean_q = query.strip()
     import re
-    from services.materials_db_service import normalize_formula, predictions_collection
+    from materials_db_service import normalize_formula, predictions_collection
 
     cached = get_cached_prediction(formula=clean_q, reduced_formula=clean_q)
     if not cached and predictions_collection is not None:

@@ -57,8 +57,6 @@ def predict_conductivity_from_path(file_path: str, temperature: float):
         "temp": float(temperature)
     }
 
-@router.post("/predict")
-@router.post("/analyze-ionic")
 @router.post("/ionic-conductivity")
 async def predict_conductivity(
     file: UploadFile = File(...),

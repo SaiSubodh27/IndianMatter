@@ -96,9 +96,9 @@ test_endpoint("Predict Properties (File)", "POST", "/api/calculations/predict-pr
               data={"properties": "bulk_modulus,shear_modulus,band_gap,formation_energy", "temperature": "298.15"})
 test_endpoint("Analyze CIF Properties", "POST", "/api/calculations/analyze-cif", 
               files={"file": ("Li2O.cif", SAMPLE_CIF.encode("utf-8"), "text/plain")})
-test_endpoint("Analyze CrystalFormer Properties", "POST", "/api/calculations/analyze-crystalformer", 
+test_endpoint("Analyze CrystalFormer Properties", "POST", "/api/calculations/crystalformer/predict", 
               files={"file": ("Li2O.cif", SAMPLE_CIF.encode("utf-8"), "text/plain")})
-test_endpoint("Ionic Transport Prediction", "POST", "/api/calculations/predict",
+test_endpoint("Ionic Transport Prediction", "POST", "/api/calculations/ionic-conductivity", 
               files={"file": ("Li2O.cif", SAMPLE_CIF.encode("utf-8"), "text/plain")},
               data={"temperature": "298.15"})
 
