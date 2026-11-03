@@ -8,12 +8,21 @@ import {
   Square,
   Layers,
   ArrowLeft,
+  Sparkles,
+  Download,
+  Copy,
+  Check,
+  RefreshCw,
+  FileText,
+  X,
+  FileCheck,
 } from "lucide-react";
 import {
   predictFromCifFile,
   DirectPredictionResponse,
   PropertyResult,
 } from "../../lib/materialsPredictionApi";
+import { API_BASE_URL } from "../../lib/api";
 import { useLocation } from "react-router-dom";
 
 // ---------------------------------------------------------------------------
@@ -59,50 +68,51 @@ const exponential =
 
 const scientific =
   (digits: number) => (v: PropertyResult["value"], unit: string) => {
-    if (typeof v !== "number") return "N/A";
-    const [base, exponent] = v.toExponential(digits).split("e");
-
-    const superscripts: Record<string, string> = {
-      "-": "⁻",
-      "+": "",
-      "0": "⁰",
-      "1": "¹",
-      "2": "²",
-      "3": "³",
-      "4": "⁴",
-      "5": "⁵",
-      "6": "⁶",
-      "7": "⁷",
-      "8": "⁸",
-      "9": "⁹"
-    };
-
-    let formattedExponent = "";
-    // Remove leading zeros from exponent (e.g., "-04" to "-4")
-    const expNum = parseInt(exponent, 10).toString();
-    for (const char of expNum) {
-      if (char === '+') continue;
-      formattedExponent += superscripts[char] || char;
+    if (typeof v === "number" && !isNaN(v)) {
+      const abs = Math.abs(v);
+      if (abs !== 0 && (abs < 0.001 || abs >= 10000)) {
+        return unit
+          ? `${v.toExponential(digits)} ${unit}`
+          : `${v.toExponential(digits)}`;
+      }
+      return unit ? `${v.toFixed(digits)} ${unit}` : `${v.toFixed(digits)}`;
     }
-
-    return `${base} × 10${formattedExponent} ${unit}`;
+    if (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) {
+      const n = Number(v);
+      const abs = Math.abs(n);
+      if (abs !== 0 && (abs < 0.001 || abs >= 10000)) {
+        return unit
+          ? `${n.toExponential(digits)} ${unit}`
+          : `${n.toExponential(digits)}`;
+      }
+      return unit ? `${n.toFixed(digits)} ${unit}` : `${n.toFixed(digits)}`;
+    }
+    return "N/A";
   };
 
 const ALL_PROPERTIES: PropertyOption[] = [
-  // --- Energy ---
+  // --- Energy (DFT / GNN surrogate) ---
+  {
+    key: "formation_energy",
+    title: "Formation Energy (Ef)",
+    category: "Energy",
+    unit: "eV/atom",
+    requiresModel: "gnn",
+    format: numeric(3),
+  },
   {
     key: "potential_energy",
     title: "Potential Energy per Atom",
     category: "Energy",
     unit: "eV/atom",
     requiresModel: "gnn",
-    format: numeric(4),
+    format: numeric(3),
   },
 
-  // --- Structural (CIF / Material Geometry) ---
+  // --- Structural (direct geometry) ---
   {
     key: "num_sites",
-    title: "Number of Sites",
+    title: "Number of Atomic Sites",
     category: "Structural",
     unit: "",
     requiresModel: "structural",
@@ -110,7 +120,7 @@ const ALL_PROPERTIES: PropertyOption[] = [
   },
   {
     key: "volume",
-    title: "Volume",
+    title: "Unit Cell Volume",
     category: "Structural",
     unit: "Å³",
     requiresModel: "structural",
@@ -118,87 +128,95 @@ const ALL_PROPERTIES: PropertyOption[] = [
   },
   {
     key: "density",
-    title: "Density",
+    title: "Theoretical Density",
     category: "Structural",
     unit: "g/cm³",
     requiresModel: "structural",
     format: numeric(2),
   },
 
-  // --- Mechanical (strain-response, GNN, EOS) ---
+  // --- Mechanical (GNN surrogate) ---
   {
     key: "bulk_modulus",
-    title: "Bulk Modulus (K_VRH)",
+    title: "Bulk Modulus (VRH)",
     category: "Mechanical",
     unit: "GPa",
-    requiresModel: "gnn",
-    format: numeric(3),
-  },
-  {
-    key: "shear_modulus",
-    title: "Shear Modulus (G_VRH)",
-    category: "Mechanical",
-    unit: "GPa",
-    requiresModel: "gnn",
-    format: numeric(3),
-  },
-  {
-    key: "youngs_modulus",
-    title: "Young's Modulus",
-    category: "Mechanical",
-    unit: "GPa",
-    requiresModel: "gnn",
-    format: numeric(3),
-  },
-  {
-    key: "poisson_ratio",
-    title: "Poisson's Ratio",
-    category: "Mechanical",
-    unit: "",
-    requiresModel: "gnn",
-    format: (v) => (typeof v === "number" ? v.toFixed(4) : "N/A"),
-  },
-  {
-    key: "compressibility",
-    title: "Compressibility",
-    category: "Mechanical",
-    unit: "GPa⁻¹",
-    requiresModel: "gnn",
-    format: scientific(3),
-  },
-  {
-    key: "elastic_anisotropy",
-    title: "Elastic Anisotropy",
-    category: "Mechanical",
-    unit: "",
-    requiresModel: "gnn",
-    format: (v) => (typeof v === "number" ? v.toFixed(4) : "N/A"),
-  },
-  {
-    key: "thermal",
-    title: "EOS Bulk Modulus (B0)",
-    category: "Mechanical",
-    unit: "GPa",
-    requiresModel: "gnn",
-    format: numeric(2),
-  },
-
-  // --- Thermal (GNN) ---
-  {
-    key: "debye_temperature",
-    title: "Debye Temperature",
-    category: "Thermal",
-    unit: "K",
     requiresModel: "gnn",
     format: numeric(1),
   },
   {
+    key: "shear_modulus",
+    title: "Shear Modulus (VRH)",
+    category: "Mechanical",
+    unit: "GPa",
+    requiresModel: "gnn",
+    format: numeric(1),
+  },
+  {
+    key: "youngs_modulus",
+    title: "Young's Modulus (E)",
+    category: "Mechanical",
+    unit: "GPa",
+    requiresModel: "gnn",
+    format: numeric(1),
+  },
+  {
+    key: "poisson_ratio",
+    title: "Poisson's Ratio (ν)",
+    category: "Mechanical",
+    unit: "",
+    requiresModel: "gnn",
+    format: numeric(3),
+  },
+  {
+    key: "fracture_toughness",
+    title: "Fracture Toughness (K_Ic)",
+    category: "Mechanical",
+    unit: "MPa·m^0.5",
+    requiresModel: "gnn",
+    format: numeric(2),
+  },
+  {
+    key: "volume_change",
+    title: "Volume Change on Delithiation (ΔV)",
+    category: "Mechanical",
+    unit: "%",
+    requiresModel: "gnn",
+    format: numeric(2),
+  },
+
+  // --- Thermal (GNN surrogate) ---
+  {
     key: "thermal_conductivity",
-    title: "Thermal Conductivity",
+    title: "Thermal Conductivity (κ)",
     category: "Thermal",
     unit: "W/m·K",
     requiresModel: "gnn",
-    format: numeric(3),
+    format: numeric(2),
+  },
+  {
+    key: "debye_temperature",
+    title: "Debye Temperature (θ_D)",
+    category: "Thermal",
+    unit: "K",
+    requiresModel: "gnn",
+    format: numeric(0),
+  },
+  {
+    key: "thermal_expansion",
+    title: "Thermal Expansion Coeff (α_V)",
+    category: "Thermal",
+    unit: "10⁻⁶ K⁻¹",
+    requiresModel: "gnn",
+    format: numeric(2),
+  },
+  {
+    key: "thermal_stability",
+    title: "Thermal Stability Decomposition Temp (T_dec)",
+    category: "Thermal",
+    unit: "°C",
+    requiresModel: "gnn",
+    format: numeric(1),
   },
 
   // --- Electronic (GNN / heuristic) ---
@@ -209,6 +227,14 @@ const ALL_PROPERTIES: PropertyOption[] = [
     unit: "eV",
     requiresModel: "gnn",
     format: numeric(3),
+  },
+  {
+    key: "electrical_conductivity",
+    title: "Electrical Conductivity (σ_e)",
+    category: "Electronic",
+    unit: "S/cm",
+    requiresModel: "gnn",
+    format: scientific(3),
   },
   {
     key: "electronic_state",
@@ -222,7 +248,7 @@ const ALL_PROPERTIES: PropertyOption[] = [
   // --- Ionic Transport (base surrogate model) ---
   {
     key: "ionic_conductivity",
-    title: "Ionic Conductivity",
+    title: "Ionic Conductivity (σ_i)",
     category: "Ionic Transport",
     unit: "S/cm",
     requiresModel: "base",
@@ -251,16 +277,6 @@ const CATEGORY_ORDER = [
   "Ionic Transport",
 ];
 
-const MODEL_BADGE: Record<ModelRequirement, string> = {
-  gnn: "GNN",
-  base: "Ionic Surrogate",
-  structural: "Structural",
-};
-
-/**
- * Extracts value, unit, status, and warnings for a property key from the API response.
- * Safely resolves Potential Energy per Atom, Structural geometry, and ML properties.
- */
 function getPropertyValue(
   key: string,
   result: DirectPredictionResponse,
@@ -324,33 +340,30 @@ function getPropertyValue(
     };
   }
 
+  const firstWarning =
+    Array.isArray(prop.warnings) && prop.warnings.length > 0
+      ? prop.warnings[0]
+      : undefined;
+
   return {
     value: prop.value,
-    unit: prop.unit || PROPERTY_MAP[key]?.unit || "",
+    unit: prop.unit ?? PROPERTY_MAP[key]?.unit ?? "",
     status: prop.status,
-    warning:
-      prop.status === "estimated" ||
-        prop.status === "calculated_with_warnings" ||
-        prop.status === "failed"
-        ? prop.warnings?.[0]
-        : undefined,
+    warning: firstWarning,
   };
 }
 
 // ---------------------------------------------------------------------------
-// 3D structure viewer (3Dmol.js), rendering the actual uploaded CIF —
-// styled in the spirit of the Materials Project crystal structure viewer.
+// 3D Crystal Viewer
 // ---------------------------------------------------------------------------
 
 declare global {
   interface Window {
-    $3Dmol?: any;
+    $3Dmol: any;
   }
 }
 
-const THREE_DMOL_SRC =
-  "https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js";
-
+const THREE_DMOL_SRC = "https://3Dmol.org/build/3Dmol-min.js";
 let threeDMolLoadPromise: Promise<any> | null = null;
 
 function loadThreeDMol(): Promise<any> {
@@ -358,9 +371,7 @@ function loadThreeDMol(): Promise<any> {
   if (threeDMolLoadPromise) return threeDMolLoadPromise;
 
   threeDMolLoadPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${THREE_DMOL_SRC}"]`,
-    );
+    const existing = document.querySelector(`script[src="${THREE_DMOL_SRC}"]`);
     if (existing) {
       existing.addEventListener("load", () => resolve(window.$3Dmol));
       existing.addEventListener("error", () =>
@@ -438,11 +449,12 @@ function StructureViewer({ cifText }: { cifText: string | null }) {
         try {
           viewer.addUnitCell();
         } catch {
-          // unit-cell overlay is best-effort; some CIFs omit full symmetry
+          // Some CIFs may lack unit cell parameters
         }
         viewer.zoomTo();
         viewer.render();
-        if (!cancelled) setStatus("ready");
+
+        setStatus("ready");
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
@@ -450,24 +462,14 @@ function StructureViewer({ cifText }: { cifText: string | null }) {
 
     return () => {
       cancelled = true;
-      if (viewerRef.current) {
-        try {
-          viewerRef.current.clear();
-        } catch {
-          // no-op
-        }
-        viewerRef.current = null;
-      }
     };
   }, [cifText]);
 
   if (!cifText) {
     return (
-      <div className="text-center space-y-2 p-4">
-        <Layers className="mx-auto text-[#F1641D]" size={32} />
-        <p className="text-xs font-medium text-[#1E2227]">
-          Upload a CIF file to preview the 3D crystal structure.
-        </p>
+      <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-[#8C929C] space-y-2">
+        <Layers size={32} className="text-[#8C929C]/40" />
+        <p>No crystallographic structure loaded.</p>
       </div>
     );
   }
@@ -477,13 +479,12 @@ function StructureViewer({ cifText }: { cifText: string | null }) {
       <div ref={containerRef} className="w-full h-full" />
       {status === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center text-xs text-[#6C737E] bg-white/70">
-          Loading structure viewer…
+          Loading 3D unit cell viewer…
         </div>
       )}
       {status === "error" && (
         <div className="absolute inset-0 flex items-center justify-center text-xs text-red-600 bg-white/90 px-4 text-center">
-          Couldn't load the 3D structure viewer. Check your network
-          connection and try again.
+          Unable to render 3D viewer. The structure file can still be downloaded.
         </div>
       )}
     </div>
@@ -496,20 +497,30 @@ function StructureViewer({ cifText }: { cifText: string | null }) {
 
 export default function PropertyPredictionPage() {
   const [viewMode, setViewMode] = useState<"predict" | "results">("predict");
+  const [materialName, setMaterialName] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [cifSource, setCifSource] = useState<"uploaded" | "generated" | null>(null);
+
   const [selectedKeys, setSelectedKeys] = useState<string[]>([
     "bulk_modulus",
     "shear_modulus",
+    "band_gap",
+    "ionic_conductivity",
   ]);
+
   const [result, setResult] = useState<DirectPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<string>("");
+  const [generatingCif, setGeneratingCif] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // If we arrived here from the CIF Generation page, a generated CIF was
-  // handed over via router state — use it directly instead of asking for an upload.
+  // If navigated from CIF Generator or other pages with router state
   const location = useLocation();
   useEffect(() => {
     const st = location.state as { cifString?: string; formula?: string } | null;
+    if (st?.formula) {
+      setMaterialName(st.formula);
+    }
     if (st?.cifString) {
       const generatedFile = new File(
         [st.cifString],
@@ -517,6 +528,7 @@ export default function PropertyPredictionPage() {
         { type: "chemical/x-cif" },
       );
       setFile(generatedFile);
+      setCifSource("generated");
     }
   }, [location.state]);
 
@@ -528,30 +540,81 @@ export default function PropertyPredictionPage() {
     );
   };
 
+  // Dedicated generator function to fetch/synthesize a CIF from material formula
+  const generateCifFromFormula = async (targetFormula: string): Promise<File> => {
+    setGeneratingCif(true);
+    setLoadingStage(`Synthesizing relaxed CIF structure for "${targetFormula}" via CIF Generator...`);
+    try {
+      const res = await fetch(`${API_BASE_URL}/cif/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formula: targetFormula.trim() }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `CIF generator failed (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
+      if (!data.success || !data.cif_string) {
+        throw new Error(
+          data.notes || `Could not resolve or synthesize CIF structure for "${targetFormula}". Check formula stoichiometry.`
+        );
+      }
+
+      const generatedFile = new File(
+        [data.cif_string],
+        `${targetFormula.trim().replace(/\s+/g, "_")}.cif`,
+        { type: "chemical/x-cif" }
+      );
+      setFile(generatedFile);
+      setCifSource("generated");
+      return generatedFile;
+    } finally {
+      setGeneratingCif(false);
+    }
+  };
+
+  // Run Property Prediction
   const handlePredict = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!file) {
-      setError("Upload a CIF file before running a prediction.");
-      return;
-    }
+    setError(null);
+
     if (selectedKeys.length === 0) {
       setError("Select at least one property to generate predictions.");
       return;
     }
 
+    const hasFile = Boolean(file);
+    const hasName = Boolean(materialName.trim());
+
+    if (!hasFile && !hasName) {
+      setError("Please provide a Material Name/Formula or upload a CIF file (or both).");
+      return;
+    }
+
     setLoading(true);
-    setError(null);
 
     try {
-      // Pass selected properties to backend endpoint
-      const res = await predictFromCifFile(file, selectedKeys);
+      let activeFile: File;
+
+      if (!hasFile && hasName) {
+        // Step 1: Synthesize CIF from formula via CIF Generator
+        activeFile = await generateCifFromFormula(materialName.trim());
+      } else {
+        // CIF file is directly provided
+        activeFile = file!;
+      }
+
+      // Step 2: Run property prediction with the CIF file
+      setLoadingStage(
+        `Evaluating physical properties across AI models for ${materialName.trim() || activeFile.name}...`
+      );
+      const res = await predictFromCifFile(activeFile, selectedKeys);
       setResult(res);
-      // STEP 6: Once prediction completes successfully:
-      // AUTOMATICALLY NAVIGATE TO THE DEDICATED RESULTS PAGE.
       setViewMode("results");
     } catch (requestError) {
-      // If prediction fails: DO NOT navigate to the Results page.
-      // Remain on the Property Prediction page and show an appropriate error message.
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -559,6 +622,20 @@ export default function PropertyPredictionPage() {
       );
     } finally {
       setLoading(false);
+      setLoadingStage("");
+    }
+  };
+
+  // Pre-generate CIF standalone action
+  const handlePreGenerateCif = async () => {
+    if (!materialName.trim()) return;
+    setError(null);
+    try {
+      await generateCifFromFormula(materialName.trim());
+    } catch (err: any) {
+      setError(err.message || "Failed to generate CIF.");
+    } finally {
+      setLoadingStage("");
     }
   };
 
@@ -568,10 +645,22 @@ export default function PropertyPredictionPage() {
         result={result}
         cifText={cifText}
         selectedKeys={selectedKeys}
+        materialName={materialName}
+        cifSource={cifSource}
         onBack={() => setViewMode("predict")}
       />
     );
   }
+
+  // Determine current input mode
+  const inputMode =
+    file && materialName.trim()
+      ? "both"
+      : file
+      ? "cif_only"
+      : materialName.trim()
+      ? "name_only"
+      : "none";
 
   return (
     <div className="w-full max-w-[1100px] mx-auto space-y-8 px-4 sm:px-8 py-6">
@@ -581,38 +670,148 @@ export default function PropertyPredictionPage() {
         onSubmit={handlePredict}
         className="bg-white rounded-[2rem] p-6 sm:p-10 shadow-card border border-[#EFE5DC] space-y-8"
       >
-        <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-4">
-          <h2 className="font-headline font-bold text-xl text-[#1E2227]">
-            Prediction Inputs
-          </h2>
-          <span className="text-xs text-[#8C929C]">Step 1 of 2</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#F2E7DC] pb-4 gap-2">
+          <div>
+            <h2 className="font-headline font-bold text-xl text-[#1E2227]">
+              Prediction Inputs
+            </h2>
+            <p className="text-xs text-[#8C929C] mt-0.5">
+              Enter a Material Formula/Name, upload a CIF file, or provide both.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {inputMode === "name_only" && (
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-[#F1641D] border border-orange-200">
+                Auto-Generate CIF Mode
+              </span>
+            )}
+            {inputMode === "cif_only" && (
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Direct CIF Mode
+              </span>
+            )}
+            {inputMode === "both" && (
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Formula + CIF Mode
+              </span>
+            )}
+          </div>
         </div>
 
-        <FileInput file={file} onChange={setFile} />
+        {/* Dual Input Grid: Material Name / Formula + CIF File */}
+        <div className="space-y-6">
+          {/* 1. Material Name / Formula Input */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#1E2227] uppercase tracking-wider">
+                Material Formula or Name
+              </label>
+              <span className="text-[11px] text-[#8C929C]">
+                {file ? "Optional (overrides label)" : "Required if no CIF is uploaded"}
+              </span>
+            </div>
 
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={materialName}
+                onChange={(e) => setMaterialName(e.target.value)}
+                placeholder="e.g. LiCoO2, Fe2O3, Na3Zr2Si2PO12, LFP, NMC"
+                className="flex-1 bg-[#FAF4EE]/60 border border-[#E9DFD4] rounded-xl px-4 py-3 text-sm font-mono text-[#1E2227] outline-none focus:border-[#F1641D] transition-colors"
+              />
+
+              {materialName.trim() && !file && (
+                <button
+                  type="button"
+                  onClick={handlePreGenerateCif}
+                  disabled={generatingCif || loading}
+                  className="px-4 py-3 bg-[#FAF4EE] hover:bg-[#F2E7DC] border border-[#E9DFD4] rounded-xl text-xs font-semibold text-[#F1641D] flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
+                  title="Generate CIF structure now"
+                >
+                  <Sparkles size={14} className={generatingCif ? "animate-spin" : ""} />
+                  <span>{generatingCif ? "Synthesizing..." : "Synthesize CIF First"}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] font-semibold text-[#8C929C] mr-1">Quick Presets:</span>
+              {["LiCoO2", "Fe2O3", "TiO2", "Na3Zr2Si2PO12", "NaCl", "Si"].map((sym) => (
+                <button
+                  key={sym}
+                  type="button"
+                  onClick={() => setMaterialName(sym)}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-medium bg-[#FAF4EE] text-[#5F6771] hover:bg-[#F2E7DC] hover:text-[#1E2227] border border-[#EFE5DC] transition-colors"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. CIF File Upload Input */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#1E2227] uppercase tracking-wider">
+                Crystallographic CIF File
+              </label>
+              <span className="text-[11px] text-[#8C929C]">
+                {materialName.trim()
+                  ? "Optional (auto-generated if omitted)"
+                  : "Required if no formula is provided"}
+              </span>
+            </div>
+
+            <FileInput
+              file={file}
+              cifSource={cifSource}
+              onChange={(newFile) => {
+                setFile(newFile);
+                setCifSource(newFile ? "uploaded" : null);
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Property Checklist */}
         <PropertyChecklist
           selectedKeys={selectedKeys}
           onToggle={toggleProperty}
         />
 
-        <div className="pt-2">
+        {/* Submit Button & Stage Feedback */}
+        <div className="pt-2 space-y-3">
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-[#F1641D] text-white py-3.5 rounded-xl text-sm font-semibold hover:bg-[#D9520F] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            disabled={loading || generatingCif}
+            className="w-full bg-[#F1641D] text-white py-4 rounded-xl text-sm font-semibold hover:bg-[#D9520F] disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-soft cursor-pointer active:scale-98"
           >
-            {loading ? (
+            {loading || generatingCif ? (
               <>
-                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                Running Model Inference & Property Calculators...
+                <RefreshCw size={16} className="animate-spin" />
+                <span>{loadingStage || "Processing Prediction Pipeline..."}</span>
               </>
             ) : (
               <>
-                Run Property Prediction
+                <span>
+                  {file
+                    ? "Run Property Prediction"
+                    : materialName.trim()
+                    ? `Generate CIF & Predict Properties for ${materialName.trim()}`
+                    : "Run Property Prediction"}
+                </span>
                 <Play size={15} />
               </>
             )}
           </button>
+
+          {loadingStage && (
+            <p className="text-center text-xs text-[#8C929C] font-medium animate-pulse">
+              {loadingStage}
+            </p>
+          )}
         </div>
 
         {error && (
@@ -637,24 +836,45 @@ function DedicatedResultsPage({
   result,
   cifText,
   selectedKeys,
+  materialName,
+  cifSource,
   onBack,
 }: {
   result: DirectPredictionResponse;
   cifText: string | null;
   selectedKeys: string[];
+  materialName?: string;
+  cifSource?: "uploaded" | "generated" | null;
   onBack: () => void;
 }) {
   const { material_metadata } = result;
+  const [copiedCif, setCopiedCif] = useState(false);
 
-  // Selected properties mapped and ordered
   const selectedProps = selectedKeys
     .map((k) => PROPERTY_MAP[k])
     .filter((p): p is PropertyOption => Boolean(p));
 
-  // Only render categories that have at least one selected property
   const visibleCategories = CATEGORY_ORDER.filter((cat) =>
     selectedProps.some((p) => p.category === cat),
   );
+
+  const handleCopyCif = () => {
+    if (!cifText) return;
+    navigator.clipboard.writeText(cifText);
+    setCopiedCif(true);
+    setTimeout(() => setCopiedCif(false), 2000);
+  };
+
+  const handleDownloadCif = () => {
+    if (!cifText) return;
+    const blob = new Blob([cifText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(material_metadata.formula || materialName || "crystal").replace(/\s+/g, "_")}.cif`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="w-full max-w-[1550px] mx-auto space-y-6 px-4 sm:px-8 py-6">
@@ -667,23 +887,55 @@ function DedicatedResultsPage({
         >
           <ArrowLeft size={15} className="text-[#F1641D]" /> Back to Property Prediction
         </button>
-        <div className="flex items-center gap-2 text-xs font-medium text-[#6C737E]">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Prediction Complete
+
+        <div className="flex items-center gap-3">
+          {cifSource === "generated" && (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-[#F1641D] border border-orange-200">
+              Synthesized via CIF Generator
+            </span>
+          )}
+          <div className="flex items-center gap-2 text-xs font-medium text-[#6C737E]">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Prediction Complete
+          </div>
         </div>
       </div>
 
-      {/* Two Equal-Sized Main Panels: Equal Width & Equal Height */}
+      {/* Main Panels: Left (Lattice & CIF) and Right (Properties) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-stretch">
-        {/* LEFT PANEL: CIF / Crystal Structure (Stable) */}
+        {/* LEFT PANEL: CIF / Crystal Structure */}
         <div className="bg-white rounded-[2rem] p-6 sm:p-7 shadow-card border border-[#EFE5DC] flex flex-col h-[540px] md:h-[640px] lg:h-[680px]">
-          <div className="border-b border-[#F2E7DC] pb-4 shrink-0">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8C929C] mb-1">
-              Material Structure
-            </span>
-            <h2 className="font-headline font-bold text-2xl sm:text-3xl text-[#1E2227] break-words">
-              {material_metadata.formula || "Predicted Structure"}
-            </h2>
+          <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-4 shrink-0">
+            <div>
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8C929C] mb-1">
+                Material Structure
+              </span>
+              <h2 className="font-headline font-bold text-2xl sm:text-3xl text-[#1E2227] break-words">
+                {material_metadata.formula || materialName || "Predicted Structure"}
+              </h2>
+            </div>
+
+            {cifText && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyCif}
+                  className="p-2 border border-[#E9DFD4] rounded-xl text-xs text-[#5F6771] hover:bg-[#FAF4EE] flex items-center gap-1 transition-colors"
+                  title="Copy CIF String"
+                >
+                  {copiedCif ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadCif}
+                  className="px-3 py-2 bg-[#FAF4EE] hover:bg-[#FBE8D8] border border-[#E9DFD4] text-[#F1641D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                  title="Download .cif file"
+                >
+                  <Download size={13} />
+                  <span>CIF</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="bg-[#FAF4EE] rounded-2xl p-4 border border-[#EFE5DC] flex flex-col flex-1 min-h-0 mt-4 space-y-3">
@@ -701,22 +953,19 @@ function DedicatedResultsPage({
           </div>
         </div>
 
-        {/* RIGHT PANEL: Property Results (Equal outer dimensions, scrolls internally) */}
+        {/* RIGHT PANEL: Property Results */}
         <div className="bg-white rounded-[2rem] p-6 sm:p-7 shadow-card border border-[#EFE5DC] flex flex-col h-[540px] md:h-[640px] lg:h-[680px]">
-          {/* Stable Right Header */}
           <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-4 shrink-0">
             <div>
               <h3 className="font-headline font-bold text-xl sm:text-2xl text-[#1E2227]">
                 Property Results
               </h3>
-
             </div>
             <span className="text-xs font-bold text-[#F1641D] bg-[#FAF4EE] px-3 py-1 rounded-full border border-[#EFE5DC] shrink-0">
               {selectedProps.length} {selectedProps.length === 1 ? "property" : "properties"}
             </span>
           </div>
 
-          {/* Independently Scrollable Container for Results */}
           <div className="overflow-y-auto pr-2 mt-4 space-y-6 flex-1 min-h-0">
             {visibleCategories.length === 0 ? (
               <div className="bg-[#FAF4EE] rounded-2xl p-8 border border-[#EFE5DC] text-center space-y-1.5 my-auto">
@@ -735,7 +984,6 @@ function DedicatedResultsPage({
 
                 return (
                   <div key={category} className="space-y-3">
-                    {/* Category Heading (displayed once above its selected properties) */}
                     <div className="border-b border-[#F2E7DC] pb-2 flex items-center justify-between">
                       <h4 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-[#8C929C]">
                         {category}
@@ -746,7 +994,6 @@ function DedicatedResultsPage({
                       </span>
                     </div>
 
-                    {/* Full-width horizontal property blocks (one per row) */}
                     <div className="space-y-2.5">
                       {propsInCategory.map((prop) => {
                         const { value, unit, status, warning } = getPropertyValue(
@@ -791,7 +1038,7 @@ function PageHeader() {
         Property Prediction Engine
       </h1>
       <p className="text-sm text-[#6C737E] max-w-2xl mt-1">
-        Submit a CIF structure to calculate desired target properties using optimized model pipelines.
+        Provide a material formula/name, upload a CIF file, or both. If no CIF is uploaded, the integrated CIF Generator will synthesize the crystallographic structure automatically.
       </p>
     </div>
   );
@@ -799,25 +1046,54 @@ function PageHeader() {
 
 function FileInput({
   file,
+  cifSource,
   onChange,
 }: {
   file: File | null;
+  cifSource?: "uploaded" | "generated" | null;
   onChange: (f: File | null) => void;
 }) {
   return (
-    <label className="block text-xs font-semibold text-[#1E2227]">
-      CIF Structure File
-      <span className="mt-1.5 flex items-center gap-2 rounded-xl border border-dashed border-[#E9DFD4] bg-[#FAF4EE]/50 px-3 py-3 text-[#6C737E] cursor-pointer hover:border-[#F1641D] transition-colors">
-        <Upload size={15} className="text-[#F1641D]" />
-        <span className="truncate">{file?.name ?? "Choose a .cif file"}</span>
-        <input
-          type="file"
-          accept=".cif,.CIF"
-          className="sr-only"
-          onChange={(event) => onChange(event.target.files?.[0] ?? null)}
-        />
-      </span>
-    </label>
+    <div>
+      {file ? (
+        <div className="flex items-center justify-between p-3.5 bg-[#FAF4EE]/70 rounded-xl border border-[#E9DFD4]">
+          <div className="flex items-center gap-3 min-w-0">
+            <FileCheck size={20} className="text-[#F1641D] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-[#1E2227] font-mono truncate">
+                {file.name}
+              </p>
+              <p className="text-[10px] text-[#8C929C]">
+                {cifSource === "generated" ? "Synthesized via CIF Generator" : "Uploaded from disk"}
+                {" • "}{(file.size / 1024).toFixed(1)} KB
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="p-1.5 text-[#8C929C] hover:text-red-600 rounded-lg transition-colors"
+            title="Remove CIF file"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ) : (
+        <label className="block">
+          <span className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#E9DFD4] bg-[#FAF4EE]/40 px-4 py-4 text-[#6C737E] cursor-pointer hover:border-[#F1641D] hover:bg-[#FAF4EE] transition-all text-xs">
+            <Upload size={16} className="text-[#F1641D]" />
+            <span>Click to upload or drag & drop a .cif file</span>
+            <input
+              type="file"
+              accept=".cif,.CIF"
+              className="sr-only"
+              onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+            />
+          </span>
+        </label>
+      )}
+    </div>
   );
 }
 
@@ -839,7 +1115,6 @@ function PropertyChecklist({
         </span>
       </div>
 
-      {/* Complete property list with normal page scrolling (no internal scrollbar) */}
       <div className="space-y-6">
         {CATEGORY_ORDER.map((category) => {
           const props = ALL_PROPERTIES.filter((p) => p.category === category);
@@ -851,7 +1126,6 @@ function PropertyChecklist({
                 {category}
               </span>
 
-              {/* Two-column responsive grid on desktop/tablet, single-column on mobile */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {props.map((prop) => {
                   const isChecked = selectedKeys.includes(prop.key);
@@ -897,9 +1171,6 @@ function PropertyChecklist({
   );
 }
 
-/**
- * Full-width horizontal property block displaying Property Name and prominent Value + Unit.
- */
 function PropertyResultBlock({
   title,
   value,

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ArrowRight, Bookmark } from "lucide-react";
+import { ArrowRight, Bookmark, Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import ChemicalFormula from "./ChemicalFormula";
 
 export interface MaterialCardProps {
   id: string;
@@ -14,6 +15,57 @@ export interface MaterialCardProps {
   density: string;
   database: string;
   tags: string[];
+}
+
+/**
+ * Returns a schematic SVG wireframe based on the crystallographic system.
+ */
+function CrystalSystemSchematic({ system }: { system: string }) {
+  const s = (system || "").toLowerCase();
+  if (s.includes("cubic")) {
+    return (
+      <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
+        <rect x="14" y="14" width="22" height="22" rx="1" />
+        <rect x="8" y="8" width="22" height="22" rx="1" className="stroke-slate-400 stroke-dashed" />
+        <line x1="8" y1="8" x2="14" y2="14" />
+        <line x1="30" y1="8" x2="36" y2="14" />
+        <line x1="8" y1="30" x2="14" y2="36" />
+        <line x1="30" y1="30" x2="36" y2="36" />
+      </svg>
+    );
+  }
+  if (s.includes("hex") || s.includes("trig")) {
+    return (
+      <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
+        <polygon points="24,6 38,14 38,30 24,38 10,30 10,14" />
+        <line x1="24" y1="6" x2="24" y2="38" className="stroke-slate-300 stroke-dashed" />
+        <line x1="10" y1="14" x2="38" y2="30" className="stroke-slate-300 stroke-dashed" />
+      </svg>
+    );
+  }
+  if (s.includes("tetra")) {
+    return (
+      <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
+        <rect x="14" y="8" width="20" height="28" rx="1" />
+        <rect x="9" y="4" width="20" height="28" rx="1" className="stroke-slate-400 stroke-dashed" />
+        <line x1="9" y1="4" x2="14" y2="8" />
+        <line x1="29" y1="4" x2="34" y2="8" />
+        <line x1="9" y1="32" x2="14" y2="36" />
+        <line x1="29" y1="32" x2="34" y2="36" />
+      </svg>
+    );
+  }
+  // Default / Orthorhombic / Monoclinic / Triclinic
+  return (
+    <svg viewBox="0 0 48 48" className="w-10 h-10 stroke-slate-500 fill-none stroke-[1.5]">
+      <polygon points="12,12 36,12 32,34 8,34" />
+      <polygon points="16,6 40,6 36,28 12,28" className="stroke-slate-400 stroke-dashed" />
+      <line x1="12" y1="12" x2="16" y2="6" />
+      <line x1="36" y1="12" x2="40" y2="6" />
+      <line x1="8" y1="34" x2="12" y2="28" />
+      <line x1="32" y1="34" x2="36" y2="28" />
+    </svg>
+  );
 }
 
 export default function MaterialCard({
@@ -30,120 +82,119 @@ export default function MaterialCard({
   tags,
 }: MaterialCardProps) {
   const navigate = useNavigate();
-  const [isHovered, setIsHovered] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   return (
     <div
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="relative group bg-white rounded-[2rem] p-6 shadow-card border border-[#EFE5DC] transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1.5 flex flex-col justify-between cursor-pointer min-h-[360px]"
+      onClick={() => navigate(`/app/materials/${id}`)}
+      className="relative group bg-white rounded-xl p-5 shadow-sm border border-slate-200 transition-all duration-200 hover:shadow-md hover:border-slate-300 flex flex-col justify-between cursor-pointer min-h-[350px]"
     >
       <div>
-        {/* Top Meta & Bookmark */}
-        <div className="flex items-start justify-between mb-4">
+        {/* Top Header: Database & Identifier + Bookmark */}
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <span className="text-[10px] font-bold tracking-wider text-[#8C929C] uppercase font-headline">
-              {database} • {system}
-            </span>
-            <h3 className="text-2xl font-headline font-bold text-[#1E2227] tracking-tight mt-0.5">
-              {formula}
+            <div className="flex items-center gap-1.5 text-[11px] font-mono font-medium text-slate-500">
+              <Database size={12} className="text-slate-400" />
+              <span>{database}</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-slate-700 font-semibold">{id}</span>
+            </div>
+            <h3 className="text-xl font-headline font-bold text-slate-900 tracking-tight mt-1 flex items-baseline gap-2">
+              <ChemicalFormula formula={formula} />
             </h3>
-            <p className="text-xs text-[#5F6771]">{name}</p>
+            {name && <p className="text-xs text-slate-500 truncate max-w-[200px] mt-0.5">{name}</p>}
           </div>
 
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               setIsSaved(!isSaved);
             }}
             aria-label="Save Material"
-            className={`p-2 rounded-xl transition-colors ${
-              isSaved ? "bg-[#FBE8D8] text-[#F1641D]" : "text-[#8C929C] hover:bg-[#FAF4EE] hover:text-[#1E2227]"
+            className={`p-1.5 rounded-lg border transition-colors ${
+              isSaved
+                ? "bg-amber-50 border-amber-300 text-amber-700"
+                : "border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
             }`}
           >
-            <Bookmark size={16} className={isSaved ? "fill-[#F1641D]" : ""} />
+            <Bookmark size={15} className={isSaved ? "fill-amber-600" : ""} />
           </button>
         </div>
 
-        {/* Mineral Specimen / Lattice Artwork */}
-        <div className="my-3 h-28 bg-[#FAF4EE]/70 rounded-2xl flex items-center justify-center p-3 border border-[#EFE5DC] relative overflow-hidden">
-          <img
-            src="/assets/about_lattice.png"
-            alt={formula}
-            className="max-h-full max-w-full object-contain drop-shadow-md select-none transform transition-transform group-hover:scale-105"
-          />
-          <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-md text-[9px] font-mono text-[#5B636E]">
-            {spaceGroup}
+        {/* Crystallographic Schema Box */}
+        <div className="my-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-white rounded border border-slate-200/60 shadow-xs">
+              <CrystalSystemSchematic system={system} />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block">
+                Crystal System
+              </span>
+              <span className="text-xs font-medium text-slate-800 capitalize">
+                {system || "Unspecified"}
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block">
+              Space Group
+            </span>
+            <span className="text-xs font-mono font-medium text-slate-700 px-1.5 py-0.5 bg-white rounded border border-slate-200">
+              {spaceGroup || "P1"}
+            </span>
+          </div>
+        </div>
+
+        {/* Essential Properties Grid (Visible directly, not hidden on hover) */}
+        <div className="grid grid-cols-2 gap-2 my-3 text-xs">
+          <div className="p-2 rounded bg-slate-50/70 border border-slate-100">
+            <span className="text-[10px] text-slate-400 block font-medium">Band Gap</span>
+            <span className="font-mono font-semibold text-slate-800 tabular-nums">{bandGap || "—"}</span>
+          </div>
+          <div className="p-2 rounded bg-slate-50/70 border border-slate-100">
+            <span className="text-[10px] text-slate-400 block font-medium">Form. Energy</span>
+            <span className="font-mono font-semibold text-emerald-700 tabular-nums">
+              {formationEnergy || "—"}
+            </span>
+          </div>
+          <div className="p-2 rounded bg-slate-50/70 border border-slate-100">
+            <span className="text-[10px] text-slate-400 block font-medium">Ionic Cond.</span>
+            <span className="font-mono font-semibold text-sky-700 tabular-nums">
+              {conductivity || "—"}
+            </span>
+          </div>
+          <div className="p-2 rounded bg-slate-50/70 border border-slate-100">
+            <span className="text-[10px] text-slate-400 block font-medium">Density</span>
+            <span className="font-mono font-semibold text-slate-700 tabular-nums">{density || "—"}</span>
           </div>
         </div>
 
         {/* Feature Tags */}
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-2.5 py-0.5 bg-[#FAF4EE] rounded-lg text-[10px] font-medium text-[#6C737E] border border-[#EFE5DC]"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {tags && tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-medium text-slate-600 border border-slate-200/60"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Card Footer */}
-      <div className="pt-3 border-t border-[#F2E7DC] flex items-center justify-between">
-        <div className="text-xs">
-          <span className="text-[#8C929C] text-[10px] block">Band Gap</span>
-          <span className="font-bold text-[#1E2227]">{bandGap}</span>
-        </div>
-
-        <button
-          onClick={() => navigate(`/app/materials/${id}`)}
-          className="text-xs font-semibold text-[#F1641D] hover:text-[#D9520F] flex items-center gap-1 group-hover:translate-x-1 transition-all"
-        >
-          View Details <ArrowRight size={13} />
-        </button>
+      <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-1">
+        <span className="text-[11px] text-slate-400 font-mono">
+          Ref: {database}:{id}
+        </span>
+        <span className="text-xs font-semibold text-amber-700 hover:text-amber-800 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+          Inspect Structure <ArrowRight size={13} />
+        </span>
       </div>
-
-      {/* Desktop Hover Floating Material Properties Popover */}
-      {isHovered && (
-        <div className="hidden lg:block absolute left-full top-0 ml-3 w-72 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-[#EFE5DC] p-5 z-40 animate-in fade-in duration-200 pointer-events-none">
-          <div className="flex items-center justify-between border-b border-[#F2E7DC] pb-2 mb-3">
-            <span className="font-headline font-bold text-xs text-[#F1641D] uppercase tracking-wider">
-              Material Properties
-            </span>
-            <span className="text-[10px] text-[#8C929C] font-mono">{id}</span>
-          </div>
-
-          <div className="space-y-2 text-xs font-mono">
-            <div className="flex justify-between">
-              <span className="text-[#6C737E]">Formula:</span>
-              <span className="font-bold text-[#1E2227]">{formula}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#6C737E]">Space Group:</span>
-              <span className="text-[#1E2227]">{spaceGroup}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#6C737E]">Band Gap:</span>
-              <span className="font-semibold text-[#1E2227]">{bandGap}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#6C737E]">Formation Energy:</span>
-              <span className="text-[#2E7D32]">{formationEnergy}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#6C737E]">Ionic Conductivity:</span>
-              <span className="text-[#F1641D]">{conductivity}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#6C737E]">Density:</span>
-              <span className="text-[#1E2227]">{density}</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

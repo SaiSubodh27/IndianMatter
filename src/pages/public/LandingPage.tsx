@@ -144,18 +144,18 @@ const databases = [
 const features = [
   {
     icon: BarChart3,
-    title: "Predict Properties",
-    desc: "Faster, smarter decisions from AI-driven property predictions across thousands of materials.",
+    title: "Property Prediction",
+    desc: "Predict band gaps, formation energies, and ionic conductivities using graph neural network surrogate models.",
   },
   {
     icon: Search,
-    title: "Explore Possibilities",
-    desc: "From data to discovery — search federated databases with periodic-table precision.",
+    title: "Federated Exploration",
+    desc: "Query 140,000+ DFT-calculated inorganic materials with element-level periodic table filtering.",
   },
   {
     icon: Leaf,
-    title: "Enable a Sustainable Future",
-    desc: "Accelerating next-generation materials for a cleaner, greener world.",
+    title: "Crystal Synthesis",
+    desc: "Generate candidate crystallographic unit cells and export standardized CIF files for DFT benchmarking.",
   },
 ];
 
@@ -340,7 +340,6 @@ export default function LandingPage() {
     { href: "#explore", label: "Explore" },
     { href: "#about", label: "About" },
     { href: "#resources", label: "Resources" },
-    { href: "/research", label: "Research" },
     { href: "#contact", label: "Contact" },
   ];
 
@@ -735,22 +734,21 @@ export default function LandingPage() {
 
         {/* Hero Left Content */}
         <div className="relative z-10 max-w-[580px] space-y-7 py-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FDFBD4] border border-[#EDE8E2] text-[11px] font-bold tracking-[0.2em] uppercase text-[#8D5A2B] font-headline shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D47E30] animate-pulse" />
-            Materials for a Better Tomorrow
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-semibold tracking-wider uppercase text-amber-900 font-mono shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+            Computational Materials Discovery Platform
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-[#1A1A1A] tracking-tight leading-[1.02]">
             Indian<span style={{ color: "#D47E30" }}>Matter</span>
           </h1>
 
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-headline font-light text-[#6B6B6B] tracking-wide">
-            Predict. Explore. Accelerate.
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-headline font-normal text-[#4A4A4A] tracking-tight">
+            Structure Synthesis, GNN Inference & DFT Validation
           </h2>
 
-          <p className="text-base lg:text-[17px] text-[#6B6B6B] max-w-[500px] leading-relaxed">
-            AI-driven insights for next-generation materials discovery,
-            designed for a sustainable tomorrow.
+          <p className="text-base lg:text-[17px] text-[#6B6B6B] max-w-[520px] leading-relaxed">
+            Screen over 140,000 inorganic materials across Materials Project, OQMD, and AFLOW. Predict electronic properties, generate candidate CIF structures, and benchmark against ab initio calculations.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -858,7 +856,7 @@ export default function LandingPage() {
               Explore Materials
             </h2>
             <p className="text-sm sm:text-base text-[#6B6B6B] leading-relaxed">
-              Browse key battery and energy materials in our computational repository — automatically rotating through atomic structures and verified predictions.
+              Browse inorganic battery and energy materials in our computational repository with atomic structure models and verified property descriptors.
             </p>
           </div>
 
@@ -1331,9 +1329,9 @@ export default function LandingPage() {
                   <strong className="text-[#3D3D3D] font-semibold">
                     Inherent Matters.
                   </strong>{" "}
-                  Every material's behaviour — conductivity, stability,
-                  reactivity — is encoded in its crystal structure. IndianMatter
-                  was built on this principle.
+                  Fundamental material properties including ionic conductivity, phase stability,
+                  and electrochemical reactivity are governed by crystal structure. IndianMatter
+                  was built on this foundation.
                 </p>
               </div>
 
@@ -1475,7 +1473,7 @@ export default function LandingPage() {
                 </h2>
                 <p className="text-sm sm:text-base text-[#6B6B6B] leading-relaxed max-w-md">
                   For research partnerships, questions about the platform, or
-                  collaboration opportunities — we'd love to hear from you.
+                  collaboration opportunities, send us a message below.
                 </p>
               </div>
 

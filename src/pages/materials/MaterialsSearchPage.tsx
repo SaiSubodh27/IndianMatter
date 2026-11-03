@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Columns3, Download, Filter, RotateCcw, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import PeriodicTable from "../../components/PeriodicTable";
+import ChemicalFormula from "../../components/ChemicalFormula";
 import { MaterialRecord, searchDatasetMaterials } from "../../lib/datasetapi";
 
 /* ---------- column configuration ---------- */
@@ -976,14 +977,19 @@ export default function MaterialsSearchPage() {
                                     : ""
                                   }`}
                               >
-                                {col.colorScale ? (
+                                {col.key === "Formula" && col.format(m) !== "N/A" ? (
+                                  <ChemicalFormula
+                                    formula={String(col.format(m))}
+                                    className="text-[#1E2227] font-semibold font-mono"
+                                  />
+                                ) : col.colorScale ? (
                                   <span
-                                    className={`${badgeClasses(col, m)} font-mono`}
+                                    className={`${badgeClasses(col, m)} font-mono tabular-nums`}
                                   >
                                     {col.format(m)}
                                   </span>
                                 ) : (
-                                  <span className="text-[#1E2227] font-mono">
+                                  <span className="text-[#1E2227] font-mono tabular-nums">
                                     {col.format(m)}
                                   </span>
                                 )}

@@ -175,13 +175,13 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-6 flex-shrink-0">
         <div className="space-y-1.5">
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#9A9A9A] font-headline">
-            Welcome Back 👋
+            Welcome Back
           </p>
           <h1 className="text-4xl sm:text-5xl font-headline font-bold text-[#1A1A1A] tracking-tight">
-            Let's Explore <span style={{ color: "#D47E30" }}>Materials</span>
+            Materials <span style={{ color: "#D47E30" }}>Discovery Platform</span>
           </h1>
           <p className="text-sm text-[#6B6B6B]">
-            Powerful tools for a sustainable and innovative future.
+            Computational screening, crystal structure synthesis, and property prediction.
           </p>
         </div>
       </div>
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                 className="text-[11px] font-bold tracking-[0.22em] uppercase font-headline transition-colors duration-500" 
                 style={{ color: current.accent }}
               >
-                {current.indicator} — {current.category}
+                {current.indicator} • {current.category}
               </p>
               <h2 className="text-4xl sm:text-5xl font-headline font-bold text-[#1A1A1A] tracking-tight leading-[1.1]">
                 {current.title}

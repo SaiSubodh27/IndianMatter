@@ -7,22 +7,33 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Color tokens */
-  --im-orange: #d47e30;
-  --im-orange-hover: #b8671e;
-  --im-orange-light: #fbf0e6;
-  --im-orange-subtle: #fdf5ee;
-  --im-cream: #fdfbd4;
-  --im-brown: #8d5a2b;
-  --im-earth: #825e34;
-  --im-page: #ffffff;
+  /* Restrained neutral foundation */
+  --im-page: #f8fafc;
   --im-surface: #ffffff;
-  --im-text: #1a1a1a;
-  --im-text-mid: #3d3d3d;
-  --im-text-light: #6b6b6b;
-  --im-text-muted: #9a9a9a;
-  --im-border: #ebebeb;
+  --im-surface-subtle: #f1f5f9;
+  --im-border: #e2e8f0;
+  --im-border-strong: #cbd5e1;
   --im-border-warm: #ede8e2;
+
+  /* Typography tokens */
+  --im-text: #0f172a;
+  --im-text-mid: #334155;
+  --im-text-light: #64748b;
+  --im-text-muted: #94a3b8;
+
+  /* Functional scientific accents */
+  --im-orange: #c25e00;
+  --im-orange-hover: #9a4a00;
+  --im-orange-light: #fef3c7;
+  --im-orange-subtle: #fffbeb;
+  --im-cream: #f8fafc;
+  --im-brown: #78350f;
+  --im-earth: #92400e;
+
+  /* Data-meaningful status semantics */
+  --status-stable: #15803d;
+  --status-unstable: #b91c1c;
+  --status-conducting: #0284c7;
 
   /* Sidebar dimensions (Materials Project expandable navigation) */
   --sidebar-collapsed-width: 72px;

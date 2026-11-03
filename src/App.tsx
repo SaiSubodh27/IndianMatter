@@ -30,7 +30,7 @@ export default function App() {
           {/* Public Shell Routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/research" element={<ResearchPapersPage />} />
+            <Route path="/research" element={<Navigate to="/app/literature" replace />} />
             <Route path="/signin" element={<SignInPage />} />
           </Route>
 

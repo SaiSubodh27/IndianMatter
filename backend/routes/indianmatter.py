@@ -227,11 +227,13 @@ def _build_query(request_params) -> dict:
     return out
 
 
+@router.get("/explore")
 @router.get("/api/indianmatter/explore")
 def explore_indianmatter(
     elements: Optional[List[str]] = Query(None),
     exclude_elements: Optional[List[str]] = Query(None),
     is_stable: Optional[bool] = Query(None),
+    page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=1000),
     # All 17 range filters, e.g. min_band_gap, max_band_gap, min_volume, ...
     min_nsites: Optional[float] = None, max_nsites: Optional[float] = None,
@@ -255,18 +257,30 @@ def explore_indianmatter(
     df = load_dataset().copy()
 
     if elements:
-        target = set(elements)
-        df = df[df["Formula"].apply(lambda f: target.issubset(parse_elements_from_formula(f)))]
+        target = set()
+        for el in elements:
+            for item in str(el).split(","):
+                if item.strip():
+                    target.add(item.strip())
+        if target:
+            df = df[df["Formula"].apply(lambda f: target.issubset(parse_elements_from_formula(f)))]
     if exclude_elements:
-        excl = set(exclude_elements)
-        df = df[df["Formula"].apply(lambda f: excl.isdisjoint(parse_elements_from_formula(f)))]
+        excl = set()
+        for el in exclude_elements:
+            for item in str(el).split(","):
+                if item.strip():
+                    excl.add(item.strip())
+        if excl:
+            df = df[df["Formula"].apply(lambda f: excl.isdisjoint(parse_elements_from_formula(f)))]
     if is_stable is not None:
         df = df[df["is_stable"] == is_stable]
 
     df = _apply_range_filters(df, dict(locals()))
-    return [_row_to_dict(row) for _, row in df.head(limit).iterrows()]
+    start = (page - 1) * limit
+    return [_row_to_dict(row) for _, row in df.iloc[start:start + limit].iterrows()]
 
 
+@router.get("/structure/{material_id}")
 @router.get("/api/indianmatter/structure/{material_id}")
 def get_structure(material_id: str):
     cif_path = os.path.join(CIF_DIR, f"{material_id}.cif")
@@ -277,6 +291,7 @@ def get_structure(material_id: str):
     return {"cif_string": cif_string}
 
 
+@router.get("/download/cif/{material_id}")
 @router.get("/api/indianmatter/download/cif/{material_id}")
 def download_cif(material_id: str):
     cif_path = os.path.join(CIF_DIR, f"{material_id}.cif")
@@ -285,6 +300,7 @@ def download_cif(material_id: str):
     return FileResponse(cif_path, media_type="chemical/x-cif", filename=f"{material_id}.cif")
 
 
+@router.get("/download/csv")
 @router.get("/api/indianmatter/download/csv")
 def download_csv(
     elements: Optional[List[str]] = Query(None),
