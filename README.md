@@ -19,7 +19,8 @@
 10. [Environment Variables](#-environment-variables)
 11. [Deployment & Hardware Targets](#-deployment--hardware-targets)
 12. [Operational Standards & Contributor Guidelines](#-operational-standards--contributor-guidelines)
-13. [License & Acknowledgments](#-license--acknowledgments)
+13. [Contact & Enquiries](#-contact--enquiries)
+14. [License & Acknowledgments](#-license--acknowledgments)
 
 ---
 
@@ -510,6 +511,15 @@ bash run_linux.sh predict --batch-size 64
    Always apply the standard criterion $E_{\text{hull}} \le 25\text{ meV/atom}$ ($0.025\text{ eV/atom}$) when classifying a crystal as `is_stable = True`.
 5. **Credential Safety:**  
    Never commit private keys, `.env` files, or production credentials to the repository.
+
+---
+
+## 📬 Contact & Enquiries
+
+For all research partnerships, platform enquiries, bug reports, custom functional setup, or collaboration requests:
+- **Official Enquiries Email:** [`indianmatter.team@gmail.com`](mailto:indianmatter.team@gmail.com)
+- **Lead Developer & Maintainer:** Sai Subodh ([@SaiSubodh27](https://github.com/SaiSubodh27))
+- **Issue Tracker:** [GitHub Issues](https://github.com/SaiSubodh27/Final_validation/issues)
 
 ---
 

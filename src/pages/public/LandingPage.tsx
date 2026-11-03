@@ -1474,7 +1474,8 @@ export default function LandingPage() {
                   {
                     icon: Mail,
                     label: "Email",
-                    value: "research@indianmatter.ai",
+                    value: "indianmatter.team@gmail.com",
+                    href: "mailto:indianmatter.team@gmail.com",
                   },
                   { icon: MapPin, label: "Location", value: "India" },
                   {
@@ -1482,7 +1483,7 @@ export default function LandingPage() {
                     label: "Collaboration",
                     value: "Open to research partnerships",
                   },
-                ].map(({ icon: Icon, label, value }) => (
+                ].map(({ icon: Icon, label, value, href }) => (
                   <div key={label} className="flex items-center gap-3.5">
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -1498,9 +1499,18 @@ export default function LandingPage() {
                       <p className="text-[11px] text-[#9A9A9A] uppercase tracking-wider font-medium">
                         {label}
                       </p>
-                      <p className="text-sm text-[#3D3D3D] font-medium mt-0.5">
-                        {value}
-                      </p>
+                      {href ? (
+                        <a
+                          href={href}
+                          className="text-sm text-[#D47E30] hover:underline font-medium mt-0.5 block"
+                        >
+                          {value}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-[#3D3D3D] font-medium mt-0.5">
+                          {value}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1621,7 +1631,7 @@ export default function LandingPage() {
                 {contactState === "success" ? (
                   <div className="flex items-center gap-2.5 py-3 px-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
                     <CheckCircle2 size={16} className="shrink-0" />
-                    Thank you! We'll be in touch soon.
+                    Thank you! We'll be in touch soon. You can also write to us directly at indianmatter.team@gmail.com.
                   </div>
                 ) : (
                   <button
@@ -1676,6 +1686,9 @@ export default function LandingPage() {
             research platform.
           </p>
           <div className="flex items-center gap-5 text-[12px] text-[#6B6B6B]">
+            <a href="mailto:indianmatter.team@gmail.com" className="hover:text-[#D47E30] transition-colors font-medium">
+              Contact: indianmatter.team@gmail.com
+            </a>
             <a href="#" className="hover:text-[#D47E30] transition-colors">
               Privacy
             </a>

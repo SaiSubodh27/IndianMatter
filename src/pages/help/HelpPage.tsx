@@ -45,19 +45,19 @@ export default function HelpPage() {
         </div>
 
         {/* Priority Lab Support */}
-        <div className="bg-[#FAF4EE] rounded-[2rem] p-6 sm:p-8 border border-[#EFE5DC] flex items-center justify-between gap-4">
+        <div className="bg-[#FAF4EE] rounded-[2rem] p-6 sm:p-8 border border-[#EFE5DC] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h4 className="font-headline font-bold text-base text-[#1E2227]">Need Dedicated Research Support?</h4>
             <p className="text-xs text-[#6C737E] mt-0.5">
-              Contact our computational physics advisory team for custom functional setup or large-scale batch processing.
+              Contact our computational physics advisory team at <a href="mailto:indianmatter.team@gmail.com" className="text-accent underline font-medium">indianmatter.team@gmail.com</a> for custom functional setup, questions, or collaboration.
             </p>
           </div>
-          <button
-            onClick={() => alert("Support ticket created. A computational scientist will respond within 4 hours.")}
-            className="px-5 py-2.5 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover transition-all shadow-soft shrink-0"
+          <a
+            href="mailto:indianmatter.team@gmail.com?subject=IndianMatter%20Research%20Support%20Enquiry"
+            className="px-5 py-2.5 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover transition-all shadow-soft shrink-0 inline-flex items-center gap-2"
           >
-            Submit Research Ticket
-          </button>
+            Email Support Team
+          </a>
         </div>
       </div>
     </div>
