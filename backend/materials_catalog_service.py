@@ -193,6 +193,22 @@ def upsert_materials(database: str, materials: List[Dict[str, Any]]) -> int:
     try:
         res = catalog_collection.bulk_write(operations, ordered=False)
         total_upserted = (res.upserted_count or 0) + (res.modified_count or 0)
+
+        # Dual-write into the dedicated collection (e.g. db["materials_project"], db["oqmd"], db["aflow"], db["jarvis"])
+        if db is not None:
+            clean_db_name = database.lower().strip()
+            coll_name = clean_db_name
+            if coll_name == "obliex":
+                coll_name = "obliex_dataset"
+            try:
+                db_specific_coll = db[coll_name]
+                db_specific_coll.create_index("material_id", unique=True)
+                db_specific_coll.create_index("formula")
+                db_specific_coll.create_index("elements")
+                db_specific_coll.bulk_write(operations, ordered=False)
+            except Exception as e_spec:
+                log.warning(f"Notice dual-writing to collection {coll_name}: {e_spec}")
+
         return total_upserted
     except Exception as e:
         log.warning(f"Error bulk upserting to materials_catalog: {e}")
@@ -432,3 +448,4 @@ def seed_obliex_dataset() -> int:
     except Exception as e:
         log.warning(f"Error migrating obliex to materials_catalog: {e}")
         return 0
+

@@ -128,3 +128,4 @@ def sync_published_papers():
         }
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to sync from Supabase: {str(e)}")
+
