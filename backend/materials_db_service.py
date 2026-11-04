@@ -17,7 +17,10 @@ log = logging.getLogger("materials_db_service")
 
 # Import database collections from backend.database
 try:
-    from database import db, MONGO_AVAILABLE
+    try:
+        from database import db, MONGO_AVAILABLE
+    except ImportError:
+        from backend.database import db, MONGO_AVAILABLE
     if db is not None:
         predictions_collection = db["material_predictions"]
         try:
