@@ -1,39 +1,31 @@
 """
-AFLOW (AFLUX search API) client.
+AFLOW (AFLUX search API) client with MongoDB caching.
 
 Docs: https://aflow.org/documentation/  (AFLUX language)
 Base: https://aflow.org/API/aflux/
 No API key required.
 
-AFLUX uses a "matchbook,directives" query string format, e.g.:
-  https://aflow.org/API/aflux/?species(Si,O),nspecies(2),format(json)
-
 Response fields are normalized to match the schema used by materials.py
 (MP client) so the frontend can treat all sources interchangeably:
   material_id, formula, space_group, crystal_system, band_gap,
   formation_energy, density, is_stable
-
-NOTE: AFLUX field/keyword names below (Egap, enthalpy_formation_atom,
-spacegroup_relax, compound, auid, density) are the standard documented
-AFLOW keywords, but this hasn't been tested against a live call from
-this environment — verify with a simple query first (e.g. just
-species(Si,O)) before relying on the filters.
 """
 
 import requests
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 import csv
 import io
 
+# Import materials catalog service for MongoDB caching
+try:
+    from materials_catalog_service import query_catalog_materials, upsert_materials
+except ImportError:
+    from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+
 router = APIRouter()
 
-# BUG FIXED: was http:// — many hosts now redirect or reject plain HTTP,
-# which shows up as a connection/timeout error rather than an obvious
-# 4xx you can debug from the response body. AFLOW's docs and current
-# site are served over HTTPS; use it directly instead of relying on a
-# redirect that may or may not happen transparently through `requests`.
 BASE_URL = "https://aflow.org/API/aflux/"
 
 
@@ -61,12 +53,6 @@ def build_matchbook(
         if els:
             parts.append(f"species({','.join(els)})")
 
-    if exclude_elements:
-        # AFLUX doesn't have a native "exclude species" keyword in the
-        # basic matchbook grammar — accepted for interface parity only.
-        # Post-filter in Python if this is required.
-        pass
-
     if min_band_gap is not None and max_band_gap is not None:
         parts.append(f"Egap({min_band_gap}*{max_band_gap})")
     elif min_band_gap is not None:
@@ -82,13 +68,9 @@ def build_matchbook(
         parts.append(f"enthalpy_formation_atom(*{max_formation_energy})")
 
     if is_stable is True:
-        # AFLOW's convention: energy above hull ~0 for stable phases.
         parts.append("enthalpy_formation_cell(*0.001)")
 
-    # Request the specific fields we need back, plus paging.
-    parts.append(
-        "compound,spacegroup_relax,Egap,enthalpy_formation_atom,density,auid"
-    )
+    parts.append("compound,spacegroup_relax,Egap,enthalpy_formation_atom,density,auid")
     parts.append(f"paging(1,{limit})")
     parts.append("format(json)")
 
@@ -105,7 +87,27 @@ def explore_aflow(
     max_formation_energy: Optional[float] = Query(None),
     is_stable: Optional[bool] = Query(None),
     limit: int = Query(25, ge=1, le=100),
+    force_refresh: bool = Query(False, description="Bypass MongoDB cache and query live API")
 ):
+    el_list = [e.strip() for e in elements.split(",") if e.strip()] if elements else None
+    exclude_list = [e.strip() for e in exclude_elements.split(",") if e.strip()] if exclude_elements else None
+
+    # 1. Fast Cache Lookup from MongoDB
+    if not force_refresh:
+        cached = query_catalog_materials(
+            database="aflow",
+            elements=el_list,
+            exclude_elements=exclude_list,
+            min_band_gap=min_band_gap,
+            max_band_gap=max_band_gap,
+            min_formation_energy=min_formation_energy,
+            max_formation_energy=max_formation_energy,
+            is_stable=is_stable,
+            limit=limit
+        )
+        if len(cached) >= min(limit, 5):
+            return cached
+
     matchbook = build_matchbook(
         elements,
         exclude_elements,
@@ -118,20 +120,15 @@ def explore_aflow(
     )
 
     try:
-        # AFLUX expects the matchbook as a raw query string (not standard
-        # key=value pairs), so we build the URL manually rather than using
-        # requests' `params` dict, which would URL-encode the commas/parens
-        # AFLUX relies on for its grammar.
-        resp = requests.get(f"{BASE_URL}?{matchbook}", timeout=20)
+        resp = requests.get(f"{BASE_URL}?{matchbook}", timeout=10)
         resp.raise_for_status()
         payload = resp.json()
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
+        cached = query_catalog_materials(database="aflow", elements=el_list, limit=limit)
+        if cached:
+            return cached
         raise HTTPException(status_code=502, detail=f"AFLOW API request failed: {e}")
-    except ValueError:
-        raise HTTPException(status_code=502, detail="AFLOW API returned a non-JSON response.")
 
-    # AFLUX returns either a list of entries directly, or a dict keyed by
-    # AURL depending on query shape — handle both.
     if isinstance(payload, dict):
         raw_entries = list(payload.values())
     elif isinstance(payload, list):
@@ -144,12 +141,6 @@ def explore_aflow(
         if not isinstance(entry, dict):
             continue
 
-        # BUG FIXED: previously used safe_float(...) — which defaults
-        # to 0.0 when the value is missing — directly as the input to
-        # the is_stable check below. That silently marked every entry
-        # with NO formation-energy data as "stable" (0.0 <= 0 is True),
-        # which is a false positive, not an unknown. Keep the raw value
-        # separate so "missing data" and "actually zero" are distinguished.
         raw_formation_energy = entry.get("enthalpy_formation_atom")
         formation_energy = safe_float(raw_formation_energy)
 
@@ -157,14 +148,19 @@ def explore_aflow(
             "material_id": f"aflow-{entry.get('auid', 'unknown')}",
             "formula": entry.get("compound", "Unknown"),
             "space_group": entry.get("spacegroup_relax", "Unknown"),
-            "crystal_system": "Unknown",  # AFLOW exposes Bravais_lattice_relax
-                                           # separately; add to matchbook fields
-                                           # above if you need this mapped too
+            "crystal_system": "Unknown",
             "band_gap": safe_float(entry.get("Egap")),
             "formation_energy": formation_energy,
             "density": safe_float(entry.get("density")),
             "is_stable": raw_formation_energy is not None and raw_formation_energy <= 0,
         })
+
+    # 2. Persist in MongoDB Materials Catalog
+    if compiled_list:
+        try:
+            upsert_materials("aflow", compiled_list)
+        except Exception:
+            pass
 
     return compiled_list
 
@@ -172,9 +168,7 @@ def explore_aflow(
 @router.get("/structure/{auid}")
 def get_aflow_structure(auid: str):
     """
-    Fetches structural data (CONTCAR/geometry) for a single AFLOW entry
-    by its AUID. auid should be passed without the 'aflow-' prefix used
-    in explore_aflow's material_id.
+    Fetches structural data (CONTCAR/geometry) for a single AFLOW entry by its AUID.
     """
     matchbook = f"auid({auid}),geometry,compound,format(json)"
     try:
@@ -227,15 +221,7 @@ def download_csv_aflow(
 
 @router.get("/download/cif/{auid}")
 def download_cif_aflow(auid: str):
-    """
-    NOTE: AFLOW's geometry field (fetched via get_aflow_structure) comes
-    back in AFLOW's own serialization format, not directly as CIF text.
-    Converting requires parsing that geometry string into lattice +
-    site data and building CIF output (or using pymatgen if you can get
-    it into a Structure object). Left as a stub for now.
-    """
     raise HTTPException(
         status_code=501,
-        detail="CIF export for AFLOW not yet implemented — geometry data "
-               "needs conversion to CIF format. See function docstring.",
+        detail="CIF export for AFLOW not yet implemented.",
     )

@@ -124,6 +124,57 @@ def search_materials(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100)
 ):
+    # 1. Fast MongoDB Catalog Lookup
+    try:
+        from materials_catalog_service import query_catalog_materials, count_catalog_materials
+        target_els = [canonicalize_element(e) for e in elements if canonicalize_element(e)] if elements else None
+        excl_els = [canonicalize_element(e) for e in exclude_elements if canonicalize_element(e)] if exclude_elements else None
+        
+        # Check if query matches catalog
+        total_count = count_catalog_materials(
+            database="indianmatter",
+            formula=formula,
+            elements=target_els
+        )
+        if total_count > 0 and match_mode != "exact":
+            cached = query_catalog_materials(
+                database="indianmatter",
+                formula=formula,
+                elements=target_els,
+                exclude_elements=excl_els,
+                min_band_gap=min_band_gap,
+                max_band_gap=max_band_gap,
+                min_e_hull=min_e_hull,
+                max_e_hull=max_e_hull,
+                limit=limit,
+                skip=(page - 1) * limit
+            )
+            if cached:
+                results = []
+                for d in cached:
+                    extra = d.get("extra_properties") or {}
+                    results.append({
+                        "mv_id": d.get("material_id"),
+                        "Formula": d.get("formula"),
+                        "nsites": extra.get("nsites", 0),
+                        "E_hull-m (eV/atom)": d.get("e_hull", 0.0),
+                        "Final M3GNet energy (eV)": extra.get("m3gnet_energy", 0.0),
+                        "Form. Energy E_f (eV/atom)": d.get("formation_energy", 0.0),
+                        "Band Gap E_g (eV)": d.get("band_gap", 0.0),
+                        "Bulk Modulus K (GPa)": extra.get("bulk_modulus", 0.0),
+                        "Shear Modulus G (GPa)": extra.get("shear_modulus", 0.0),
+                        "Metal Prob.": extra.get("metal_prob", 0.0),
+                    })
+                return {
+                    "total": total_count,
+                    "page": page,
+                    "limit": limit,
+                    "results": results
+                }
+    except Exception:
+        pass
+
+    # 2. Fallback to Pandas Dataset DataFrame
     df = load_dataset()
     filtered_df = df.copy()
 

@@ -41,6 +41,7 @@ from routes import (
     cif_routes,
     materials_routes,
     transport_router,
+    literature_routes,
 )
 from model_service import load_models
 
@@ -120,6 +121,7 @@ app.include_router(aflow.router, prefix="/api/aflow", tags=["AFLOW"])
 app.include_router(jarvis.router, prefix="/api/jarvis", tags=["JARVIS"])
 app.include_router(database_routes.router, prefix="/api/dataset", tags=["Dataset"])
 app.include_router(indianmatter.router, prefix="/api/indianmatter", tags=["IndianMatter DB"])
+app.include_router(literature_routes.router, prefix="/api/literature", tags=["Literature"])
 
 # ---------------------------------------------------------
 # CALCULATIONS ROUTER

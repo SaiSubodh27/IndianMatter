@@ -1279,6 +1279,42 @@ def lookup_material_by_formula_or_id(
         except Exception:
             pass
 
+    # Search materials_catalog collection across all federated databases
+    if not cached:
+        try:
+            from materials_catalog_service import query_catalog_materials
+            cat_docs = query_catalog_materials(formula=clean_q, limit=1)
+            if cat_docs:
+                cat_doc = cat_docs[0]
+                extra = cat_doc.get("extra_properties") or {}
+                cached = {
+                    "_id": str(cat_doc.get("material_id")),
+                    "formula": cat_doc.get("formula"),
+                    "reduced_formula": cat_doc.get("reduced_formula"),
+                    "filename": f"{cat_doc.get('material_id')}.cif",
+                    "source_model": f"{str(cat_doc.get('database', '')).upper()} Database",
+                    "metadata": {
+                        "volume_A3": extra.get("volume"),
+                        "density_g_cm3": cat_doc.get("density"),
+                        "num_sites": extra.get("nsites"),
+                        "space_group": cat_doc.get("space_group"),
+                        "crystal_system": cat_doc.get("crystal_system")
+                    },
+                    "summary_metrics": {
+                        "bulk_modulus_GPa": extra.get("bulk_modulus"),
+                        "shear_modulus_GPa": extra.get("shear_modulus"),
+                        "formation_energy_eV_atom": cat_doc.get("formation_energy"),
+                        "band_gap_eV": cat_doc.get("band_gap"),
+                        "ehull_eV_per_atom": cat_doc.get("e_hull"),
+                        "is_stable": cat_doc.get("is_stable")
+                    },
+                    "cif_content": extra.get("cif_text"),
+                    "database": cat_doc.get("database"),
+                    "created_at": cat_doc.get("updated_at")
+                }
+        except Exception:
+            pass
+
     if cached:
         # Extract rich metrics
         sum_m = dict(cached.get("summary_metrics", {}) or {})
@@ -1333,3 +1369,29 @@ def lookup_material_by_formula_or_id(
         "query": clean_q,
         "message": f"Material '{clean_q}' not found in MongoDB. You can run models on it to calculate properties and save it to the database."
     }
+
+@router.get("/catalog/overview")
+def get_catalog_overview_endpoint():
+    """Returns total materials cached across all connected databases in MongoDB."""
+    try:
+        from materials_catalog_service import get_catalog_overview
+        return get_catalog_overview()
+    except Exception as e:
+        return {"connected": False, "error": str(e), "total_records": 0, "by_database": {}}
+
+
+@router.post("/catalog/sync")
+def sync_catalog_endpoint(force: bool = False):
+    """Syncs/seeds materials from local datasets into MongoDB materials_catalog."""
+    try:
+        from materials_catalog_service import seed_indianmatter_dataset, seed_obliex_dataset, get_catalog_overview
+        im_count = seed_indianmatter_dataset(force=force)
+        ob_count = seed_obliex_dataset()
+        return {
+            "status": "success",
+            "indianmatter_seeded": im_count,
+            "obliex_seeded": ob_count,
+            "overview": get_catalog_overview()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

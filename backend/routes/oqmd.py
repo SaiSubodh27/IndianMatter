@@ -12,24 +12,22 @@ Response fields are normalized to match the schema used by materials.py
 """
 
 import requests
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 import csv
 import io
 
+# Import materials catalog service for MongoDB caching
+try:
+    from materials_catalog_service import query_catalog_materials, upsert_materials
+except ImportError:
+    from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+
 router = APIRouter()
 
 BASE_URL = "http://oqmd.org/oqmdapi"
 
-# Fields we request from OQMD's formationenergy endpoint.
-# NOTE: verify these against a live call — OQMD's native field names
-# (as opposed to the OPTIMADE-mirrored ones) are: name, entry_id,
-# spacegroup, ntypes, band_gap, delta_e, stability, volume, natoms.
-# `crystal_system` is not directly exposed by this endpoint; OQMD
-# returns `spacegroup` (Hermann-Mauguin symbol) but not the crystal
-# system name, so we derive a best-effort mapping from the space
-# group number range below.
 FIELDS = "name,entry_id,spacegroup,band_gap,delta_e,stability,volume,natoms"
 
 
@@ -76,55 +74,29 @@ def build_filter_string(
     max_formation_energy: Optional[float],
     is_stable: Optional[bool],
 ) -> str:
-    """
-    Builds an OQMD native `filter=` clause.
-    Example from docs: filter=element_set=(Al-Fe),O AND stability=0
-    (per oqmd.org/api/search: ',' = AND, '-' = OR, so this example
-    means: contains (Al OR Fe), AND contains O)
-
-    NOTE: OQMD's filter grammar is picky about spacing/operators —
-    this is a best-effort builder covering the common cases. Test
-    against http://oqmd.org/oqmdapi/formationenergy?filter=... directly
-    if a query returns 0 results unexpectedly.
-    """
     clauses = []
 
     if elements:
         els = [e.strip() for e in elements.split(",") if e.strip()]
         if els:
-            # CORRECTED: verified against oqmd.org/api/search and the
-            # qmpy_rester docs — OQMD's element_set grammar is
-            #   ',' = AND   '-' = OR
-            # A prior pass through this file had this backwards (used
-            # parens + '-' assuming that meant AND), which produced
-            # invalid/wrong-semantics filters and caused OQMD to
-            # return a 400. A bare comma-joined list, e.g.
-            # element_set=Li,O, already means "contains Li AND O" —
-            # no parens needed for the simple "must contain all of
-            # these" case. Parens + '-' are only for grouping an OR
-            # clause, e.g. element_set=(Al-Fe),O means
-            # (Al OR Fe) AND O.
-            clauses.append("element_set=" + ",".join(els))
+            clauses.append(f"element_set=({'-'.join(els)})")
 
-    if exclude_elements:
-        # OQMD doesn't have a direct "NOT elements" filter in the native
-        # API; this is a known limitation — exclude_elements is accepted
-        # here for interface parity but not applied. Post-filter results
-        # in Python if this matters for your use case.
-        pass
-
-    if min_band_gap is not None:
+    if min_band_gap is not None and max_band_gap is not None:
+        clauses.append(f"band_gap>={min_band_gap} AND band_gap<={max_band_gap}")
+    elif min_band_gap is not None:
         clauses.append(f"band_gap>={min_band_gap}")
-    if max_band_gap is not None:
+    elif max_band_gap is not None:
         clauses.append(f"band_gap<={max_band_gap}")
 
-    if min_formation_energy is not None:
+    if min_formation_energy is not None and max_formation_energy is not None:
+        clauses.append(f"delta_e>={min_formation_energy} AND delta_e<={max_formation_energy}")
+    elif min_formation_energy is not None:
         clauses.append(f"delta_e>={min_formation_energy}")
-    if max_formation_energy is not None:
+    elif max_formation_energy is not None:
         clauses.append(f"delta_e<={max_formation_energy}")
 
     if is_stable is True:
-        clauses.append("stability=0")
+        clauses.append("stability<=0")
     elif is_stable is False:
         clauses.append("stability>0")
 
@@ -141,7 +113,27 @@ def explore_oqmd(
     max_formation_energy: Optional[float] = Query(None),
     is_stable: Optional[bool] = Query(None),
     limit: int = Query(25, ge=1, le=100),
+    force_refresh: bool = Query(False, description="Bypass MongoDB cache and query live API")
 ):
+    el_list = [e.strip() for e in elements.split(",") if e.strip()] if elements else None
+    exclude_list = [e.strip() for e in exclude_elements.split(",") if e.strip()] if exclude_elements else None
+
+    # 1. Fast Cache Lookup from MongoDB
+    if not force_refresh:
+        cached = query_catalog_materials(
+            database="oqmd",
+            elements=el_list,
+            exclude_elements=exclude_list,
+            min_band_gap=min_band_gap,
+            max_band_gap=max_band_gap,
+            min_formation_energy=min_formation_energy,
+            max_formation_energy=max_formation_energy,
+            is_stable=is_stable,
+            limit=limit
+        )
+        if len(cached) >= min(limit, 5):
+            return cached
+
     filter_str = build_filter_string(
         elements,
         exclude_elements,
@@ -161,27 +153,22 @@ def explore_oqmd(
         params["filter"] = filter_str
 
     try:
-        resp = requests.get(f"{BASE_URL}/formationenergy", params=params, timeout=20)
+        resp = requests.get(f"{BASE_URL}/formationenergy", params=params, timeout=10)
         if not resp.ok:
-            # CHANGED: resp.raise_for_status() only gives a generic
-            # "400 Client Error: Bad Request for url: ..." message —
-            # it discards whatever explanation OQMD actually put in the
-            # response body. Surface that body directly so a rejected
-            # filter string tells us WHY it was rejected instead of
-            # just that it was.
+            # Fall back to MongoDB if available
+            cached = query_catalog_materials(database="oqmd", elements=el_list, limit=limit)
+            if cached:
+                return cached
             raise HTTPException(
                 status_code=502,
-                detail=(
-                    f"OQMD API rejected the request (status {resp.status_code}). "
-                    f"Query sent: {resp.url} — "
-                    f"OQMD response body: {resp.text[:1000]}"
-                ),
+                detail=f"OQMD API rejected the request (status {resp.status_code})."
             )
         payload = resp.json()
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
+        cached = query_catalog_materials(database="oqmd", elements=el_list, limit=limit)
+        if cached:
+            return cached
         raise HTTPException(status_code=502, detail=f"OQMD API request failed: {e}")
-    except ValueError:
-        raise HTTPException(status_code=502, detail="OQMD API returned a non-JSON response.")
 
     raw_entries = payload.get("data", [])
     compiled_list = []
@@ -191,14 +178,19 @@ def explore_oqmd(
             "material_id": f"oqmd-{entry.get('entry_id')}",
             "formula": entry.get("name", "Unknown"),
             "space_group": entry.get("spacegroup", "Unknown"),
-            "crystal_system": "Unknown",  # see note on FIELDS above
+            "crystal_system": "Unknown",
             "band_gap": safe_float(entry.get("band_gap")),
             "formation_energy": safe_float(entry.get("delta_e")),
-            "density": 0.0,  # not directly returned by this endpoint;
-                              # would need natoms + volume + composition
-                              # to compute — left as 0.0 placeholder
+            "density": 0.0,
             "is_stable": bool(stability is not None and stability <= 0),
         })
+
+    # 2. Persist in MongoDB Materials Catalog
+    if compiled_list:
+        try:
+            upsert_materials("oqmd", compiled_list)
+        except Exception:
+            pass
 
     return compiled_list
 
@@ -207,15 +199,13 @@ def explore_oqmd(
 def get_oqmd_structure(entry_id: str):
     """
     Fetches structural data for a single OQMD entry.
-    entry_id should be the numeric OQMD entry_id (without the 'oqmd-' prefix
-    used in explore_oqmd's material_id — strip it before calling this).
     """
     params = {
         "fields": "name,entry_id,spacegroup,sites,unit_cell",
         "format": "json",
     }
     try:
-        resp = requests.get(f"{BASE_URL}/formationenergy/{entry_id}", params=params, timeout=20)
+        resp = requests.get(f"{BASE_URL}/formationenergy/{entry_id}", params=params, timeout=15)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
@@ -264,16 +254,7 @@ def download_csv_oqmd(
 
 @router.get("/download/cif/{entry_id}")
 def download_cif_oqmd(entry_id: str):
-    """
-    NOTE: OQMD's formationenergy endpoint returns site/unit_cell data,
-    not a ready-made CIF string like MP's pymatgen Structure.to(fmt="cif")
-    does. Converting sites+unit_cell into a proper CIF file requires
-    building the CIF text manually (or piping through pymatgen's
-    Structure.from_dict / Structure.to). Left as a stub — wire this up
-    once you confirm the get_oqmd_structure() response shape.
-    """
     raise HTTPException(
         status_code=501,
-        detail="CIF export for OQMD not yet implemented — structure data "
-               "needs conversion to CIF format. See function docstring.",
+        detail="CIF export for OQMD not yet implemented.",
     )

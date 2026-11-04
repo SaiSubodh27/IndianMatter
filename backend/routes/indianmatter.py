@@ -257,6 +257,68 @@ def explore_indianmatter(
     min_beta: Optional[float] = None, max_beta: Optional[float] = None,
     min_gamma: Optional[float] = None, max_gamma: Optional[float] = None,
 ):
+    # 1. Fast MongoDB Catalog Lookup
+    try:
+        from materials_catalog_service import query_catalog_materials
+        target_list = []
+        if elements:
+            for el in elements:
+                for item in str(el).split(","):
+                    if item.strip():
+                        target_list.append(item.strip())
+        excl_list = []
+        if exclude_elements:
+            for el in exclude_elements:
+                for item in str(el).split(","):
+                    if item.strip():
+                        excl_list.append(item.strip())
+
+        cached = query_catalog_materials(
+            database="indianmatter",
+            elements=target_list or None,
+            exclude_elements=excl_list or None,
+            min_band_gap=min_band_gap,
+            max_band_gap=max_band_gap,
+            min_formation_energy=min_formation_energy,
+            max_formation_energy=max_formation_energy,
+            min_e_hull=min_e_hull,
+            max_e_hull=max_e_hull,
+            is_stable=is_stable,
+            limit=limit,
+            skip=(page - 1) * limit
+        )
+        if cached:
+            out = []
+            for d in cached:
+                extra = d.get("extra_properties") or {}
+                out.append({
+                    "material_id": d.get("material_id"),
+                    "mv_id": d.get("material_id"),
+                    "formula": d.get("formula"),
+                    "Formula": d.get("formula"),
+                    "space_group": d.get("space_group", "Unknown"),
+                    "crystal_system": d.get("crystal_system", "Unknown"),
+                    "band_gap": d.get("band_gap"),
+                    "Band Gap E_g (eV)": d.get("band_gap"),
+                    "formation_energy": d.get("formation_energy"),
+                    "Form. Energy E_f (eV/atom)": d.get("formation_energy"),
+                    "e_hull": d.get("e_hull"),
+                    "E_hull-m (eV/atom)": d.get("e_hull"),
+                    "density": d.get("density", 0.0),
+                    "is_stable": d.get("is_stable", False),
+                    "nsites": extra.get("nsites"),
+                    "bulk_modulus": extra.get("bulk_modulus"),
+                    "Bulk Modulus K (GPa)": extra.get("bulk_modulus"),
+                    "shear_modulus": extra.get("shear_modulus"),
+                    "Shear Modulus G (GPa)": extra.get("shear_modulus"),
+                    "metal_prob": extra.get("metal_prob"),
+                    "Metal Prob.": extra.get("metal_prob"),
+                })
+            return out
+    except Exception:
+        pass
+
+    # 2. Fallback to Pandas CSV processing
     df = load_dataset().copy()
 
     if elements:

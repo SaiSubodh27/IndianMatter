@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, List
 from dotenv import load_dotenv
 from fastapi import APIRouter, Query, HTTPException
 from mp_api.client import MPRester
@@ -7,6 +7,12 @@ from mp_api.client import MPRester
 # Ensure backend .env is loaded
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path=env_path, override=True)
+
+# Import materials catalog caching service
+try:
+    from materials_catalog_service import query_catalog_materials, upsert_materials
+except ImportError:
+    from backend.materials_catalog_service import query_catalog_materials, upsert_materials
 
 router = APIRouter()
 
@@ -47,13 +53,48 @@ def explore_materials(
     max_band_gap: Optional[float] = Query(default=None),
     min_e_hull: Optional[float] = Query(default=None),
     max_e_hull: Optional[float] = Query(default=None),
-    limit: int = Query(default=50, description="Max number of results to return")
+    limit: int = Query(default=50, description="Max number of results to return"),
+    force_refresh: bool = Query(default=False, description="Bypass MongoDB cache and query live API")
 ):
     """
-    Explore Materials Project via its official API (mp_api).
+    Explore Materials Project via its official API (mp_api) with automatic MongoDB caching.
+    Cached materials are served instantly; live queries automatically cache new structures.
     """
+    element_list = [e.strip() for e in elements.split(",") if e.strip()] if elements else None
+    exclude_list = [e.strip() for e in exclude_elements.split(",") if e.strip()] if exclude_elements else None
+
+    # 1. Fast Cache Lookup from MongoDB
+    if not force_refresh:
+        cached = query_catalog_materials(
+            database="materials_project",
+            formula=formula,
+            elements=element_list,
+            exclude_elements=exclude_list,
+            min_band_gap=min_band_gap,
+            max_band_gap=max_band_gap,
+            min_e_hull=min_e_hull,
+            max_e_hull=max_e_hull,
+            limit=limit
+        )
+        if len(cached) >= min(limit, 5):
+            return cached
+
     mp_key = os.getenv("MP_API_KEY")
     if not mp_key:
+        # If API key is missing, return any cached results rather than crashing
+        cached = query_catalog_materials(
+            database="materials_project",
+            formula=formula,
+            elements=element_list,
+            exclude_elements=exclude_list,
+            min_band_gap=min_band_gap,
+            max_band_gap=max_band_gap,
+            min_e_hull=min_e_hull,
+            max_e_hull=max_e_hull,
+            limit=limit
+        )
+        if cached:
+            return cached
         raise HTTPException(
             status_code=500,
             detail="MP_API_KEY environment variable is not set. Cannot query Materials Project."
@@ -74,15 +115,11 @@ def explore_materials(
                 else:
                     kwargs["formula"] = cleaned_formula
 
-            if elements and isinstance(elements, str):
-                element_list = [e.strip() for e in elements.split(",") if e.strip()]
-                if element_list:
-                    kwargs["elements"] = element_list
+            if element_list:
+                kwargs["elements"] = element_list
 
-            if exclude_elements and isinstance(exclude_elements, str):
-                exclude_list = [e.strip() for e in exclude_elements.split(",") if e.strip()]
-                if exclude_list:
-                    kwargs["exclude_elements"] = exclude_list
+            if exclude_list:
+                kwargs["exclude_elements"] = exclude_list
 
             band_gap_min = min_band_gap if isinstance(min_band_gap, (int, float)) else None
             band_gap_max = max_band_gap if isinstance(max_band_gap, (int, float)) else None
@@ -115,7 +152,27 @@ def explore_materials(
                     "is_stable": doc.is_stable,
                 })
             
+            # 2. Persist in MongoDB Materials Catalog for instant future lookups
+            if results:
+                try:
+                    upsert_materials("materials_project", results)
+                except Exception as save_err:
+                    print(f"[MaterialsProject] Warning caching to MongoDB: {save_err}")
+
             return results
     except Exception as e:
+        # Fall back to MongoDB cache if live request fails
+        cached = query_catalog_materials(
+            database="materials_project",
+            formula=formula,
+            elements=element_list,
+            exclude_elements=exclude_list,
+            min_band_gap=min_band_gap,
+            max_band_gap=max_band_gap,
+            min_e_hull=min_e_hull,
+            max_e_hull=max_e_hull,
+            limit=limit
+        )
+        if cached:
+            return cached
         raise HTTPException(status_code=500, detail=str(e))
-
