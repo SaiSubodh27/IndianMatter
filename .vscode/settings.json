@@ -1,0 +1,13 @@
+{
+  "python.analysis.extraPaths": [
+    "./backend",
+    "./property_prediction_models",
+    "./cif_generator"
+  ],
+  "python.autoComplete.extraPaths": [
+    "./backend",
+    "./property_prediction_models",
+    "./cif_generator"
+  ],
+  "typescript.tsdk": "frontend/node_modules/typescript/lib"
+}

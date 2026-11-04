@@ -1,0 +1,178 @@
+[
+  {
+    "name": "Root Status",
+    "method": "GET",
+    "path": "/",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "OpenAPI Spec",
+    "method": "GET",
+    "path": "/openapi.json",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Swagger Documentation",
+    "method": "GET",
+    "path": "/docs",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "CIF Upload Parser",
+    "method": "POST",
+    "path": "/api/cif/parse",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Database Overview",
+    "method": "GET",
+    "path": "/api/calculations/database/overview",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Batch Properties Catalogue",
+    "method": "GET",
+    "path": "/api/calculations/batch-properties",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Batch Sample CIFs",
+    "method": "GET",
+    "path": "/api/calculations/batch-sample-cifs",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Predict Properties (File)",
+    "method": "POST",
+    "path": "/api/calculations/predict-properties",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Analyze CIF Properties",
+    "method": "POST",
+    "path": "/api/calculations/analyze-cif",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Analyze CrystalFormer Properties",
+    "method": "POST",
+    "path": "/api/calculations/crystalformer/predict",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Ionic Transport Prediction",
+    "method": "POST",
+    "path": "/api/calculations/ionic-conductivity",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Materials Project Explorer",
+    "method": "GET",
+    "path": "/api/materials/explore?limit=5",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "OQMD Database Explorer",
+    "method": "GET",
+    "path": "/api/oqmd/explore?limit=5",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "AFLOW Database Explorer",
+    "method": "GET",
+    "path": "/api/aflow/explore?limit=5",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "JARVIS Database Explorer",
+    "method": "GET",
+    "path": "/api/jarvis/explore?limit=5",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Dataset Search Service",
+    "method": "GET",
+    "path": "/api/dataset/search?query=Li",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "IndianMatter Internal DB",
+    "method": "GET",
+    "path": "/api/indianmatter/explore?limit=5",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "CIF Generator Health",
+    "method": "GET",
+    "path": "/cif/api/health",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "CIF Formula Resolver",
+    "method": "POST",
+    "path": "/cif/api/parse-formula",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "Google OAuth Login Redirect",
+    "method": "GET",
+    "path": "/api/auth/google/login",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "GitHub OAuth Login Redirect",
+    "method": "GET",
+    "path": "/api/auth/github/login",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  },
+  {
+    "name": "User Auth Protection Check",
+    "method": "GET",
+    "path": "/api/users/profile",
+    "status": 500,
+    "ok": false,
+    "preview": ""
+  }
+]

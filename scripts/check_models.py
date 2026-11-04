@@ -6,8 +6,10 @@ Inspects M3GNet, CHGNet, MACE, and surrogate model registry availability.
 import sys
 import os
 
-# Add backend directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+# Add backend and property_prediction_models directories to sys.path
+BASE_DIR = os.path.dirname(__file__)
+sys.path.insert(0, os.path.join(BASE_DIR, "..", "backend"))
+sys.path.insert(0, os.path.join(BASE_DIR, "..", "property_prediction_models"))
 
 def check_models():
     print("=" * 60)
