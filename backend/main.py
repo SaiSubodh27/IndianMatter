@@ -19,8 +19,6 @@ try:
 except Exception:
     pass #it is related to atomic coordinates and external unit cell vectors (lattic lengths)
 
-from api.calculator_router import router as calculator_router
-
 # Ensure backend, cif_generator, and property_prediction_models are in sys.path
 BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent
@@ -29,6 +27,8 @@ for p in [PROJECT_ROOT, BACKEND_DIR, PROJECT_ROOT / "cif_generator", PROJECT_ROO
     p_str = str(p)
     if p_str not in sys.path:
         sys.path.insert(0, p_str)
+
+from api.calculator_router import router as calculator_router
 
 from routes import (
     auth_routes,
