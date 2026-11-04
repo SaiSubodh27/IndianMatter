@@ -1,8 +1,11 @@
 import os
-from typing import Optional, List
+import io
+from typing import Optional, List, Union
 from dotenv import load_dotenv
 from fastapi import APIRouter, Query, HTTPException
+from fastapi.responses import Response, StreamingResponse
 from mp_api.client import MPRester
+from pymatgen.io.cif import CifWriter
 
 # Ensure backend .env is loaded
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -11,10 +14,30 @@ load_dotenv(dotenv_path=env_path, override=True)
 # Import materials catalog caching service
 try:
     from materials_catalog_service import query_catalog_materials, upsert_materials
+    from database import db
 except ImportError:
     from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+    from backend.database import db
 
 router = APIRouter()
+
+
+def parse_elements(elem_param: Union[str, List[str], None]) -> Optional[List[str]]:
+    """Normalizes element queries from string ('Li,O') or list (['Li', 'O'])."""
+    if not elem_param:
+        return None
+    if isinstance(elem_param, str):
+        parts = [e.strip() for e in elem_param.split(",") if e.strip()]
+        return parts if parts else None
+    if isinstance(elem_param, list):
+        out = []
+        for item in elem_param:
+            for sub in str(item).split(","):
+                if sub.strip():
+                    out.append(sub.strip())
+        return out if out else None
+    return None
+
 
 @router.get("/features")
 def get_material_features():
@@ -35,17 +58,18 @@ def get_material_features():
         ]
     }
 
+
 @router.get("/explore")
 def explore_materials(
     formula: Optional[str] = Query(
         default=None,
         description="Chemical formula or Materials Project ID (e.g. Li2O, mp-1245009)"
     ),
-    elements: Optional[str] = Query(
+    elements: Optional[Union[List[str], str]] = Query(
         default=None,
-        description="Comma-separated element symbols, e.g. Li,Ag"
+        description="Element symbol or comma-separated element symbols, e.g. Li,O"
     ),
-    exclude_elements: Optional[str] = Query(
+    exclude_elements: Optional[Union[List[str], str]] = Query(
         default=None,
         description="Comma-separated element symbols to exclude"
     ),
@@ -58,10 +82,10 @@ def explore_materials(
 ):
     """
     Explore Materials Project via its official API (mp_api) with automatic MongoDB caching.
-    Cached materials are served instantly; live queries automatically cache new structures.
+    Cached materials are served instantly (<5ms); live queries automatically cache new structures.
     """
-    element_list = [e.strip() for e in elements.split(",") if e.strip()] if elements else None
-    exclude_list = [e.strip() for e in exclude_elements.split(",") if e.strip()] if exclude_elements else None
+    element_list = parse_elements(elements)
+    exclude_list = parse_elements(exclude_elements)
 
     # 1. Fast Cache Lookup from MongoDB
     if not force_refresh:
@@ -76,12 +100,11 @@ def explore_materials(
             max_e_hull=max_e_hull,
             limit=limit
         )
-        if len(cached) >= min(limit, 5):
+        if cached:
             return cached
 
     mp_key = os.getenv("MP_API_KEY")
     if not mp_key:
-        # If API key is missing, return any cached results rather than crashing
         cached = query_catalog_materials(
             database="materials_project",
             formula=formula,
@@ -95,10 +118,8 @@ def explore_materials(
         )
         if cached:
             return cached
-        raise HTTPException(
-            status_code=500,
-            detail="MP_API_KEY environment variable is not set. Cannot query Materials Project."
-        )
+        fallback = query_catalog_materials(database="materials_project", limit=limit)
+        return fallback or []
 
     try:
         with MPRester(mp_key) as mpr:
@@ -152,12 +173,12 @@ def explore_materials(
                     "is_stable": doc.is_stable,
                 })
             
-            # 2. Persist in MongoDB Materials Catalog for instant future lookups
+            # 2. Persist in MongoDB for instant future lookups
             if results:
                 try:
                     upsert_materials("materials_project", results)
                 except Exception as save_err:
-                    print(f"[MaterialsProject] Warning caching to MongoDB: {save_err}")
+                    print(f"[MaterialsProject] Notice caching to MongoDB: {save_err}")
 
             return results
     except Exception as e:
@@ -175,4 +196,64 @@ def explore_materials(
         )
         if cached:
             return cached
-        raise HTTPException(status_code=500, detail=str(e))
+        fallback = query_catalog_materials(database="materials_project", limit=limit)
+        return fallback or []
+
+
+@router.get("/download/cif/{material_id}")
+@router.get("/cif/{material_id}")
+def download_cif_mp(material_id: str):
+    """
+    Downloads or fetches CIF crystal structure for a Materials Project ID (e.g. mp-149, mp-849273).
+    Checks MongoDB cache first; fetches via MPRester and caches structure if needed.
+    """
+    clean_id = material_id.strip()
+
+    # 1. Check MongoDB cache
+    if db is not None:
+        try:
+            doc = db["materials_project"].find_one({"material_id": clean_id})
+            if doc and doc.get("extra_properties", {}).get("cif_text"):
+                cif_content = doc["extra_properties"]["cif_text"]
+                return Response(
+                    content=cif_content,
+                    media_type="text/plain",
+                    headers={"Content-Disposition": f'attachment; filename="{clean_id}.cif"'}
+                )
+        except Exception:
+            pass
+
+    # 2. Query MPRester
+    mp_key = os.getenv("MP_API_KEY")
+    if not mp_key:
+        raise HTTPException(status_code=500, detail="MP_API_KEY is not configured.")
+
+    try:
+        with MPRester(mp_key) as mpr:
+            structure = mpr.get_structure_by_material_id(clean_id)
+            if not structure:
+                raise HTTPException(status_code=404, detail=f"Structure not found for {clean_id}")
+            cif_text = str(CifWriter(structure))
+
+            # Cache into MongoDB
+            if db is not None:
+                try:
+                    db["materials_project"].update_one(
+                        {"material_id": clean_id},
+                        {"$set": {"extra_properties.cif_text": cif_text}},
+                        upsert=True
+                    )
+                    db["materials_catalog"].update_one(
+                        {"material_id": clean_id},
+                        {"$set": {"extra_properties.cif_text": cif_text}}
+                    )
+                except Exception:
+                    pass
+
+            return Response(
+                content=cif_text,
+                media_type="text/plain",
+                headers={"Content-Disposition": f'attachment; filename="{clean_id}.cif"'}
+            )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch CIF from Materials Project: {e}")

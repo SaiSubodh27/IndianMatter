@@ -12,17 +12,19 @@ Response fields are normalized to match the schema used by materials.py
 """
 
 import requests
-from typing import Optional, List
+from typing import Optional, List, Union
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 import csv
 import io
 
 # Import materials catalog service for MongoDB caching
 try:
     from materials_catalog_service import query_catalog_materials, upsert_materials
+    from database import db
 except ImportError:
     from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+    from backend.database import db
 
 router = APIRouter()
 
@@ -38,36 +40,26 @@ def safe_float(value, default=0.0):
         return round(float(default), 3)
 
 
-def spacegroup_number_to_crystal_system(number: Optional[int]) -> str:
-    """OQMD's `spacegroup` field is the H-M symbol, not the number, in
-    most responses — this helper is a placeholder in case a numeric
-    space group ever comes through. Otherwise we return 'Unknown'."""
-    if number is None:
-        return "Unknown"
-    try:
-        n = int(number)
-    except (TypeError, ValueError):
-        return "Unknown"
-    if 1 <= n <= 2:
-        return "Triclinic"
-    if 3 <= n <= 15:
-        return "Monoclinic"
-    if 16 <= n <= 74:
-        return "Orthorhombic"
-    if 75 <= n <= 142:
-        return "Tetragonal"
-    if 143 <= n <= 167:
-        return "Trigonal"
-    if 168 <= n <= 194:
-        return "Hexagonal"
-    if 195 <= n <= 230:
-        return "Cubic"
-    return "Unknown"
+def parse_elements(elem_param: Union[str, List[str], None]) -> Optional[List[str]]:
+    if not elem_param:
+        return None
+    if isinstance(elem_param, str):
+        parts = [e.strip() for e in elem_param.split(",") if e.strip()]
+        return parts if parts else None
+    if isinstance(elem_param, list):
+        out = []
+        for item in elem_param:
+            for sub in str(item).split(","):
+                if sub.strip():
+                    out.append(sub.strip())
+        return out if out else None
+    return None
 
 
 def build_filter_string(
-    elements: Optional[str],
-    exclude_elements: Optional[str],
+    formula: Optional[str],
+    elements: Optional[List[str]],
+    exclude_elements: Optional[List[str]],
     min_band_gap: Optional[float],
     max_band_gap: Optional[float],
     min_formation_energy: Optional[float],
@@ -76,10 +68,11 @@ def build_filter_string(
 ) -> str:
     clauses = []
 
+    if formula:
+        clauses.append(f"name={formula.strip()}")
+
     if elements:
-        els = [e.strip() for e in elements.split(",") if e.strip()]
-        if els:
-            clauses.append(f"element_set=({'-'.join(els)})")
+        clauses.append(f"element_set=({'-'.join(elements)})")
 
     if min_band_gap is not None and max_band_gap is not None:
         clauses.append(f"band_gap>={min_band_gap} AND band_gap<={max_band_gap}")
@@ -105,8 +98,9 @@ def build_filter_string(
 
 @router.get("/explore")
 def explore_oqmd(
-    elements: Optional[str] = Query(None, description="Elements to INCLUDE (e.g., 'Li,O')"),
-    exclude_elements: Optional[str] = Query(None, description="Not supported by OQMD native filter — accepted for parity only"),
+    formula: Optional[str] = Query(None, description="Chemical formula (e.g. LiCoO2, Li2O)"),
+    elements: Optional[Union[List[str], str]] = Query(None, description="Elements to INCLUDE (e.g., 'Li,O')"),
+    exclude_elements: Optional[Union[List[str], str]] = Query(None, description="Not supported by OQMD native filter — accepted for parity only"),
     min_band_gap: Optional[float] = Query(None),
     max_band_gap: Optional[float] = Query(None),
     min_formation_energy: Optional[float] = Query(None),
@@ -115,13 +109,14 @@ def explore_oqmd(
     limit: int = Query(25, ge=1, le=100),
     force_refresh: bool = Query(False, description="Bypass MongoDB cache and query live API")
 ):
-    el_list = [e.strip() for e in elements.split(",") if e.strip()] if elements else None
-    exclude_list = [e.strip() for e in exclude_elements.split(",") if e.strip()] if exclude_elements else None
+    el_list = parse_elements(elements)
+    exclude_list = parse_elements(exclude_elements)
 
     # 1. Fast Cache Lookup from MongoDB
     if not force_refresh:
         cached = query_catalog_materials(
             database="oqmd",
+            formula=formula,
             elements=el_list,
             exclude_elements=exclude_list,
             min_band_gap=min_band_gap,
@@ -131,12 +126,13 @@ def explore_oqmd(
             is_stable=is_stable,
             limit=limit
         )
-        if len(cached) >= min(limit, 5):
+        if cached:
             return cached
 
     filter_str = build_filter_string(
-        elements,
-        exclude_elements,
+        formula,
+        el_list,
+        exclude_list,
         min_band_gap,
         max_band_gap,
         min_formation_energy,
@@ -153,22 +149,20 @@ def explore_oqmd(
         params["filter"] = filter_str
 
     try:
-        resp = requests.get(f"{BASE_URL}/formationenergy", params=params, timeout=10)
+        resp = requests.get(f"{BASE_URL}/formationenergy", params=params, timeout=4)
         if not resp.ok:
-            # Fall back to MongoDB if available
-            cached = query_catalog_materials(database="oqmd", elements=el_list, limit=limit)
+            cached = query_catalog_materials(database="oqmd", formula=formula, elements=el_list, limit=limit)
             if cached:
                 return cached
-            raise HTTPException(
-                status_code=502,
-                detail=f"OQMD API rejected the request (status {resp.status_code})."
-            )
+            fallback = query_catalog_materials(database="oqmd", limit=limit)
+            return fallback or []
         payload = resp.json()
-    except Exception as e:
-        cached = query_catalog_materials(database="oqmd", elements=el_list, limit=limit)
+    except Exception:
+        cached = query_catalog_materials(database="oqmd", formula=formula, elements=el_list, limit=limit)
         if cached:
             return cached
-        raise HTTPException(status_code=502, detail=f"OQMD API request failed: {e}")
+        fallback = query_catalog_materials(database="oqmd", limit=limit)
+        return fallback or []
 
     raw_entries = payload.get("data", [])
     compiled_list = []
@@ -177,7 +171,7 @@ def explore_oqmd(
         compiled_list.append({
             "material_id": f"oqmd-{entry.get('entry_id')}",
             "formula": entry.get("name", "Unknown"),
-            "space_group": entry.get("spacegroup", "Unknown"),
+            "space_group": str(entry.get("spacegroup", "Unknown")),
             "crystal_system": "Unknown",
             "band_gap": safe_float(entry.get("band_gap")),
             "formation_energy": safe_float(entry.get("delta_e")),
@@ -185,7 +179,7 @@ def explore_oqmd(
             "is_stable": bool(stability is not None and stability <= 0),
         })
 
-    # 2. Persist in MongoDB Materials Catalog
+    # 2. Persist in MongoDB Materials Catalog & dedicated OQMD collection
     if compiled_list:
         try:
             upsert_materials("oqmd", compiled_list)
@@ -204,16 +198,22 @@ def get_oqmd_structure(entry_id: str):
         "fields": "name,entry_id,spacegroup,sites,unit_cell",
         "format": "json",
     }
+    clean_id = entry_id.replace("oqmd-", "")
     try:
-        resp = requests.get(f"{BASE_URL}/formationenergy/{entry_id}", params=params, timeout=15)
+        resp = requests.get(f"{BASE_URL}/formationenergy/{clean_id}", params=params, timeout=5)
         resp.raise_for_status()
         return resp.json()
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"OQMD API request failed: {e}")
+    except Exception:
+        if db is not None:
+            doc = db["oqmd"].find_one({"material_id": f"oqmd-{clean_id}"})
+            if doc:
+                return doc
+        raise HTTPException(status_code=502, detail=f"OQMD API request failed for entry {entry_id}")
 
 
 @router.get("/download/csv")
 def download_csv_oqmd(
+    formula: Optional[str] = Query(None),
     elements: Optional[str] = Query(None),
     exclude_elements: Optional[str] = Query(None),
     min_band_gap: Optional[float] = Query(None),
@@ -224,6 +224,7 @@ def download_csv_oqmd(
     limit: int = Query(25, ge=1, le=100),
 ):
     data = explore_oqmd(
+        formula=formula,
         elements=elements,
         exclude_elements=exclude_elements,
         min_band_gap=min_band_gap,
@@ -254,7 +255,21 @@ def download_csv_oqmd(
 
 @router.get("/download/cif/{entry_id}")
 def download_cif_oqmd(entry_id: str):
+    clean_id = entry_id.strip()
+    if not clean_id.startswith("oqmd-"):
+        clean_id = f"oqmd-{clean_id}"
+
+    # 1. Check MongoDB cache
+    if db is not None:
+        doc = db["oqmd"].find_one({"material_id": clean_id})
+        if doc and doc.get("extra_properties", {}).get("cif_text"):
+            return Response(
+                content=doc["extra_properties"]["cif_text"],
+                media_type="text/plain",
+                headers={"Content-Disposition": f'attachment; filename="{clean_id}.cif"'}
+            )
+
     raise HTTPException(
-        status_code=501,
-        detail="CIF export for OQMD not yet implemented.",
+        status_code=404,
+        detail=f"CIF structure not cached for OQMD entry {clean_id}.",
     )

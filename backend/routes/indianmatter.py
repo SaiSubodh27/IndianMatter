@@ -233,6 +233,7 @@ def _build_query(request_params) -> dict:
 @router.get("/explore")
 @router.get("/api/indianmatter/explore")
 def explore_indianmatter(
+    formula: Optional[str] = Query(None),
     elements: Optional[List[str]] = Query(None),
     exclude_elements: Optional[List[str]] = Query(None),
     is_stable: Optional[bool] = Query(None),
@@ -275,6 +276,7 @@ def explore_indianmatter(
 
         cached = query_catalog_materials(
             database="indianmatter",
+            formula=formula,
             elements=target_list or None,
             exclude_elements=excl_list or None,
             min_band_gap=min_band_gap,

@@ -11,17 +11,19 @@ OPTIMADE filter examples from docs:
 """
 
 import requests
-from typing import Optional, List
+from typing import Optional, List, Union
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 import csv
 import io
 
 # Import materials catalog service for MongoDB caching
 try:
     from materials_catalog_service import query_catalog_materials, upsert_materials
+    from database import db
 except ImportError:
     from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+    from backend.database import db
 
 router = APIRouter()
 
@@ -35,18 +37,36 @@ def safe_float(value, default=0.0):
         return round(float(default), 3)
 
 
+def parse_elements(elem_param: Union[str, List[str], None]) -> Optional[List[str]]:
+    if not elem_param:
+        return None
+    if isinstance(elem_param, str):
+        parts = [e.strip() for e in elem_param.split(",") if e.strip()]
+        return parts if parts else None
+    if isinstance(elem_param, list):
+        out = []
+        for item in elem_param:
+            for sub in str(item).split(","):
+                if sub.strip():
+                    out.append(sub.strip())
+        return out if out else None
+    return None
+
+
 def build_optimade_filter(
-    elements: Optional[str],
-    exclude_elements: Optional[str],
+    formula: Optional[str],
+    elements: Optional[List[str]],
+    exclude_elements: Optional[List[str]],
     is_stable: Optional[bool],
 ) -> str:
     clauses = []
 
+    if formula:
+        clauses.append(f'chemical_formula_reduced="{formula.strip()}"')
+
     if elements:
-        els = [e.strip() for e in elements.split(",") if e.strip()]
-        if els:
-            quoted = ",".join(f'"{el}"' for el in els)
-            clauses.append(f"elements HAS ALL {quoted}")
+        quoted = ",".join(f'"{el}"' for el in elements)
+        clauses.append(f"elements HAS ALL {quoted}")
 
     if is_stable is True:
         clauses.append("_jarvis_ehull<=0.05")
@@ -56,20 +76,18 @@ def build_optimade_filter(
     return " AND ".join(clauses)
 
 
-def _fetch(elements, exclude_elements, is_stable, limit):
-    filter_str = build_optimade_filter(elements, exclude_elements, is_stable)
+def _fetch(formula, elements, exclude_elements, is_stable, limit):
+    filter_str = build_optimade_filter(formula, elements, exclude_elements, is_stable)
     params = {"page_limit": limit}
     if filter_str:
         params["filter"] = filter_str
 
     try:
-        resp = requests.get(BASE_URL, params=params, timeout=10)
+        resp = requests.get(BASE_URL, params=params, timeout=4)
         resp.raise_for_status()
         return resp.json()
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         raise HTTPException(status_code=502, detail=f"JARVIS API request failed: {e}")
-    except ValueError:
-        raise HTTPException(status_code=502, detail="JARVIS API returned a non-JSON response.")
 
 
 def _normalize(entry: dict) -> dict:
@@ -91,8 +109,9 @@ def _normalize(entry: dict) -> dict:
 
 @router.get("/explore")
 def explore_jarvis(
-    elements: Optional[str] = Query(None, description="Elements to INCLUDE (e.g., 'Li,O')"),
-    exclude_elements: Optional[str] = Query(None, description="Not fully supported by JARVIS OPTIMADE filter"),
+    formula: Optional[str] = Query(None, description="Chemical formula (e.g. Si, MoS2)"),
+    elements: Optional[Union[List[str], str]] = Query(None, description="Elements to INCLUDE (e.g., 'Li,O')"),
+    exclude_elements: Optional[Union[List[str], str]] = Query(None, description="Not fully supported by JARVIS OPTIMADE filter"),
     min_band_gap: Optional[float] = Query(None),
     max_band_gap: Optional[float] = Query(None),
     min_formation_energy: Optional[float] = Query(None),
@@ -101,13 +120,14 @@ def explore_jarvis(
     limit: int = Query(25, ge=1, le=100),
     force_refresh: bool = Query(False, description="Bypass MongoDB cache and query live API")
 ):
-    el_list = [e.strip() for e in elements.split(",") if e.strip()] if elements else None
-    exclude_list = [e.strip() for e in exclude_elements.split(",") if e.strip()] if exclude_elements else None
+    el_list = parse_elements(elements)
+    exclude_list = parse_elements(exclude_elements)
 
     # 1. Fast Cache Lookup from MongoDB
     if not force_refresh:
         cached = query_catalog_materials(
             database="jarvis",
+            formula=formula,
             elements=el_list,
             exclude_elements=exclude_list,
             min_band_gap=min_band_gap,
@@ -117,11 +137,11 @@ def explore_jarvis(
             is_stable=is_stable,
             limit=limit
         )
-        if len(cached) >= min(limit, 5):
+        if cached:
             return cached
 
     try:
-        payload = _fetch(elements, exclude_elements, is_stable, limit)
+        payload = _fetch(formula, el_list, exclude_list, is_stable, limit)
         raw_entries = payload.get("data", [])
         compiled_list = [_normalize(e) for e in raw_entries]
 
@@ -134,7 +154,7 @@ def explore_jarvis(
         if max_formation_energy is not None:
             compiled_list = [m for m in compiled_list if m["formation_energy"] <= max_formation_energy]
 
-        # 2. Persist in MongoDB Materials Catalog
+        # 2. Persist in MongoDB Materials Catalog & dedicated JARVIS collection
         if compiled_list:
             try:
                 upsert_materials("jarvis", compiled_list)
@@ -142,25 +162,32 @@ def explore_jarvis(
                 pass
 
         return compiled_list[:limit]
-    except Exception as e:
-        cached = query_catalog_materials(database="jarvis", elements=el_list, limit=limit)
+    except Exception:
+        cached = query_catalog_materials(database="jarvis", formula=formula, elements=el_list, limit=limit)
         if cached:
             return cached
-        raise HTTPException(status_code=502, detail=f"JARVIS API request failed: {e}")
+        fallback = query_catalog_materials(database="jarvis", limit=limit)
+        return fallback or []
 
 
 @router.get("/structure/{jid}")
 def get_jarvis_structure(jid: str):
+    clean_id = jid.replace("jarvis-", "")
     try:
-        resp = requests.get(f"{BASE_URL}{jid}", timeout=20)
+        resp = requests.get(f"{BASE_URL}{clean_id}", timeout=5)
         resp.raise_for_status()
         return resp.json()
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"JARVIS API request failed: {e}")
+    except Exception:
+        if db is not None:
+            doc = db["jarvis"].find_one({"material_id": f"jarvis-{clean_id}"})
+            if doc:
+                return doc
+        raise HTTPException(status_code=502, detail=f"JARVIS API request failed for structure {jid}")
 
 
 @router.get("/download/csv")
 def download_csv_jarvis(
+    formula: Optional[str] = Query(None),
     elements: Optional[str] = Query(None),
     exclude_elements: Optional[str] = Query(None),
     min_band_gap: Optional[float] = Query(None),
@@ -171,6 +198,7 @@ def download_csv_jarvis(
     limit: int = Query(25, ge=1, le=100),
 ):
     data = explore_jarvis(
+        formula=formula,
         elements=elements,
         exclude_elements=exclude_elements,
         min_band_gap=min_band_gap,
@@ -201,7 +229,16 @@ def download_csv_jarvis(
 
 @router.get("/download/cif/{jid}")
 def download_cif_jarvis(jid: str):
-    raise HTTPException(
-        status_code=501,
-        detail="CIF export for JARVIS not yet implemented.",
-    )
+    clean_id = jid.strip()
+    if not clean_id.startswith("jarvis-"):
+        clean_id = f"jarvis-{clean_id}"
+
+    if db is not None:
+        doc = db["jarvis"].find_one({"material_id": clean_id})
+        if doc and doc.get("extra_properties", {}).get("cif_text"):
+            return Response(
+                content=doc["extra_properties"]["cif_text"],
+                media_type="text/plain",
+                headers={"Content-Disposition": f'attachment; filename="{clean_id}.cif"'}
+            )
+    raise HTTPException(status_code=404, detail=f"CIF structure not cached for JARVIS entry {clean_id}")
