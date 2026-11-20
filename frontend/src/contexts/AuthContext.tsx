@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 export interface UserProfile {
   name: string;
   email: string;
+  phone?: string;
   avatar?: string;
   isGoogle?: boolean;
   provider?: "google" | "email" | "github";
@@ -11,7 +12,7 @@ export interface UserProfile {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: UserProfile | null;
-  signIn: (data: Partial<UserProfile>) => void;
+  signIn: (data: Partial<UserProfile>, token?: string) => void;
   signInWithGoogle: (data?: Partial<UserProfile>) => void;
   signOut: () => void;
 }
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  const signIn = (data: Partial<UserProfile>) => {
+  const signIn = (data: Partial<UserProfile>, token?: string) => {
     const rawEmail = (data.email || "").trim();
     const isGoogle =
       data.isGoogle ??
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const newUser: UserProfile = {
       name,
       email,
+      phone: data.phone,
       isGoogle,
       provider: data.provider || (isGoogle ? "google" : "email"),
       avatar:
@@ -90,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-    localStorage.setItem(TOKEN_KEY, "token_" + Date.now());
+    localStorage.setItem(TOKEN_KEY, token || ("token_" + Date.now()));
     setUser(newUser);
   };
 

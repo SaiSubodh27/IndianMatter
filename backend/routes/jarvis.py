@@ -19,10 +19,10 @@ import io
 
 # Import materials catalog service for MongoDB caching
 try:
-    from materials_catalog_service import query_catalog_materials, upsert_materials
+    from materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from database import db
 except ImportError:
-    from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+    from backend.materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from backend.database import db
 
 router = APIRouter()
@@ -62,7 +62,10 @@ def build_optimade_filter(
     clauses = []
 
     if formula:
-        clauses.append(f'chemical_formula_reduced="{formula.strip()}"')
+        f_name = formula.strip()
+        if f_name.upper() in LITHIUM_BATTERY_FAMILIES:
+            f_name = LITHIUM_BATTERY_FAMILIES[f_name.upper()]["canonical_formula"]
+        clauses.append(f'chemical_formula_reduced="{f_name}"')
 
     if elements:
         quoted = ",".join(f'"{el}"' for el in elements)

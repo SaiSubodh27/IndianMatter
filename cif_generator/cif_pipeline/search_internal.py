@@ -17,15 +17,98 @@ log = logging.getLogger("cif_pipeline.search_internal")
 
 
 def _query_internal_db(formula: str) -> List[SearchMatch]:
-    """TODO: query your actual backing store (Postgres/Mongo/etc).
-    Return one SearchMatch per stored structure matching this formula key -
-    including multiple rows if you already store several polymorphs. Set
-    `source_url` to a link back into your own UI's record view, e.g.
-    f"/compounds/{record_id}", so the pipeline's provenance display works the
-    same way for internal records as it does for external ones.
     """
-    log.info(f"[internal] querying '{formula}' (stub)")
-    return []
+    Queries MongoDB (generated_cifs, materials_catalog, material_predictions, materials_project)
+    for stored crystal structures matching this formula key.
+    """
+    log.info(f"[internal] querying MongoDB for '{formula}'")
+    results: List[SearchMatch] = []
+    
+    try:
+        from pymatgen.core import Structure
+        import os
+        from pymongo import MongoClient
+
+        # Connect to MongoDB with timeout
+        mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017/IndianMaterialsAI")
+        client = None
+        for cand in [mongo_url, "mongodb://localhost:27017/IndianMaterialsAI", "mongodb://127.0.0.1:27017/IndianMaterialsAI"]:
+            try:
+                c = MongoClient(cand, serverSelectionTimeoutMS=1500)
+                c.admin.command("ping")
+                client = c
+                break
+            except Exception:
+                continue
+
+        if not client:
+            return []
+
+        db = client["IndianMaterialsAI"]
+        clean_f = formula.replace(" ", "").strip()
+        query = {"$or": [
+            {"formula": clean_f},
+            {"reduced_formula": clean_f}
+        ]}
+
+        seen_hashes = set()
+
+        # 1. Search generated_cifs
+        if "generated_cifs" in db.list_collection_names():
+            for doc in db["generated_cifs"].find(query):
+                cif_text = doc.get("cif_text")
+                if cif_text and isinstance(cif_text, str) and cif_text.strip():
+                    import hashlib
+                    chash = hashlib.sha256(cif_text.encode("utf-8")).hexdigest()
+                    if chash in seen_hashes:
+                        continue
+                    seen_hashes.add(chash)
+                    try:
+                        struct = Structure.from_str(cif_text, fmt="cif")
+                        results.append(SearchMatch(
+                            source="internal",
+                            record_id=str(doc.get("cif_id") or doc.get("_id")),
+                            structure=struct,
+                            space_group=doc.get("space_group"),
+                            formula=doc.get("formula", clean_f),
+                            match_confidence=1.0,
+                            source_url=f"/cif/{doc.get('cif_id', '')}",
+                            is_theoretical=doc.get("is_ai_generated", False),
+                            extra={"cif_text": cif_text, "source": doc.get("source", "internal_mongodb")}
+                        ))
+                    except Exception as parse_err:
+                        log.debug(f"Pymatgen parse error for generated_cif: {parse_err}")
+
+        # 2. Search materials_catalog
+        if "materials_catalog" in db.list_collection_names() and len(results) < 5:
+            for doc in db["materials_catalog"].find(query):
+                cif_text = doc.get("cif_text") or doc.get("cif") or (doc.get("extra_properties") or {}).get("cif_text")
+                if cif_text and isinstance(cif_text, str) and cif_text.strip():
+                    import hashlib
+                    chash = hashlib.sha256(cif_text.encode("utf-8")).hexdigest()
+                    if chash in seen_hashes:
+                        continue
+                    seen_hashes.add(chash)
+                    try:
+                        struct = Structure.from_str(cif_text, fmt="cif")
+                        results.append(SearchMatch(
+                            source="internal",
+                            record_id=str(doc.get("material_id") or doc.get("_id")),
+                            structure=struct,
+                            space_group=doc.get("space_group"),
+                            formula=doc.get("formula", clean_f),
+                            match_confidence=1.0,
+                            source_url=f"/materials/{doc.get('material_id', '')}",
+                            is_theoretical=doc.get("is_ai_generated", False),
+                            extra={"cif_text": cif_text, "database": doc.get("database", "catalog")}
+                        ))
+                    except Exception as parse_err:
+                        log.debug(f"Pymatgen parse error for catalog item: {parse_err}")
+
+    except Exception as e:
+        log.warning(f"Error querying internal MongoDB for '{formula}': {e}")
+
+    return results
 
 
 def search_internal_database(

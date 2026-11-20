@@ -20,10 +20,10 @@ import io
 
 # Import materials catalog service for MongoDB caching
 try:
-    from materials_catalog_service import query_catalog_materials, upsert_materials
+    from materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from database import db
 except ImportError:
-    from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+    from backend.materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from backend.database import db
 
 router = APIRouter()
@@ -69,7 +69,10 @@ def build_filter_string(
     clauses = []
 
     if formula:
-        clauses.append(f"name={formula.strip()}")
+        f_name = formula.strip()
+        if f_name.upper() in LITHIUM_BATTERY_FAMILIES:
+            f_name = LITHIUM_BATTERY_FAMILIES[f_name.upper()]["canonical_formula"]
+        clauses.append(f"name={f_name}")
 
     if elements:
         clauses.append(f"element_set=({'-'.join(elements)})")
@@ -175,8 +178,8 @@ def explore_oqmd(
             "crystal_system": "Unknown",
             "band_gap": safe_float(entry.get("band_gap")),
             "formation_energy": safe_float(entry.get("delta_e")),
-            "density": 0.0,
-            "is_stable": bool(stability is not None and stability <= 0),
+            "density": None,
+            "is_stable": bool(stability <= 0) if stability is not None else None,
         })
 
     # 2. Persist in MongoDB Materials Catalog & dedicated OQMD collection

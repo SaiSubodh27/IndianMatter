@@ -7,11 +7,27 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     name: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+
+class ResendOTPRequest(BaseModel):
+    email: EmailStr
+
+
+class LoginOTPResponse(BaseModel):
+    status: str
+    message: str
+    email: str
 
 
 class GoogleLogin(BaseModel):
@@ -35,6 +51,7 @@ class UserInDB(BaseModel):
     email: EmailStr
     hashed_password: Optional[str] = None
     name: Optional[str] = None
+    phone: Optional[str] = None
     provider: str = "email"
     providers: List[str] = ["email"]
     google_id: Optional[str] = None

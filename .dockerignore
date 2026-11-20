@@ -5,13 +5,17 @@
 .agents
 Final_ validation.code-workspace
 
-# Offline Training, Research & Scratch Files (Exclude on Deploy)
+# Offline Training, Research, Backups & Scratch Files
 offline_training_and_research/
 datasets/raw_archives/
+backups/
+n8n_data/
 
 # Node / Frontend Build
 node_modules/
+frontend/node_modules/
 dist/
+frontend/dist/
 
 # Python Virtual Environments & Bytecode
 .venv/
@@ -21,9 +25,11 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # Temporary & Log files
 *.log
 .DS_Store
 Thumbs.db
-

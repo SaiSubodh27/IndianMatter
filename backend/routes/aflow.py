@@ -20,10 +20,10 @@ import io
 
 # Import materials catalog service for MongoDB caching
 try:
-    from materials_catalog_service import query_catalog_materials, upsert_materials
+    from materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from database import db
 except ImportError:
-    from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+    from backend.materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from backend.database import db
 
 router = APIRouter()
@@ -109,6 +109,12 @@ def explore_aflow(
     el_list = parse_elements(elements)
     exclude_list = parse_elements(exclude_elements)
 
+    if formula and formula.strip().upper() in LITHIUM_BATTERY_FAMILIES:
+        fam_info = LITHIUM_BATTERY_FAMILIES[formula.strip().upper()]
+        formula = fam_info["canonical_formula"]
+        if not el_list:
+            el_list = fam_info.get("elements")
+
     # 1. Fast Cache Lookup from MongoDB
     if not force_refresh:
         cached = query_catalog_materials(
@@ -169,7 +175,7 @@ def explore_aflow(
         density = safe_float(entry.get("density"))
 
         raw_stability = entry.get("enthalpy_formation_cell")
-        is_stable_val = safe_float(raw_stability) <= 0.001 if raw_stability is not None else False
+        is_stable_val = (safe_float(raw_stability) <= 0.001) if raw_stability is not None else None
 
         auid = entry.get("auid") or entry.get("aflow_id") or "unknown"
         clean_auid = str(auid).replace(":", "_")

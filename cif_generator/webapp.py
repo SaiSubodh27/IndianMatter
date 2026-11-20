@@ -768,6 +768,30 @@ def generate_cif(req: GenerationRequest) -> Dict[str, Any]:
             "co_dopants": co_dopants,
         }
 
+    # Persist every generated CIF into MongoDB
+    stored_cif_doc = None
+    if result.cif_string:
+        try:
+            try:
+                from cif_storage_service import save_generated_cif
+            except ImportError:
+                from backend.cif_storage_service import save_generated_cif
+            stored_cif_doc = save_generated_cif(
+                cif_text=result.cif_string,
+                formula=formula,
+                source=retrieved_from,
+                metadata={
+                    "is_doped": bool(result.source == "generated_doped" or req.is_doped_hint),
+                    "space_group": getattr(result, "final_space_group", None),
+                    "energy": getattr(result, "energy", None),
+                    "max_force": getattr(result, "max_force", None),
+                    "doping_spec": doping_spec_data,
+                    "elapsed_seconds": total_elapsed,
+                }
+            )
+        except Exception as e_store:
+            log.warning(f"Notice auto-storing generated CIF to MongoDB: {e_store}")
+
     return {
         "success": result.cif_string is not None,
         "source": result.source,
@@ -782,6 +806,8 @@ def generate_cif(req: GenerationRequest) -> Dict[str, Any]:
         "notes": result.notes,
         "cif_string": result.cif_string,
         "raw_cif_string": getattr(result, "raw_cif_string", None),
+        "stored_in_mongodb": stored_cif_doc is not None,
+        "cif_id": stored_cif_doc.get("cif_id") if stored_cif_doc else None,
         "reliable": getattr(result, "is_reliable", True),
         "is_reliable": getattr(result, "is_reliable", True),
         "relaxation_skipped": getattr(result, "relaxation_skipped", False),
@@ -891,9 +917,35 @@ def doped_cif_endpoint(req: DopedCifRequest) -> Dict[str, Any]:
     regime = getattr(result, "regime", None)
     plan = getattr(result, "fraction_plan", None)
 
+    # Auto-save generated doped CIF to MongoDB
+    stored_doped_doc = None
+    if result.best_cif:
+        try:
+            try:
+                from cif_storage_service import save_generated_cif
+            except ImportError:
+                from backend.cif_storage_service import save_generated_cif
+            stored_doped_doc = save_generated_cif(
+                cif_text=result.best_cif,
+                formula=req.host_formula,
+                source=f"Doped-Spinel Pipeline ({req.dopant_element}->{req.host_site_species or 'site'} {req.dopant_fraction})",
+                metadata={
+                    "host_formula": req.host_formula,
+                    "dopant_element": req.dopant_element,
+                    "host_site_species": req.host_site_species,
+                    "dopant_fraction": req.dopant_fraction,
+                    "is_doped": True,
+                    "representation": result.representation,
+                }
+            )
+        except Exception as e_d_store:
+            log.warning(f"Notice storing doped CIF to MongoDB: {e_d_store}")
+
     return {
         "status": result.status,
         "best_cif": result.best_cif,
+        "stored_in_mongodb": stored_doped_doc is not None,
+        "cif_id": stored_doped_doc.get("cif_id") if stored_doped_doc else None,
         "cif_count": len(result.cifs or []),
         "cifs": result.cifs or [],
         "representation": result.representation,

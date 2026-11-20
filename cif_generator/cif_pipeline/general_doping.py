@@ -35,9 +35,14 @@ except ImportError:
     from pymatgen.core.local_env import CrystalNN
 from pymatgen.io.cif import CifWriter
 
-from cif_pipeline.site_preference import (
-    get_shannon_radius, get_default_oxidation_state, SHANNON_RADII
-)
+try:
+    from .site_preference import (
+        get_shannon_radius, get_default_oxidation_state, SHANNON_RADII
+    )
+except (ImportError, ValueError):
+    from cif_pipeline.site_preference import (
+        get_shannon_radius, get_default_oxidation_state, SHANNON_RADII
+    )
 
 log = logging.getLogger("cif_pipeline.general_doping")
 

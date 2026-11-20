@@ -16,9 +16,14 @@ lithium_dataset_full_cleaned.csv
 # Trial uploads (duplicates of Obliex CIFs)
 trial_uploads/
 
-# Backup
+# Backup & Local Storage
 IonCastBackup/
 IonCast/
+backups/
+n8n_data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # Temp files
 temp_features_train.txt
@@ -34,6 +39,5 @@ Thumbs.db
 backend/.env
 node_modules/
 .env.gpu
-
 
 *.zip

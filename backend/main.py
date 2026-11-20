@@ -42,6 +42,7 @@ from routes import (
     materials_routes,
     transport_router,
     literature_routes,
+    lithium_routes,
 )
 from model_service import load_models
 
@@ -122,6 +123,7 @@ app.include_router(jarvis.router, prefix="/api/jarvis", tags=["JARVIS"])
 app.include_router(database_routes.router, prefix="/api/dataset", tags=["Dataset"])
 app.include_router(indianmatter.router, prefix="/api/indianmatter", tags=["IndianMatter DB"])
 app.include_router(literature_routes.router, prefix="/api/literature", tags=["Literature"])
+app.include_router(lithium_routes.router, prefix="/api/lithium", tags=["Lithium & Battery Materials"])
 
 # ---------------------------------------------------------
 # CALCULATIONS ROUTER

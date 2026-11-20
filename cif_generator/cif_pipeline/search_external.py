@@ -112,18 +112,21 @@ _JARVIS_INDEX: Optional[dict] = None  # formula -> list[dict]
 
 
 def _get_jarvis_index() -> dict:
-    """Lazily load and index the JARVIS DFT-3D dataset.
+    """Lazily load and index the JARVIS DFT-3D dataset if jarvis-tools is installed.
 
-    First-time use downloads ~1.5 GB from figshare. If the download fails
-    (network timeout, corrupted file), we set the index to empty and log a
-    clear message — the pipeline continues without JARVIS results rather
-    than blocking.
+    If jarvis-tools is not installed or download fails, gracefully returns an empty index.
+    The primary search uses the direct NIST OPTIMADE REST API.
     """
     global _JARVIS_INDEX
     if _JARVIS_INDEX is not None:
         return _JARVIS_INDEX
 
     try:
+        import importlib.util
+        if importlib.util.find_spec("jarvis") is None:
+            _JARVIS_INDEX = {}
+            return _JARVIS_INDEX
+
         from jarvis.db.figshare import data as jarvis_data
         log.info("[JARVIS] Loading DFT-3D dataset (first time downloads ~1.5 GB from figshare)...")
         dft_3d = jarvis_data("dft_3d")
@@ -137,13 +140,7 @@ def _get_jarvis_index() -> dict:
             _JARVIS_INDEX.setdefault(formula, []).append(entry)
         log.info(f"[JARVIS] Indexed {len(dft_3d)} entries across {len(_JARVIS_INDEX)} unique formulas")
     except Exception as e:
-        log.warning(
-            f"[JARVIS] Could not load DFT-3D dataset: {e}. "
-            f"This usually means the ~1.5 GB download from figshare failed "
-            f"(network timeout or corrupted file). JARVIS searches will be "
-            f"skipped. To retry, restart the pipeline — the download will be "
-            f"attempted again automatically."
-        )
+        log.debug(f"[JARVIS] Local figshare dataset not available: {e}")
         _JARVIS_INDEX = {}
 
     return _JARVIS_INDEX
@@ -179,9 +176,9 @@ def _query_materials_project(formula: str, api_key: str) -> List[SearchMatch]:
             fields = ["material_id", "structure", "symmetry", "formula_pretty",
                       "formation_energy_per_atom", "energy_above_hull"]
             if stripped.lower().startswith("mp-") or stripped.lower().startswith("mvc-"):
-                docs = summary_api.search(material_ids=[stripped], fields=fields)
+                docs = summary_api.search(material_ids=[stripped], fields=fields, num_chunks=1)
             else:
-                docs = summary_api.search(formula=stripped, fields=fields)
+                docs = summary_api.search(formula=stripped, fields=fields, num_chunks=1)
 
             for doc in docs:
                 sg = None
@@ -316,43 +313,120 @@ def _query_oqmd(formula: str) -> List[SearchMatch]:
 
 
 def _query_jarvis(formula: str) -> List[SearchMatch]:
-    """Query the JARVIS DFT-3D dataset.
-    No authentication needed — data is public, downloaded via jarvis-tools.
-    Uses a cached index so the full dataset isn't re-iterated per call.
-    """
-    try:
-        from jarvis.core.atoms import Atoms as JarvisAtoms
+    """Query the JARVIS DFT-3D dataset via the official NIST OPTIMADE REST API.
 
-        index = _get_jarvis_index()
-        entries = index.get(formula, [])
-        if not entries:
-            log.info(f"[JARVIS] no results for '{formula}'")
+    No authentication or heavy 1.5GB jarvis-tools download required.
+    Converts OPTIMADE structure representations directly into pymatgen Structure objects.
+    Falls back gracefully to local jarvis-tools if installed, or returns an empty list.
+    """
+    matches: List[SearchMatch] = []
+    reduced_formula = formula
+    try:
+        reduced_formula = Composition(formula).reduced_formula
+    except Exception:
+        pass
+
+    # 1. Primary: Query NIST OPTIMADE REST API
+    try:
+        url = "https://jarvis.nist.gov/optimade/jarvisdft/v1/structures"
+        params = {
+            "filter": f'chemical_formula_reduced="{reduced_formula}"',
+            "page_limit": 20,
+        }
+        headers = {"User-Agent": "IndianMaterialsAI/1.0 (CIF Pipeline)"}
+        resp = requests.get(url, params=params, headers=headers, timeout=SOCKET_TIMEOUT_SECONDS)
+        if resp.status_code == 200:
+            payload = resp.json()
+            data = payload.get("data", [])
+            for item in data:
+                try:
+                    attrs = item.get("attributes", {})
+                    lattice = attrs.get("lattice_vectors")
+                    species = attrs.get("species_at_sites")
+                    coords = attrs.get("cartesian_site_positions")
+                    if not (lattice and species and coords):
+                        continue
+
+                    struct = PmgStructure(
+                        lattice=lattice,
+                        species=species,
+                        coords=coords,
+                        coords_are_cartesian=True,
+                    )
+                    jid = attrs.get("_jarvis_jid") or item.get("id", "")
+                    spg = attrs.get("_jarvis_spg_symbol")
+                    desc_formula = attrs.get("chemical_formula_descriptive") or attrs.get("chemical_formula_reduced") or formula
+
+                    extra = {}
+                    for k_in, k_out in [
+                        ("_jarvis_optb88vdw_total_energy", "optb88vdw_total_energy"),
+                        ("_jarvis_ehull", "ehull"),
+                        ("_jarvis_mbj_bandgap", "mbj_bandgap"),
+                        ("_jarvis_formation_energy_peratom", "formation_energy_peratom"),
+                        ("_jarvis_bulk_modulus_kv", "bulk_modulus_kv"),
+                        ("_jarvis_shear_modulus_gv", "shear_modulus_gv"),
+                    ]:
+                        val = attrs.get(k_in)
+                        if val is not None and val != -99999 and val != "-99999" and val != -9999.0:
+                            extra[k_out] = val
+
+                    matches.append(SearchMatch(
+                        source="JARVIS",
+                        record_id=jid,
+                        structure=struct,
+                        space_group=str(spg) if spg else None,
+                        formula=desc_formula,
+                        source_url=f"https://www.ctcms.nist.gov/~knc6/static/JARVIS-DFT/{jid}.xml" if jid else "https://jarvis.nist.gov/",
+                        extra=extra,
+                    ))
+                except Exception as entry_err:
+                    log.debug(f"[JARVIS] could not parse entry {item.get('id')}: {entry_err}")
+                    continue
+
+            if matches:
+                log.info(f"[JARVIS] found {len(matches)} result(s) via NIST OPTIMADE for '{formula}'")
+                return matches
+            else:
+                log.info(f"[JARVIS] no results for '{formula}'")
+                return []
+    except Exception as api_err:
+        log.warning(f"[JARVIS] OPTIMADE REST query failed for '{formula}': {api_err}")
+
+    # 2. Secondary fallback: Local jarvis-tools (only if installed and OPTIMADE failed)
+    import importlib.util
+    if importlib.util.find_spec("jarvis") is not None:
+        try:
+            from jarvis.core.atoms import Atoms as JarvisAtoms
+            index = _get_jarvis_index()
+            entries = index.get(formula, [])
+            if not entries:
+                log.info(f"[JARVIS] no results for '{formula}'")
+                return []
+
+            for d in entries:
+                try:
+                    atoms = JarvisAtoms.from_dict(d["atoms"])
+                    struct = atoms.pymatgen_converter()
+                    matches.append(SearchMatch(
+                        source="JARVIS",
+                        record_id=d.get("jid", ""),
+                        structure=struct,
+                        space_group=d.get("spg_symbol"),
+                        formula=d.get("formula", formula),
+                        source_url=f"https://www.ctcms.nist.gov/~knc6/static/JARVIS-DFT/{d.get('jid', '')}.xml",
+                        extra={k: d[k] for k in ("optb88vdw_total_energy", "ehull", "mbj_bandgap") if k in d and d[k] is not None},
+                    ))
+                except Exception as entry_err:
+                    log.debug(f"[JARVIS] could not convert entry {d.get('jid')}: {entry_err}")
+                    continue
+
+            log.info(f"[JARVIS] found {len(matches)} result(s) via local cache for '{formula}'")
+            return matches
+        except Exception as e:
+            log.warning(f"[JARVIS] local query failed for '{formula}': {e}")
             return []
 
-        matches = []
-        for d in entries:
-            try:
-                atoms = JarvisAtoms.from_dict(d["atoms"])
-                struct = atoms.pymatgen_converter()
-                matches.append(SearchMatch(
-                    source="JARVIS",
-                    record_id=d.get("jid", ""),
-                    structure=struct,
-                    space_group=d.get("spg_symbol"),
-                    formula=d.get("formula", formula),
-                    source_url=f"https://www.ctcms.nist.gov/~knc6/static/JARVIS-DFT/{d.get('jid', '')}.xml",
-                    extra={k: d[k] for k in ("optb88vdw_total_energy", "ehull", "mbj_bandgap") if k in d and d[k] is not None},
-                ))
-            except Exception as entry_err:
-                log.debug(f"[JARVIS] could not convert entry {d.get('jid')}: {entry_err}")
-                continue
-
-        log.info(f"[JARVIS] found {len(matches)} result(s) for '{formula}'")
-        return matches
-
-    except Exception as e:
-        log.error(f"[JARVIS] query failed for '{formula}': {e}")
-        return []
+    return matches
 
 
 def _query_cod(formula: str) -> List[SearchMatch]:
@@ -547,10 +621,19 @@ def search_external_databases(
     log.info(f"Searching external DBs with normalized key='{search_key}' (doped={is_doped})")
 
     all_matches: List[SearchMatch] = []
-    all_matches += _query_materials_project(search_key, mp_api_key)
-    all_matches += _query_oqmd(search_key)
-    all_matches += _query_jarvis(search_key)
-    all_matches += _query_cod(search_key)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="db-search") as executor:
+        f_mp = executor.submit(_query_materials_project, search_key, mp_api_key)
+        f_oqmd = executor.submit(_query_oqmd, search_key)
+        f_jarvis = executor.submit(_query_jarvis, search_key)
+        f_cod = executor.submit(_query_cod, search_key)
+
+        for f in [f_mp, f_oqmd, f_jarvis, f_cod]:
+            try:
+                res = f.result()
+                if res:
+                    all_matches.extend(res)
+            except Exception as e:
+                log.warning(f"External database query thread failed: {e}")
 
     if is_doped and doping_spec is not None:
         # For doped compounds, filter hits by tolerance-based composition match

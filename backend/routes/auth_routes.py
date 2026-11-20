@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
@@ -22,8 +23,17 @@ from auth import (
     create_access_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from db_models import UserCreate, UserLogin, GoogleLogin, Token
+from db_models import (
+    UserCreate,
+    UserLogin,
+    VerifyOTPRequest,
+    ResendOTPRequest,
+    LoginOTPResponse,
+    GoogleLogin,
+    Token,
+)
 from database import users_collection
+from email_service import send_otp_email
 
 router = APIRouter()
 
@@ -55,6 +65,7 @@ def _user_public_dict(user: dict) -> dict:
         "id": str(user.get("_id")),
         "email": user.get("email"),
         "name": user.get("name"),
+        "phone": user.get("phone"),
         "provider": user.get("provider", "email"),
         "created_at": user.get("created_at"),
         "last_login": user.get("last_login"),
@@ -75,7 +86,9 @@ def register(payload: UserCreate):
         "email": payload.email,
         "hashed_password": get_password_hash(payload.password),
         "name": payload.name,
+        "phone": payload.phone,
         "provider": "email",
+        "providers": ["email"],
         "created_at": now,
         "last_login": now,
         "saved_materials": [],
@@ -96,7 +109,7 @@ def register(payload: UserCreate):
     )
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginOTPResponse)
 def login(payload: UserLogin):
     user = users_collection.find_one({"email": payload.email})
     if not user or not user.get("hashed_password"):
@@ -111,11 +124,71 @@ def login(payload: UserLogin):
             detail="Incorrect email or password.",
         )
 
+    # Generate 6-digit OTP and store with 10-minute expiry
+    otp = f"{random.randint(100000, 999999)}"
+    otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+
     users_collection.update_one(
         {"_id": user["_id"]},
-        {"$set": {"last_login": datetime.utcnow()}}
+        {"$set": {"otp": otp, "otp_expiry": otp_expiry}}
     )
-    user["last_login"] = datetime.utcnow()
+
+    # Send verification email via SMTP
+    email_sent = send_otp_email(
+        to_email=payload.email,
+        otp_code=otp,
+        user_name=user.get("name")
+    )
+    if not email_sent:
+        print(f"[auth] Warning: OTP email could not be delivered to {payload.email}")
+
+    return LoginOTPResponse(
+        status="otp_sent",
+        message=f"A 6-digit verification code has been sent to {payload.email}.",
+        email=payload.email,
+    )
+
+
+@router.post("/verify-otp", response_model=Token)
+def verify_otp(payload: VerifyOTPRequest):
+    user = users_collection.find_one({"email": payload.email})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or session expired.",
+        )
+
+    stored_otp = user.get("otp")
+    otp_expiry = user.get("otp_expiry")
+
+    if not stored_otp or not otp_expiry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active verification code found. Please request a new code.",
+        )
+
+    if datetime.utcnow() > otp_expiry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a new one.",
+        )
+
+    if str(stored_otp).strip() != payload.otp.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect verification code. Please check and try again.",
+        )
+
+    # Clear OTP after successful validation
+    now = datetime.utcnow()
+    users_collection.update_one(
+        {"_id": user["_id"]},
+        {
+            "$unset": {"otp": "", "otp_expiry": ""},
+            "$set": {"last_login": now}
+        }
+    )
+    user["last_login"] = now
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -127,6 +200,31 @@ def login(payload: UserLogin):
         token_type="bearer",
         user=_user_public_dict(user),
     )
+
+
+@router.post("/resend-otp")
+def resend_otp(payload: ResendOTPRequest):
+    user = users_collection.find_one({"email": payload.email})
+    if not user:
+        # Prevent user enumeration by returning generic response
+        return {"status": "otp_sent", "message": f"If an account exists, a verification code was sent to {payload.email}."}
+
+    otp = f"{random.randint(100000, 999999)}"
+    otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+
+    users_collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"otp": otp, "otp_expiry": otp_expiry}}
+    )
+
+    send_otp_email(
+        to_email=payload.email,
+        otp_code=otp,
+        user_name=user.get("name")
+    )
+
+    return {"status": "otp_sent", "message": f"A new verification code has been sent to {payload.email}."}
+
 
 
 @router.get("/google/login")

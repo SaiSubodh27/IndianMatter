@@ -1,10 +1,12 @@
+name: indianmatter
+
 services:
   mongodb:
     image: mongo:7.0
     container_name: indianmatter-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "${MONGO_PORT:-27017}:27017"
     environment:
       MONGO_INITDB_DATABASE: IndianMaterialsAI
     volumes:
@@ -25,13 +27,16 @@ services:
     container_name: indianmatter-backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
       - MONGO_URL=mongodb://mongodb:27017/IndianMaterialsAI
       - PORT=8000
-    env_file:
-      - path: ./backend/.env
-        required: false
+      - MP_API_KEY=${MP_API_KEY:-}
+      - SESSION_SECRET=${SESSION_SECRET:-fallback-secret-change-me}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -45,22 +50,59 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+        - VITE_TOPATH_URL=${VITE_TOPATH_URL:-http://localhost:8000}
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-https://oyqjwtkaivigwwgiqxco.supabase.co}
+        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95cWp3dGthaXZpZ3d3Z2lxeGNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MzE0NDQsImV4cCI6MjEwNzAwNzQ0NH0.w8ocUueTKZdTNoMy93_kztACxlCDvFSIBCbroX-LfyA}
     container_name: indianmatter-frontend
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000
-      - VITE_TOPATH_URL=http://localhost:8000
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+      - VITE_TOPATH_URL=${VITE_TOPATH_URL:-http://localhost:8000}
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-https://oyqjwtkaivigwwgiqxco.supabase.co}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95cWp3dGthaXZpZ3d3Z2lxeGNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MzE0NDQsImV4cCI6MjEwNzAwNzQ0NH0.w8ocUueTKZdTNoMy93_kztACxlCDvFSIBCbroX-LfyA}
     depends_on:
       - backend
     networks:
       - indianmatter-network
 
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.8.3
+    container_name: indianmatter-n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      - N8N_PORT=5678
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-http://localhost:5678/}
+      - WEBHOOK_URL=${WEBHOOK_URL:-http://localhost:5678/}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Asia/Kolkata}
+      - TZ=${TZ:-Asia/Kolkata}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - indianmatter-network
+
 volumes:
   mongodb_data:
+    name: indianmatter_mongodb_data
+    driver: local
+  n8n_data:
+    name: indianmatter_n8n_data
     driver: local
 
 networks:
   indianmatter-network:
+    name: indianmatter_network
     driver: bridge

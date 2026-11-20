@@ -77,6 +77,24 @@ def match_formula_or_query(formula_val: str, mv_id_val: str, query_str: str) -> 
     if q_lower == mv_id_str or (q_lower.startswith('mv-') and q_lower in mv_id_str):
         return True
 
+    # 1.5 Battery Material Acronym Check (e.g. LLZO -> Li7La3Zr2O12, LFP -> LiFePO4)
+    try:
+        from materials_catalog_service import LITHIUM_BATTERY_FAMILIES
+    except ImportError:
+        try:
+            from backend.materials_catalog_service import LITHIUM_BATTERY_FAMILIES
+        except ImportError:
+            LITHIUM_BATTERY_FAMILIES = {}
+
+    if q.upper() in LITHIUM_BATTERY_FAMILIES:
+        fam_info = LITHIUM_BATTERY_FAMILIES[q.upper()]
+        canonical = fam_info["canonical_formula"].lower()
+        if canonical in f_str.lower():
+            return True
+        fam_els = set(fam_info.get("elements", []))
+        if fam_els and fam_els.issubset(parse_elements_from_formula(f_str)):
+            return True
+
     f_str = str(formula_val or '')
     f_lower = f_str.lower()
 

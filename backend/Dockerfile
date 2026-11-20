@@ -2,20 +2,33 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system utilities & build tools for C-extensions/scientific dependencies
+# Install OpenMP runtime library needed by LightGBM / XGBoost
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install core Python requirements first for efficient layer caching
-COPY requirements.txt /app/requirements.txt
-COPY backend/requirements.txt /app/backend/requirements.txt
-
+# Upgrade pip and install core FastAPI dependencies with pre-compiled wheels
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir fastapi uvicorn pymongo pymatgen mp-api pydantic python-multipart itsdangerous && \
-    pip install --no-cache-dir -r /app/requirements.txt || true
+    pip install --no-cache-dir \
+    fastapi \
+    uvicorn[standard] \
+    pymongo \
+    pymatgen \
+    mp-api \
+    pydantic \
+    python-multipart \
+    itsdangerous \
+    authlib \
+    tenacity \
+    numpy \
+    pandas \
+    scikit-learn \
+    requests \
+    aiohttp
+
+# Copy requirements and install additional dependencies
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt || true
 
 # Copy workspace application code
 COPY . /app

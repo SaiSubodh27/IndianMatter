@@ -620,8 +620,16 @@ export default function PropertyPredictionPage() {
       setCifSource("uploaded");
     }
 
-    if (lookup.full_prediction) {
-      const res = { ...lookup.full_prediction, cached_from_db: true };
+    if (
+      lookup.full_prediction &&
+      lookup.full_prediction.material_metadata &&
+      lookup.full_prediction.properties
+    ) {
+      const res = {
+        ...lookup.full_prediction,
+        cif_text: lookup.cif_content || (lookup.full_prediction as any)?.cif_text,
+        cached_from_db: true
+      };
       setResult(res);
       setViewMode("results");
       return;
@@ -865,10 +873,11 @@ export default function PropertyPredictionPage() {
   };
 
   if (viewMode === "results" && result) {
+    const effectiveCifText = cifText || (result as any)?.cif_text || null;
     return (
       <DedicatedResultsPage
         result={result}
-        cifText={cifText}
+        cifText={effectiveCifText}
         selectedKeys={selectedKeys}
         materialName={materialName}
         cifSource={cifSource}
@@ -1229,7 +1238,12 @@ function DedicatedResultsPage({
   cifSource?: "uploaded" | "generated" | null;
   onBack: () => void;
 }) {
-  const { material_metadata } = result;
+  const material_metadata = result?.material_metadata || {
+    formula: materialName || "Predicted Structure",
+    volume_A3: 0,
+    density_g_cm3: 0,
+    num_sites: 0,
+  };
   const [copiedCif, setCopiedCif] = useState(false);
 
   const selectedProps = selectedKeys
@@ -1253,7 +1267,8 @@ function DedicatedResultsPage({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(material_metadata.formula || materialName || "crystal").replace(/\s+/g, "_")}.cif`;
+    const name = material_metadata?.formula || materialName || "crystal";
+    a.download = `${name.replace(/\s+/g, "_")}.cif`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1298,7 +1313,7 @@ function DedicatedResultsPage({
                 Material Structure
               </span>
               <h2 className="font-headline font-bold text-2xl sm:text-3xl text-[#1E2227] break-words">
-                {material_metadata.formula || materialName || "Predicted Structure"}
+                {material_metadata?.formula || materialName || "Predicted Structure"}
               </h2>
             </div>
 

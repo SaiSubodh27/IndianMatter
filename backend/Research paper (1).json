@@ -1,0 +1,711 @@
+{
+  "name": "Research paper",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        -128
+      ],
+      "id": "8efb6ecc-02b4-46f4-8f89-a6868f95aba4",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "papers",
+          "mode": "list",
+          "cachedResultName": "papers"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "open_access": false,
+            "id": 0,
+            "publication_year": 0,
+            "relevance_score": 0
+          },
+          "matchingColumns": [
+            "openalex_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openalex_id",
+              "displayName": "openalex_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "doi",
+              "displayName": "doi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "abstract",
+              "displayName": "abstract",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "authors",
+              "displayName": "authors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "publication_date",
+              "displayName": "publication_date",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "publication_year",
+              "displayName": "publication_year",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "journal_name",
+              "displayName": "journal_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "journal_issn",
+              "displayName": "journal_issn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "publisher",
+              "displayName": "publisher",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "open_access",
+              "displayName": "open_access",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "oa_url",
+              "displayName": "oa_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "landing_page_url",
+              "displayName": "landing_page_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "pdf_url",
+              "displayName": "pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "topics",
+              "displayName": "topics",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "keywords",
+              "displayName": "keywords",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "domain_tags",
+              "displayName": "domain_tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "relevance_score",
+              "displayName": "relevance_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "relevance_status",
+              "displayName": "relevance_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "retrieved_at",
+              "displayName": "retrieved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "rag_status",
+              "displayName": "rag_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1600,
+        128
+      ],
+      "id": "d46e9807-1a26-4614-bb49-21184a689f1b",
+      "name": "Insert or update rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "r6iDiQYWqBMspvbA",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select to_char(last_successful_publication_date, 'YYYY-MM-DD') as last_date\nfrom discovery_checkpoints\nwhere id = 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        -128
+      ],
+      "id": "ec8fd898-0c7a-4178-a3a1-1eacbea4166a",
+      "name": "Read Checkpoint",
+      "credentials": {
+        "postgres": {
+          "id": "r6iDiQYWqBMspvbA",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        -160
+      ],
+      "id": "64d183c2-1707-47bb-897c-5a689515256c",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update discovery_checkpoints\nset\n  last_successful_run = now(),\n  last_successful_publication_date = greatest(\n    coalesce(last_successful_publication_date, date '1900-01-01'),\n    (select max(publication_date) from papers)\n  ),\n  updated_at = now()\nwhere id = 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1856,
+        128
+      ],
+      "id": "8514509f-d86b-408c-bc41-9c70816356d1",
+      "name": "Update Checkpoint",
+      "credentials": {
+        "postgres": {
+          "id": "r6iDiQYWqBMspvbA",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Email\n// Collects this run's relevant papers. Returns nothing if there are none,\n// so the send step does not run on empty days.\n\nconst papers = $('Prepare Row').all()\n  .map(i => i.json)\n  .filter(p => p.relevance_status === 'relevant');\n\nif (papers.length === 0) return [];\n\nconst rows = papers.map(p => {\n  const link = p.oa_url || p.landing_page_url || '';\n  return `<li><b>${p.title}</b><br>${p.journal_name || ''} · ${p.publication_date}<br><a href=\"${link}\">${link}</a></li>`;\n}).join('');\n\nreturn [{\n  json: {\n    subject: `IndianMatter: ${papers.length} new relevant paper(s)`,\n    html: `<p>${papers.length} new relevant paper(s):</p><ol>${rows}</ol>`,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        128
+      ],
+      "id": "0c50e024-ffd1-4fb8-a725-d4f922b8e798",
+      "name": "Build Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "saisubodh6@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2304,
+        128
+      ],
+      "id": "e0eabe31-fa5a-4051-bd0e-df3db7ab8454",
+      "name": "Send a message",
+      "webhookId": "f5ca01be-eb68-4101-a541-2c249d4e4769",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zNR0hxLtuQp5mlfw",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Domain Configuration\n// Add or remove domains here. The workflow reads this, not hard-coded queries.\n\nconst config = {\n  version: 1,\n  domains: [\n    {\n      id: \"property_prediction\",\n      label: \"Property Prediction\",\n      enabled: true,\n      queries: [\n        \"materials property prediction\",\n        \"material property prediction\",\n        \"machine learning materials properties\",\n        \"predicting material properties\"\n      ]\n    },\n    {\n      id: \"materials_screening\",\n      label: \"Materials Screening\",\n      enabled: true,\n      queries: [\n        \"materials screening\",\n        \"high-throughput materials screening\",\n        \"computational materials screening\",\n        \"materials discovery\",\n        \"high-throughput materials discovery\"\n      ]\n    },\n    {\n      id: \"dft\",\n      label: \"DFT\",\n      enabled: true,\n      queries: [\n        \"density functional theory materials\",\n        \"DFT materials\",\n        \"first-principles materials\",\n        \"ab initio materials\"\n      ]\n    },\n    {\n      id: \"ml_materials\",\n      label: \"ML for Materials\",\n      enabled: true,\n      queries: [\n        \"machine learning materials science\",\n        \"machine learning for materials\",\n        \"materials informatics\",\n        \"graph neural networks materials\",\n        \"deep learning materials science\"\n      ]\n    },\n    {\n      id: \"mlips\",\n      label: \"Machine-Learned Interatomic Potentials\",\n      enabled: true,\n      queries: [\n        \"machine learning interatomic potentials\",\n        \"MLIP materials\",\n        \"MACE materials\",\n        \"CHGNet materials\",\n        \"M3GNet materials\",\n        \"NequIP materials\"\n      ]\n    },\n    {\n      id: \"ionic_transport\",\n      label: \"Ionic Transport\",\n      enabled: true,\n      queries: [\n        \"ionic conductivity\",\n        \"ion transport materials\",\n        \"ionic diffusion materials\",\n        \"solid electrolyte\",\n        \"solid-state electrolyte\"\n      ]\n    },\n    {\n      id: \"energy_storage\",\n      label: \"Energy Storage\",\n      enabled: true,\n      queries: [\n        \"lithium ion battery materials\",\n        \"sodium ion battery materials\",\n        \"potassium ion battery materials\",\n        \"battery materials discovery\",\n        \"supercapacitor materials\",\n        \"energy storage materials\"\n      ]\n    },\n    {\n      id: \"doping_defects\",\n      label: \"Doping and Defects\",\n      enabled: true,\n      queries: [\n        \"materials doping\",\n        \"doped materials\",\n        \"defect engineering materials\",\n        \"defect chemistry\",\n        \"vacancy engineering\"\n      ]\n    },\n    {\n      id: \"optoelectronic\",\n      label: \"Optoelectronic\",\n      enabled: true,\n      queries: [\n        \"photovoltaic materials\",\n        \"photoelectric materials\",\n        \"optoelectronic materials\",\n        \"photocatalytic materials\",\n        \"semiconductor materials discovery\"\n      ]\n    }\n  ]\n};\n\nreturn [{ json: config }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        -128
+      ],
+      "id": "cdfa1a2c-db77-4efa-85dc-11f2b08b504f",
+      "name": "Domain Config"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate individual queries\n// Reads json.domains from the config node.\n// Outputs one item per enabled query phrase.\n\nconst domains = $input.first().json.domains;\nconst items = [];\n\nfor (const domain of domains) {\n  if (!domain.enabled) continue;\n\n  for (const phrase of domain.queries) {\n    items.push({\n      json: {\n        domain_id: domain.id,\n        domain_label: domain.label,\n        phrase: phrase,\n        search: `\"${phrase}\"`\n      }\n    });\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        112
+      ],
+      "id": "8b9f5a2b-b5a4-4ecb-8d5b-dc35acb2dd6b",
+      "name": "Generate Queries"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openalex.org/works",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "={{ $json.search }}"
+            },
+            {
+              "name": "per-page",
+              "value": "25"
+            },
+            {
+              "name": "api_key",
+              "value": "PttyzCXK88ZMOiemqiVmuw"
+            },
+            {
+              "name": "mailto",
+              "value": "saisubodh6@gmail.com"
+            },
+            {
+              "name": "filter",
+              "value": "=from_publication_date:{{ $('Read Checkpoint').first().json.last_date }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        688,
+        112
+      ],
+      "id": "734009d9-6205-4a32-a608-301dbe060c9e",
+      "name": "OpenAlex Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Results\n// Flattens OpenAlex responses into one item per paper.\n// Keeps the query phrase that found each paper.\n\nconst out = [];\nconst queries = $('Generate Queries').all();\nconst pages = $input.all();\n\npages.forEach((item, i) => {\n  const q = queries[i]?.json || {};\n  const results = item.json.results || [];\n\n  for (const w of results) {\n    out.push({\n      json: {\n        openalex_id: w.id || null,\n        doi: w.doi || null,\n        title: w.title || w.display_name || null,\n        publication_date: w.publication_date || null,\n        publication_year: w.publication_year || null,\n        journal_name: w.primary_location?.source?.display_name || null,\n        journal_issn: w.primary_location?.source?.issn_l || null,\n        publisher: w.primary_location?.source?.host_organization_name || null,\n        open_access: w.open_access?.is_oa ?? null,\n        oa_url: w.open_access?.oa_url || null,\n        landing_page_url: w.primary_location?.landing_page_url || null,\n        pdf_url: w.primary_location?.pdf_url || null,\n        topics: (w.topics || []).map(t => t.display_name),\n        keywords: (w.keywords || []).map(k => k.display_name),\n        cited_by_count: w.cited_by_count ?? null,\n        is_retracted: w.is_retracted ?? false,\n        abstract_inverted_index: w.abstract_inverted_index || null,\n        matched_domain_id: q.domain_id || null,\n        matched_phrase: q.phrase || null\n      }\n    });\n  }\n});\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        112
+      ],
+      "id": "3d69efde-43da-4340-adfa-27146d775d16",
+      "name": "Normalize Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deduplicate\n// Keeps the first copy of each paper, matched by DOI first, then OpenAlex ID.\n// Normalizes DOIs so \"https://doi.org/10.x/ABC\" and \"10.x/abc\" count as the same.\n\nconst seen = new Set();\nconst out = [];\n\nconst normDoi = (doi) => {\n  if (!doi) return null;\n  return doi\n    .trim()\n    .toLowerCase()\n    .replace(/^https?:\\/\\/(dx\\.)?doi\\.org\\//, '');\n};\n\nfor (const item of $input.all()) {\n  const p = item.json;\n  const doi = normDoi(p.doi);\n  const keys = [];\n  if (doi) keys.push(`doi:${doi}`);\n  if (p.openalex_id) keys.push(`oa:${p.openalex_id}`);\n\n  if (keys.length === 0) continue;\n  if (keys.some(k => seen.has(k))) continue;\n\n  keys.forEach(k => seen.add(k));\n  out.push({ json: { ...p, doi: doi || null } });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -96
+      ],
+      "id": "3067a567-7fb3-4a13-9642-f39e7de7332a",
+      "name": "Deduplicate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Abstract Conversion\n// Rebuilds plain-text abstracts from OpenAlex's abstract_inverted_index.\n// Papers with no abstract keep abstract = null.\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const p = { ...item.json };\n  const idx = p.abstract_inverted_index;\n  let abstract = null;\n\n  if (idx && typeof idx === 'object') {\n    const words = [];\n    for (const [word, positions] of Object.entries(idx)) {\n      for (const pos of positions) {\n        words[pos] = word;\n      }\n    }\n    abstract = words.filter(w => w !== undefined).join(' ') || null;\n  }\n\n  delete p.abstract_inverted_index;\n  p.abstract = abstract;\n  out.push({ json: p });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        112
+      ],
+      "id": "4ef195f0-f020-4381-b0b1-9fee5a4f735f",
+      "name": "Abstract Conversion"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Relevance Filter (v3)\n// 1. Each phrase counts once per domain (no stacking from repeated matches).\n// 2. Single generic matches need support from a materials-context term.\n// 3. Papers with a strong domain signal in the title/keywords/topics are kept.\n\nconst THRESHOLD = 5;\nconst W = { title: 3, abstract: 2, keywords: 2, topics: 3 };\n\n// Terms that show a paper is about materials science, not other fields.\nconst MATERIALS_CONTEXT = [\n  'material', 'materials', 'crystal', 'electrolyte', 'electrolytes',\n  'battery', 'batteries', 'electrode', 'cathode', 'anode', 'dft',\n  'density functional', 'first principles', 'interatomic', 'alloy',\n  'semiconductor', 'perovskite', 'oxide', 'chalcogenide', 'catalyst',\n  'thermoelectric', 'band gap', 'lattice', 'phase'\n];\n\nconst norm = (s) =>\n  ' ' + (s || '')\n    .toLowerCase()\n    .replace(/[-_]/g, ' ')\n    .replace(/[^a-z0-9+ ]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim() + ' ';\n\nconst domains = $('Domain Config').first().json.domains.filter(d => d.enabled);\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const p = item.json;\n\n  const fields = {\n    title: [norm(p.title)],\n    abstract: [norm(p.abstract)],\n    keywords: (p.keywords || []).map(norm),\n    topics: (p.topics || []).map(norm),\n  };\n\n  const allText = [...fields.title, ...fields.abstract, ...fields.keywords, ...fields.topics].join(' ');\n  const hasMaterialsContext = MATERIALS_CONTEXT.some(t => allText.includes(' ' + t));\n\n  const matchedDomains = [];\n  let best = 0;\n\n  for (const domain of domains) {\n    let score = 0;\n    const phrases = [];\n\n    for (const phrase of domain.queries) {\n      const q = norm(phrase);\n      let w = 0;\n\n      for (const [field, texts] of Object.entries(fields)) {\n        if (texts.some(t => t.includes(q))) {\n          w = Math.max(w, W[field]);\n        }\n      }\n\n      // Generic phrases need materials context to count.\n      const isGeneric = /^(materials? (screening|discovery|informatics|property))/.test(q.trim());\n      if (w > 0 && isGeneric && !hasMaterialsContext) w = 0;\n\n      if (w > 0) {\n        score += w;\n        phrases.push(phrase);\n      }\n    }\n\n    // Cap per domain so one domain can't dominate on repeated phrases.\n    score = Math.min(score, 6);\n\n    if (score > 0) {\n      matchedDomains.push({ id: domain.id, score, matched_phrases: phrases });\n      best = Math.max(best, score);\n    }\n  }\n\n  out.push({\n    json: {\n      ...p,\n      domain_tags: matchedDomains.map(d => d.id),\n      domain_scores: matchedDomains,\n      relevance_score: best,\n      relevance_status:\n        best >= THRESHOLD ? 'relevant' : best > 0 ? 'low_relevance' : 'rejected',\n    },\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        352
+      ],
+      "id": "c625f851-fe79-4c61-b80c-e8ae4d1690d3",
+      "name": "Relevance Filter"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Metadata Validation\n// Drops rejected papers and papers missing required fields.\n// Keeps relevant and low_relevance papers. Missing optional fields are recorded, not rejected.\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const p = item.json;\n\n  if (p.relevance_status === 'rejected') continue;\n\n  const missingRequired = [];\n  if (!p.title) missingRequired.push('title');\n  if (!p.publication_date) missingRequired.push('publication_date');\n  if (!p.openalex_id) missingRequired.push('openalex_id');\n  if (missingRequired.length > 0) continue;\n\n  const missingOptional = [];\n  if (!p.doi) missingOptional.push('doi');\n  if (!p.pdf_url) missingOptional.push('pdf_url');\n  if (!p.abstract) missingOptional.push('abstract');\n\n  out.push({\n    json: {\n      ...p,\n      metadata_status: 'valid',\n      missing_optional: missingOptional,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        -96
+      ],
+      "id": "1c4d2f15-9ca0-4aed-90c5-51193f819be4",
+      "name": "Metadata Validation"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Row\n// Outputs only the papers columns. Arrays stay arrays (stored as text[]).\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const p = item.json;\n  if (new Date(p.publication_date) > new Date()) continue;\n\n  out.push({\n    json: {\n      openalex_id: p.openalex_id,\n      doi: p.doi || null,\n      title: p.title,\n      abstract: p.abstract || null,\n      publication_date: p.publication_date,\n      publication_year: p.publication_year || null,\n      journal_name: p.journal_name || null,\n      journal_issn: p.journal_issn || null,\n      publisher: p.publisher || null,\n      open_access: p.open_access ?? null,\n      oa_url: p.oa_url || null,\n      landing_page_url: p.landing_page_url || null,\n      pdf_url: p.pdf_url || null,\n      topics: p.topics || [],\n      keywords: p.keywords || [],\n      domain_tags: p.domain_tags || [],\n      relevance_score: p.relevance_score,\n      relevance_status: p.relevance_status,\n      updated_at: new Date().toISOString(),\n    },\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        128
+      ],
+      "id": "3f434b43-b1cb-461d-801f-bfe1403b0a12",
+      "name": "Prepare Row"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Checkpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Checkpoint": {
+      "main": [
+        [
+          {
+            "node": "Domain Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert or update rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Update Checkpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Checkpoint": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domain Config": {
+      "main": [
+        [
+          {
+            "node": "Generate Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Queries": {
+      "main": [
+        [
+          {
+            "node": "OpenAlex Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAlex Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Results": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "Abstract Conversion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abstract Conversion": {
+      "main": [
+        [
+          {
+            "node": "Relevance Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Relevance Filter": {
+      "main": [
+        [
+          {
+            "node": "Metadata Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metadata Validation": {
+      "main": [
+        [
+          {
+            "node": "Prepare Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Row": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "e4a2c650-4c03-4caa-a19b-efe4fa22de4b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "beb607634d9f6f9655dad058ffc01f125c5c5c9d388edb503d4bf52e6f2091fa"
+  },
+  "id": "zFl3KTtxYC0x3BLD",
+  "tags": []
+}

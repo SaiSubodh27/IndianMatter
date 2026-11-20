@@ -13,10 +13,10 @@ load_dotenv(dotenv_path=env_path, override=True)
 
 # Import materials catalog caching service
 try:
-    from materials_catalog_service import query_catalog_materials, upsert_materials
+    from materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from database import db
 except ImportError:
-    from backend.materials_catalog_service import query_catalog_materials, upsert_materials
+    from backend.materials_catalog_service import query_catalog_materials, upsert_materials, LITHIUM_BATTERY_FAMILIES
     from backend.database import db
 
 router = APIRouter()
@@ -131,6 +131,8 @@ def explore_materials(
             kwargs = {}
             if formula and isinstance(formula, str):
                 cleaned_formula = formula.strip()
+                if cleaned_formula.upper() in LITHIUM_BATTERY_FAMILIES:
+                    cleaned_formula = LITHIUM_BATTERY_FAMILIES[cleaned_formula.upper()]["canonical_formula"]
                 if cleaned_formula.lower().startswith("mp-") or cleaned_formula.lower().startswith("mvc-"):
                     kwargs["material_ids"] = [cleaned_formula]
                 else:
@@ -235,8 +237,22 @@ def download_cif_mp(material_id: str):
                 raise HTTPException(status_code=404, detail=f"Structure not found for {clean_id}")
             cif_text = str(CifWriter(structure))
 
-            # Cache into MongoDB
+            # Cache into MongoDB generated_cifs and materials_project
             if db is not None:
+                try:
+                    try:
+                        from cif_storage_service import save_generated_cif
+                    except ImportError:
+                        from backend.cif_storage_service import save_generated_cif
+                    save_generated_cif(
+                        cif_text=cif_text,
+                        formula=str(structure.composition.reduced_formula),
+                        source=f"Materials Project CifWriter ({clean_id})",
+                        metadata={"material_id": clean_id}
+                    )
+                except Exception:
+                    pass
+
                 try:
                     db["materials_project"].update_one(
                         {"material_id": clean_id},

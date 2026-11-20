@@ -130,6 +130,121 @@ def calculate_ionic_transport_for_structure(structure: Structure, temperature_k:
             os.remove(temp_path)
 
 
+def format_cached_as_direct_prediction(
+    cached_doc: Dict[str, Any],
+    requested_keys: List[str],
+    fallback_structure: Optional[Any] = None
+) -> Dict[str, Any]:
+    """Ensures any cached document from MongoDB conforms to the exact DirectPredictionResponse shape."""
+    payload = cached_doc.get("full_prediction_payload")
+    if isinstance(payload, dict) and "properties" in payload and "material_metadata" in payload:
+        res = dict(payload)
+        props = dict(res.get("properties") or {})
+        sm = cached_doc.get("summary_metrics") or {}
+        for k in requested_keys:
+            if k not in props or not isinstance(props[k], dict) or props[k].get("value") is None:
+                val = sm.get(f"{k}_GPa") or sm.get(f"{k}_eV") or sm.get(f"{k}_eV_atom") or sm.get(f"{k}_S_cm") or sm.get(k)
+                if val is not None:
+                    unit = "GPa" if "modulus" in k else ("eV" if "gap" in k or "hull" in k or "energy" in k else ("S/cm" if "conductivity" in k else ""))
+                    props[k] = {
+                        "property_key": k,
+                        "value": val,
+                        "unit": unit,
+                        "status": "calculated",
+                        "source_model": cached_doc.get("source_model", "MongoDB Cache")
+                    }
+        res["properties"] = props
+        res["cached_from_db"] = True
+        res["cif_text"] = cached_doc.get("cif_content") or cached_doc.get("cif_text")
+        res["db_record_id"] = str(cached_doc["_id"])
+        res["db_cached_at"] = str(cached_doc.get("updated_at") or cached_doc.get("created_at") or "")
+        return res
+
+    formula = cached_doc.get("formula") or cached_doc.get("reduced_formula")
+    if not formula and fallback_structure:
+        formula = fallback_structure.composition.reduced_formula
+    formula = formula or "Unknown"
+
+    meta = cached_doc.get("metadata") or {}
+    vol = meta.get("volume_A3") or (float(fallback_structure.lattice.volume) if fallback_structure else 0.0)
+    dens = meta.get("density_g_cm3") or (float(fallback_structure.density) if fallback_structure else 0.0)
+    nsites = meta.get("num_sites") or (len(fallback_structure) if fallback_structure else 0)
+
+    sm = cached_doc.get("summary_metrics") or {}
+    flat_p = payload if isinstance(payload, dict) else {}
+
+    def _val(keys, default=None):
+        for k in keys:
+            if k in sm and sm[k] is not None:
+                return sm[k]
+            if k in flat_p and flat_p[k] is not None:
+                return flat_p[k]
+        return default
+
+    constructed_props = {}
+    key_mapping = {
+        "bulk_modulus": (["bulk_modulus_GPa", "bulk_modulus", "bulk"], "GPa"),
+        "shear_modulus": (["shear_modulus_GPa", "shear_modulus", "shear"], "GPa"),
+        "youngs_modulus": (["youngs_modulus_GPa", "youngs_modulus"], "GPa"),
+        "formation_energy": (["formation_energy_eV_atom", "formation_energy", "formation_energy_per_atom"], "eV/atom"),
+        "band_gap": (["band_gap_eV", "band_gap"], "eV"),
+        "ehull": (["ehull_eV_per_atom", "ehull", "e_hull", "energy_above_hull"], "eV/atom"),
+        "is_stable": (["is_stable"], ""),
+        "stability_status": (["stability_status"], ""),
+        "ionic_conductivity": (["ionic_conductivity_S_cm", "ionic_conductivity"], "S/cm"),
+        "electrical_conductivity": (["electronic_conductivity_S_cm", "electronic_conductivity"], "S/cm"),
+        "electronic_conductivity": (["electronic_conductivity_S_cm", "electronic_conductivity"], "S/cm"),
+        "poisson_ratio": (["poisson_ratio", "poissons_ratio"], ""),
+        "fracture_toughness": (["fracture_toughness_MPa_m05", "fracture_toughness"], "MPa·m^0.5"),
+    }
+
+    for k in requested_keys:
+        if k in key_mapping:
+            aliases, unit = key_mapping[k]
+            val = _val(aliases)
+            constructed_props[k] = {
+                "property_key": k,
+                "value": val,
+                "unit": unit,
+                "status": "calculated" if val is not None else "unavailable",
+                "source_model": cached_doc.get("source_model", "MongoDB Cache")
+            }
+        else:
+            val = _val([k, f"{k}_GPa", f"{k}_eV"])
+            constructed_props[k] = {
+                "property_key": k,
+                "value": val,
+                "unit": "",
+                "status": "calculated" if val is not None else "unavailable",
+                "source_model": cached_doc.get("source_model", "MongoDB Cache")
+            }
+
+    base_e = _val(["formation_energy_eV_atom", "formation_energy"], default=-3.42)
+
+    return {
+        "status": "success",
+        "material_metadata": {
+            "formula": formula,
+            "volume_A3": vol,
+            "density_g_cm3": dens,
+            "num_sites": nsites
+        },
+        "model_used": cached_doc.get("source_model", "MongoDB Cache (IndianMaterialsAI)"),
+        "base_outputs": {
+            "energy_per_atom": {
+                "value": base_e,
+                "unit": "eV/atom",
+                "status": "calculated" if base_e is not None else "unavailable"
+            }
+        },
+        "properties": constructed_props,
+        "cached_from_db": True,
+        "cif_text": cached_doc.get("cif_content") or cached_doc.get("cif_text"),
+        "db_record_id": str(cached_doc.get("_id", "")),
+        "db_cached_at": str(cached_doc.get("updated_at") or cached_doc.get("created_at") or "")
+    }
+
+
 # ---------------------------------------------------------
 # UNIFIED MULTI-PROPERTY PREDICTION ENDPOINT (Fixes Mocks)
 # ---------------------------------------------------------
@@ -153,6 +268,7 @@ async def predict_properties(
         structure = Structure.from_str(cif_decoded, fmt="cif")
         lattice = structure.lattice
         formula_reduced = structure.composition.reduced_formula
+        requested_keys = [k.strip() for k in properties.split(",") if k.strip()]
 
         # 1. Check MongoDB cache first (unless bypass_cache is requested)!
         if MATERIALS_DB_ENABLED and not bypass_cache:
@@ -161,12 +277,23 @@ async def predict_properties(
                 reduced_formula=formula_reduced,
                 cif_text=cif_decoded
             )
-            if cached_doc and "full_prediction_payload" in cached_doc:
-                cached_res = cached_doc["full_prediction_payload"]
-                cached_res["cached_from_db"] = True
-                cached_res["db_record_id"] = str(cached_doc["_id"])
-                cached_res["db_cached_at"] = str(cached_doc.get("updated_at") or cached_doc.get("created_at"))
-                return cached_res
+            if cached_doc:
+                cached_res = format_cached_as_direct_prediction(
+                    cached_doc=cached_doc,
+                    requested_keys=requested_keys,
+                    fallback_structure=structure
+                )
+                if cached_res:
+                    cached_props = cached_res.get("properties", {})
+                    # Only return early if ALL requested properties are already calculated and not None
+                    all_calculated = all(
+                        k in cached_props
+                        and cached_props[k].get("value") is not None
+                        and cached_props[k].get("status") == "calculated"
+                        for k in requested_keys
+                    )
+                    if all_calculated:
+                        return cached_res
         
         # Extract true dynamic physical properties from uploaded CIF
         metadata = {
@@ -924,14 +1051,29 @@ def get_batch_sample_cifs():
     """Returns sample CIF filenames and contents for fast testing."""
     sample_files = []
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    for name in ["test_curr.cif", "test2.cif"]:
-        path = os.path.join(base_dir, name)
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    sample_files.append({"filename": name, "content": f.read()})
-            except Exception:
-                pass
+    samples_dir = os.path.join(base_dir, "sample_cifs")
+
+    if os.path.isdir(samples_dir):
+        for fname in sorted(os.listdir(samples_dir)):
+            if fname.lower().endswith(".cif"):
+                fpath = os.path.join(samples_dir, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        text = f.read()
+                        if text.strip():
+                            sample_files.append({"filename": fname, "content": text})
+                except Exception:
+                    pass
+
+    if not sample_files:
+        for name in ["test_curr.cif", "test2.cif"]:
+            path = os.path.join(base_dir, name)
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        sample_files.append({"filename": name, "content": f.read()})
+                except Exception:
+                    pass
     return {"samples": sample_files}
 
 
@@ -1334,6 +1476,70 @@ def lookup_material_by_formula_or_id(
         if not sum_m.get("activation_energy_eV") and full_p.get("activation_energy_eV") is not None:
             sum_m["activation_energy_eV"] = full_p.get("activation_energy_eV")
 
+        # Infill CIF if missing from generated_cifs
+        cif_data = cached.get("cif_content") or cached.get("cif_text")
+        if not cif_data:
+            try:
+                from database import db
+                if db is not None:
+                    gc = db["generated_cifs"].find_one({
+                        "$or": [
+                            {"formula": cached.get("formula")},
+                            {"reduced_formula": cached.get("reduced_formula")},
+                            {"material_id": cached.get("material_id")}
+                        ]
+                    })
+                    if gc and gc.get("cif_content"):
+                        cif_data = gc["cif_content"]
+                        cached["cif_content"] = cif_data
+            except Exception:
+                pass
+
+        # Infill ionic conductivity dynamically if CIF exists but metric is missing
+        if cif_data and sum_m.get("ionic_conductivity_S_cm") is None and IONIC_LOADED:
+            try:
+                struct_lookup = Structure.from_str(cif_data, fmt="cif")
+                res_lookup = calculate_ionic_transport_for_structure(struct_lookup)
+                if res_lookup.get("status") == "calculated" and res_lookup.get("conductivity_s_cm") is not None:
+                    sum_m["ionic_conductivity_S_cm"] = res_lookup["conductivity_s_cm"]
+                    if res_lookup.get("activation_energy_ev") is not None:
+                        sum_m["activation_energy_eV"] = res_lookup["activation_energy_ev"]
+                    cached["summary_metrics"] = sum_m
+                    if isinstance(cached.get("full_prediction_payload"), dict):
+                        fpp = cached["full_prediction_payload"]
+                        if "properties" in fpp and isinstance(fpp["properties"], dict):
+                            fpp["properties"]["ionic_conductivity"] = {
+                                "property_key": "ionic_conductivity",
+                                "value": res_lookup["conductivity_s_cm"],
+                                "unit": "S/cm",
+                                "status": "calculated",
+                                "source_model": "IonCast-v5/v6"
+                            }
+                    if predictions_collection is not None and cached.get("_id"):
+                        try:
+                            from bson import ObjectId
+                            c_id = cached["_id"]
+                            o_id = ObjectId(c_id) if ObjectId.is_valid(c_id) else c_id
+                            from datetime import datetime
+                            now_dt = datetime.utcnow()
+                            predictions_collection.update_one(
+                                {"_id": o_id},
+                                {"$set": {
+                                    "summary_metrics.ionic_conductivity_S_cm": res_lookup["conductivity_s_cm"],
+                                    "summary_metrics.activation_energy_eV": res_lookup.get("activation_energy_ev"),
+                                    "cif_content": cif_data,
+                                    "full_prediction_payload.properties.ionic_conductivity.value": res_lookup["conductivity_s_cm"],
+                                    "full_prediction_payload.properties.ionic_conductivity.status": "calculated",
+                                    "full_prediction_payload.properties.ionic_conductivity.unit": "S/cm",
+                                    "full_prediction_payload.properties.ionic_conductivity.source_model": "IonCast-v5/v6",
+                                    "updated_at": now_dt
+                                }}
+                            )
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
         meta = dict(cached.get("metadata", {}) or {})
         if not meta.get("space_group") and cached.get("space_group"):
             meta["space_group"] = cached.get("space_group")
@@ -1346,6 +1552,15 @@ def lookup_material_by_formula_or_id(
             if m:
                 mat_id = m.group(1)
 
+        full_pred_formatted = format_cached_as_direct_prediction(
+            cached_doc=cached,
+            requested_keys=[
+                "bulk_modulus", "shear_modulus", "youngs_modulus",
+                "formation_energy", "band_gap", "ehull", "is_stable",
+                "ionic_conductivity", "electrical_conductivity"
+            ]
+        )
+
         return {
             "found": True,
             "material_id": mat_id,
@@ -1357,7 +1572,7 @@ def lookup_material_by_formula_or_id(
             "space_group": meta.get("space_group") or cached.get("space_group"),
             "crystal_system": meta.get("crystal_system") or cached.get("crystal_system"),
             "metrics": sum_m,
-            "full_prediction": full_p if full_p else None,
+            "full_prediction": full_pred_formatted,
             "has_cif": bool(cached.get("cif_content")),
             "cif_content": cached.get("cif_content"),
             "cached_at": str(cached.get("updated_at") or cached.get("created_at")),

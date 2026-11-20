@@ -110,7 +110,36 @@ def run_pipeline(
         recognized_formula, is_doped, classification_reasoning,
     )
 
-    # --- Stage 1: external databases ---
+    # --- Stage 1: internal database (MongoDB check first!) ---
+    internal_match, internal_candidates = search_internal_database(
+        recognized_formula, is_doped, doping_spec, query.space_group, ask_user,
+    )
+    if internal_match:
+        return PipelineResult(
+            cif_string=internal_match.structure.to(fmt="cif"),
+            source="existing_internal",
+            notes=f"matched internal record {internal_match.record_id}",
+            normalization_trace=normalization_trace,
+            matched_record=internal_match,
+            candidate_matches=internal_candidates,
+            recognition_result=recognition,
+            relaxation_skipped=True,
+            relaxation_status="EXISTING (internal database)",
+            final_space_group=internal_match.space_group,
+            diagnostics_history=[],
+            is_reliable=True,
+        )
+    if len(internal_candidates) > 1:
+        return PipelineResult(
+            cif_string=None,
+            source="ambiguous_polymorphs",
+            notes=f"found {len(internal_candidates)} internal candidates but none was selected",
+            normalization_trace=normalization_trace,
+            candidate_matches=internal_candidates,
+            recognition_result=recognition,
+        )
+
+    # --- Stage 2: external databases (MP, JARVIS, COD, OQMD) ---
     ext_match, ext_candidates = search_external_databases(
         recognized_formula, is_doped, doping_spec, mp_api_key,
         query.space_group, ask_user,
@@ -132,40 +161,12 @@ def run_pipeline(
             is_reliable=True,
         )
     if len(ext_candidates) > 1:
-        # Ambiguous polymorphs were found but no choice was resolved (e.g. the
-        # user declined to pick, or ask_user is a non-blocking web callback
-        # that hasn't returned yet). Surface everything found so the UI can
-        # render its own picker rather than the pipeline silently giving up.
         return PipelineResult(
             cif_string=None,
             source="ambiguous_polymorphs",
             notes=f"found {len(ext_candidates)} external candidates but none was selected",
             normalization_trace=normalization_trace,
             candidate_matches=ext_candidates,
-            recognition_result=recognition,
-        )
-
-    # --- Stage 2: internal database ---
-    internal_match, internal_candidates = search_internal_database(
-        recognized_formula, is_doped, doping_spec, query.space_group, ask_user,
-    )
-    if internal_match:
-        return PipelineResult(
-            cif_string=internal_match.structure.to(fmt="cif"),
-            source="existing_internal",
-            notes=f"matched internal record {internal_match.record_id}",
-            normalization_trace=normalization_trace,
-            matched_record=internal_match,
-            candidate_matches=internal_candidates,
-            recognition_result=recognition,
-        )
-    if len(internal_candidates) > 1:
-        return PipelineResult(
-            cif_string=None,
-            source="ambiguous_polymorphs",
-            notes=f"found {len(internal_candidates)} internal candidates but none was selected",
-            normalization_trace=normalization_trace,
-            candidate_matches=internal_candidates,
             recognition_result=recognition,
         )
 

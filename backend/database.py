@@ -6,10 +6,25 @@ from pymongo import MongoClient
 log = logging.getLogger("backend.database")
 
 # Read MongoDB URL from environment, defaulting to standard local port
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017/")
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017/") #(mongo_url exits in env or use the given port )
+
+client = None
+for candidate_url in [MONGO_URL, "mongodb://localhost:27017/"]:
+    if not candidate_url:
+        continue
+    try:
+        cand_client = MongoClient(candidate_url, serverSelectionTimeoutMS=1500)
+        cand_client.admin.command("ping")
+        client = cand_client
+        MONGO_URL = candidate_url
+        break
+    except Exception:
+        continue
+
+if client is None:
+    client = MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=2000)
 
 try:
-    client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=2000)
     db = client["IndianMaterialsAI"]
 
     # Platform & User Management
@@ -27,6 +42,13 @@ try:
     jarvis_collection = db["jarvis"]
     indianmatter_collection = db["indianmatter"]
     obliex_collection = db["obliex_dataset"]
+
+    # Dedicated Lithium & Battery Material Family Collection (LLZO, LFP, LCO, etc.)
+    lithium_collection = db["lithium_materials"]
+    battery_families_collection = db["battery_families"]
+
+    # Dedicated Generated CIF Files Collection
+    generated_cifs_collection = db["generated_cifs"]
 
     MONGO_AVAILABLE = True
     print("[Database] Connected to MongoDB -> IndianMaterialsAI database successfully!")
@@ -96,6 +118,9 @@ def get_materials_database_stats() -> Dict[str, Any]:
             "jarvis": db["jarvis"].count_documents({}) if "jarvis" in db.list_collection_names() else 0,
             "indianmatter": db["indianmatter"].count_documents({}) if "indianmatter" in db.list_collection_names() else 0,
             "obliex_dataset": db["obliex_dataset"].count_documents({}) if "obliex_dataset" in db.list_collection_names() else 0,
+            "lithium_materials": db["lithium_materials"].count_documents({}) if "lithium_materials" in db.list_collection_names() else 0,
+            "battery_families": db["battery_families"].count_documents({}) if "battery_families" in db.list_collection_names() else 0,
+            "generated_cifs": db["generated_cifs"].count_documents({}) if "generated_cifs" in db.list_collection_names() else 0,
             "material_predictions": db["material_predictions"].count_documents({}) if "material_predictions" in db.list_collection_names() else 0,
             "literature_papers": db["literature_papers"].count_documents({}) if "literature_papers" in db.list_collection_names() else 0,
         },
