@@ -1,83 +1,113 @@
+"""
+transport_router.py
+===================
+Ionic transport prediction endpoint for Main API (Port 8000).
+Delegates ML execution to Standalone Inference Service (Port 8001).
+"""
+
 import os
-import math
-import joblib
-import warnings
-import pandas as pd
-import numpy as np
+import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from pymatgen.core import Structure
-from pydantic import BaseModel
-from model_paths import resolve_pretrained_models_dir
 
-warnings.filterwarnings('ignore')
+log = logging.getLogger("transport_router")
 
-# Router tag groups it under Calculations when included in calculator_router.pyW
 router = APIRouter(tags=["Calculations"])
 
-MODELS_BASE = resolve_pretrained_models_dir("v5_base_models.pkl")
-
 try:
-    try:
-        from predict_ionic_conductivity import load_models
-    except ImportError:
-        from backend.predict_ionic_conductivity import load_models
-    IONIC_MODELS = load_models()
-    MODELS_LOADED = True
-    print("v5 IonCast Ensembles loaded successfully using schema-safe bridge.")
-except Exception as e:
-    MODELS_LOADED = False
-    print(f"WARNING: Could not load v5 models: {e}")
+    from core.inference_client import inference_client, InferenceUnavailableError, InferenceError
+except ImportError:
+    from backend.core.inference_client import inference_client, InferenceUnavailableError, InferenceError
 
-def predict_conductivity_from_path(file_path: str, temperature: float):
-    if not MODELS_LOADED:
-        raise Exception("Prediction models are not loaded on the server.")
 
-    import pathlib
-    try:
-        from predict_ionic_conductivity import predict_one, AlignOpts
-    except ImportError:
-        from backend.predict_ionic_conductivity import predict_one, AlignOpts
-        
-    opts = AlignOpts(strict=False)
-    pred = predict_one(pathlib.Path(file_path), temperature, IONIC_MODELS, apply_corrector=True, opts=opts)
-    
-    mat = pred["material"]
-    cond = pred["conductivity"]
-    m_out = pred["model_outputs"]
-    corr = cond.get("corrected") or {}
-    
+def predict_conductivity_from_path(file_path: str, temperature: float = 298.15):
+    """Synchronous helper for file-path based ionic transport via inference service."""
+    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+        cif_text = f.read()
+    res = inference_client.predict_properties_sync(
+        cif_text=cif_text,
+        properties=["ionic_conductivity", "activation_energy"],
+        temperature=temperature
+    )
+    props = res.get("properties", {})
     return {
         "status": "success",
-        "formula": mat.get("formula", ""),
-        "space_group": mat.get("space_group", "Unknown"),
-        "volume": float(mat.get("volume_A3", 0.0)),
-        "density": float(mat.get("density_g_cm3", 0.0)),
-        "ea": float(m_out.get("Ea_eV", 0.0)),
-        "conductivity": float(corr.get("corrected_conductivity_S_per_cm", cond.get("base_conductivity_S_per_cm", 0.0))),
+        "formula": res.get("material_metadata", {}).get("formula", ""),
+        "space_group": res.get("material_metadata", {}).get("space_group", "Unknown"),
+        "volume": float(res.get("material_metadata", {}).get("volume_A3", 0.0)),
+        "density": float(res.get("material_metadata", {}).get("density_g_cm3", 0.0)),
+        "ea": float(props.get("activation_energy", {}).get("value") or 0.0),
+        "conductivity": float(props.get("ionic_conductivity", {}).get("value") or 0.0),
         "temp": float(temperature)
     }
+
 
 @router.post("/ionic-conductivity")
 async def predict_conductivity(
     file: UploadFile = File(...),
-    temperature: float = Form(298.15)
+    temperature: float = Form(298.15),
 ):
-    if not file.filename.endswith('.cif'):
+    """
+    Predicts room-temperature ionic conductivity and activation energy
+    via the Standalone Inference Service (Port 8001).
+    """
+    if not file.filename or not file.filename.lower().endswith(".cif"):
         raise HTTPException(status_code=400, detail="Only .cif files are supported.")
 
-    temp_path = f"temp_{file.filename}"
     try:
         content = await file.read()
-        with open(temp_path, "wb") as f:
-            f.write(content)
-            
-        result = predict_conductivity_from_path(temp_path, temperature)
-        
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-            
-        return result
+        cif_text = content.decode("utf-8", errors="replace")
+
+        # 1. Structural inspection for geometry metadata
+        meta = {}
+        try:
+            from pymatgen.core import Structure
+            from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+            struct = Structure.from_str(cif_text, fmt="cif")
+            sga = SpacegroupAnalyzer(struct)
+            meta = {
+                "formula": struct.composition.reduced_formula,
+                "space_group": sga.get_space_group_symbol(),
+                "volume": round(float(struct.lattice.volume), 3),
+                "density": round(float(struct.density), 3),
+            }
+        except Exception:
+            meta = {
+                "formula": "Unknown",
+                "space_group": "Unknown",
+                "volume": 0.0,
+                "density": 0.0,
+            }
+
+        # 2. Delegate to Standalone Inference Service
+        try:
+            inf_res = await inference_client.predict_ionic_transport(
+                cif_text=cif_text,
+                temperature=temperature,
+            )
+        except InferenceUnavailableError:
+            raise HTTPException(
+                status_code=503,
+                detail="Inference Service is unavailable on port 8001. Please verify inference service is running.",
+            )
+        except InferenceError as ie:
+            raise HTTPException(status_code=ie.status_code, detail=ie.message)
+
+        cond_val = inf_res.get("conductivity_s_cm") or 0.0
+        ea_val = inf_res.get("activation_energy_ev") or 0.0
+
+        return {
+            "status": "success",
+            "formula": meta["formula"],
+            "space_group": meta["space_group"],
+            "volume": meta["volume"],
+            "density": meta["density"],
+            "ea": float(ea_val),
+            "conductivity": float(cond_val),
+            "temp": float(temperature),
+            "details": inf_res.get("details", {}),
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        log.exception(f"Ionic transport prediction error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

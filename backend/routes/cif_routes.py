@@ -159,3 +159,78 @@ async def parse_uploaded_cif(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="The CIF must be UTF-8 text.") from error
     except Exception as error:
         raise HTTPException(status_code=422, detail=f"CIF parsing failed: {error}") from error
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CIF GENERATOR API PROXY (Mounted at /cif for complete frontend compatibility)
+# ═══════════════════════════════════════════════════════════════════════════════
+cif_api_router = APIRouter(prefix="/cif", tags=["CIF Generator (Frontend Proxy)"])
+
+
+class GenerateCifPayload(BaseModel):
+    formula: str
+    max_iterations: Optional[int] = 1
+    samples_per_iteration: Optional[int] = 2
+
+
+@cif_api_router.get("/api/health")
+def cif_api_health():
+    return {"status": "ok", "service": "cif-generator-proxy"}
+
+
+@cif_api_router.post("/api/generate")
+async def cif_api_generate(payload: GenerateCifPayload):
+    from materials_catalog_service import find_cif_in_mongodb, normalize_formula
+    clean_form = normalize_formula(payload.formula)
+
+    # 1. Check MongoDB first! Do not re-generate if valid CIF already exists
+    existing = find_cif_in_mongodb(clean_form)
+    if existing:
+        return {
+            "success": True,
+            "cif": existing,
+            "cif_string": existing,
+            "formula": clean_form,
+            "source": "MongoDB Cache",
+        }
+
+    # 2. Delegate to Standalone Inference Service
+    try:
+        from core.inference_client import inference_client
+        res = await inference_client.generate_cif(
+            formula=clean_form,
+            max_iterations=payload.max_iterations or 1,
+            samples_per_iteration=payload.samples_per_iteration or 2,
+        )
+        cif_str = res.get("cif_string")
+        if cif_str:
+            save_generated_cif(cif_text=cif_str, formula=clean_form, source="Inference-Service-CIF-Pipeline")
+            return {
+                "success": True,
+                "cif": cif_str,
+                "cif_string": cif_str,
+                "formula": clean_form,
+                "source": res.get("generator_source", "CIF-Pipeline"),
+            }
+        return {"success": False, "error": res.get("metadata", {}).get("notes", "Synthesis returned no valid CIF")}
+    except Exception as e:
+        log.exception(f"CIF generation proxy error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ParseFormulaPayload(BaseModel):
+    formula: str
+
+
+@cif_api_router.post("/api/parse-formula")
+def cif_api_parse_formula(payload: ParseFormulaPayload):
+    import re
+    tokens = re.findall(r"([A-Z][a-z]*)(\d*\.?\d*)", payload.formula)
+    elements = [t[0] for t in tokens]
+    stoich = {t[0]: float(t[1]) if t[1] else 1.0 for t in tokens}
+    return {
+        "success": True,
+        "formula": payload.formula,
+        "elements": elements,
+        "stoichiometry": stoich,
+    }
