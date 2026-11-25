@@ -24,6 +24,15 @@ from pymongo import UpdateOne
 
 log = logging.getLogger("materials_catalog_service")
 
+try:
+    from core.inference_client import inference_client
+except ImportError:
+    try:
+        from backend.core.inference_client import inference_client
+    except ImportError:
+        inference_client = None
+
+
 # Database connection
 try:
     try:
@@ -385,21 +394,8 @@ _cf_service_attempted = False
 
 
 def get_cf_service():
-    """Lazy loader for CrystalFormer property prediction service."""
-    global _cf_service, _cf_service_attempted
-    if _cf_service_attempted:
-        return _cf_service
-    _cf_service_attempted = True
-    try:
-        try:
-            from property_prediction_models.CrystalFormer.crystalformer_service import get_crystalformer_service
-        except ImportError:
-            from CrystalFormer.crystalformer_service import get_crystalformer_service
-        _cf_service = get_crystalformer_service()
-    except Exception as e:
-        log.warning(f"Could not load CrystalFormerService in materials_catalog_service: {e}")
-        _cf_service = None
-    return _cf_service
+    """Deprecated: CrystalFormer model execution has moved to Inference API (Port 8001)."""
+    return None
 
 
 def predict_all_properties_via_endpoint_or_pipeline(
@@ -409,129 +405,55 @@ def predict_all_properties_via_endpoint_or_pipeline(
     temperature_k: float = 298.15
 ) -> Dict[str, Any]:
     """
-    Evaluates ALL physical, elastic, electronic, thermodynamic, and ionic transport
-    properties for a material using the unified property-prediction endpoint and models:
-    - Formation Energy (eV/atom)
-    - Band Gap (eV) & Electronic State / Nature
-    - Bulk Modulus (GPa) & Shear Modulus (GPa)
-    - Young's Modulus (GPa), Fracture Toughness (MPa·m^0.5)
-    - Poisson's Ratio, Pugh's Ratio, Compressibility (GPa⁻¹), Elastic Anisotropy
-    - Electronic Conductivity (S/cm)
-    - Energy Above Hull (E_hull eV/atom), meV/atom, and Stability Status
-    - Ionic Conductivity (S/cm) & Activation Energy (eV) via IonCast
-    - Density (g/cm³), Volume (Å³), Sites, Space Group, Crystal System
+    Evaluates physical, elastic, electronic, thermodynamic, and ionic transport
+    properties by communicating with the standalone Inference Service (Port 8001).
     """
     results: Dict[str, Any] = {}
 
-    # 1. Attempt calling the /api/calculations/predict-properties HTTP endpoint
-    endpoint_succeeded = False
-    if cif_text and isinstance(cif_text, str) and cif_text.strip():
+    if not cif_text and structure is not None:
         try:
-            import urllib.request
-            import json
+            cif_text = structure.to(fmt="cif")
+        except Exception:
+            cif_text = ""
 
-            boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
-            all_props = (
-                "bulk_modulus,shear_modulus,formation_energy,ehull,is_stable,"
-                "band_gap,youngs_modulus,fracture_toughness,electronic_conductivity,"
-                "poisson_ratio,compressibility,pughs_ratio,elastic_anisotropy,"
-                "ionic_conductivity,activation_energy"
-            )
-            body = []
-            body.append(f"--{boundary}".encode("utf-8"))
-            body.append(b'Content-Disposition: form-data; name="file"; filename="structure.cif"')
-            body.append(b"Content-Type: chemical/x-cif\r\n")
-            body.append(cif_text.encode("utf-8"))
-            body.append(f"--{boundary}".encode("utf-8"))
-            body.append(b'Content-Disposition: form-data; name="properties"\r\n')
-            body.append(all_props.encode("utf-8"))
-            body.append(f"--{boundary}".encode("utf-8"))
-            body.append(b'Content-Disposition: form-data; name="temperature"\r\n')
-            body.append(str(temperature_k).encode("utf-8"))
-            body.append(f"--{boundary}--\r\n".encode("utf-8"))
-
-            data = b"\r\n".join(body)
-            url = "http://localhost:8000/api/calculations/predict-properties"
-            req = urllib.request.Request(
-                url,
-                data=data,
-                headers={
-                    "Content-Type": f"multipart/form-data; boundary={boundary}",
-                    "Content-Length": str(len(data))
-                }
-            )
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                if resp.status == 200:
-                    payload = json.loads(resp.read().decode("utf-8")) #reads raw incoming binary bytes and then converts binarybytes unto python text string
-                    props = payload.get("properties", {})
-                    for k, v in props.items():
-                        if isinstance(v, dict) and v.get("value") is not None:
-                            results[k] = v.get("value")
-                    if "ehull" in results and "e_hull" not in results:
-                        results["e_hull"] = results["ehull"]
-                    meta = payload.get("material_metadata", {})
-                    if meta.get("density_g_cm3") is not None:
-                        results.setdefault("density", safe_float(meta["density_g_cm3"]))
-                    if meta.get("volume_A3") is not None:
-                        results.setdefault("volume_A3", safe_float(meta["volume_A3"]))
-                    if meta.get("num_sites") is not None:
-                        results.setdefault("num_sites", meta["num_sites"])
-                    endpoint_succeeded = True
-                    log.info(f"[Enrichment] Successfully predicted properties for '{clean_form}' via /predict-properties endpoint.")
-        except Exception as ep_err:
-            log.debug(f"[Enrichment] /predict-properties endpoint HTTP notice for {clean_form}: {ep_err}")
-            endpoint_succeeded = False
-
-    # 2. If endpoint was offline or in-process fallback needed, execute unified engines directly:
-    if not endpoint_succeeded or len(results) < 5:
-        # A. CrystalFormer / CHGNet / EHull Service
-        cf = get_cf_service()
-        if cf is not None and structure is not None:
-            try:
-                cf_res = cf.predict(structure, temperature_k=temperature_k, compute_ehull=True)
-                if cf_res.get("status") == "success":
-                    core = cf_res.get("core_properties", {})
-                    derived = cf_res.get("derived_properties", {})
-                    aux = cf_res.get("auxiliary_metrics", {})
-                    stability = cf_res.get("stability", {})
-
-                    results.setdefault("formation_energy", safe_float(core.get("formation_energy_eV_atom")))
-                    results.setdefault("band_gap", safe_float(core.get("band_gap_eV")))
-                    results.setdefault("bulk_modulus", safe_float(core.get("bulk_modulus_GPa")))
-                    results.setdefault("shear_modulus", safe_float(core.get("shear_modulus_GPa")))
-
-                    results.setdefault("youngs_modulus", safe_float(derived.get("youngs_modulus_GPa")))
-                    results.setdefault("fracture_toughness", safe_float(derived.get("fracture_toughness_MPa_m05")))
-                    results.setdefault("electronic_conductivity", safe_float(derived.get("electronic_conductivity_S_cm")))
-
-                    results.setdefault("poisson_ratio", safe_float(aux.get("poisson_ratio")))
-                    results.setdefault("pughs_ratio", safe_float(aux.get("pughs_ratio")))
-                    results.setdefault("compressibility", safe_float(aux.get("compressibility_GPa_inv")))
-                    results.setdefault("electronic_state", aux.get("electronic_nature"))
-                    results.setdefault("elastic_anisotropy", 1.20)
-
-                    eh_val = safe_float(stability.get("ehull_eV_per_atom") or aux.get("ehull_eV_per_atom"))
-                    results.setdefault("e_hull", eh_val)
-                    results.setdefault("ehull_meV_per_atom", safe_float(stability.get("ehull_meV_per_atom")) or (round(eh_val * 1000, 2) if eh_val is not None else None))
-                    results.setdefault("is_stable", stability.get("is_stable") if stability.get("is_stable") is not None else aux.get("is_stable"))
-                    results.setdefault("stability_status", stability.get("stability_status") or aux.get("stability_status"))
-            except Exception as cf_err:
-                log.debug(f"[Enrichment] Direct CrystalFormer calculation error for {clean_form}: {cf_err}")
-
-        # B. IonCast Ionic Transport (Ea and Room-Temp Ionic Conductivity)
+    # Call Inference API if client is available and cif_text is present
+    if cif_text and inference_client is not None:
         try:
-            try:
-                from api.calculator_router import calculate_ionic_transport_for_structure
-            except ImportError:
-                from backend.api.calculator_router import calculate_ionic_transport_for_structure
-            ionic_res = calculate_ionic_transport_for_structure(structure, temperature_k=temperature_k)
-            if ionic_res.get("status") == "calculated":
-                results.setdefault("ionic_conductivity", safe_float(ionic_res.get("conductivity_s_cm")))
-                results.setdefault("activation_energy", safe_float(ionic_res.get("activation_energy_ev")))
-        except Exception as ion_err:
-            log.debug(f"[Enrichment] Direct IonCast calculation error for {clean_form}: {ion_err}")
+            all_props = [
+                "bulk_modulus", "shear_modulus", "formation_energy", "ehull", "is_stable",
+                "band_gap", "youngs_modulus", "fracture_toughness", "electronic_conductivity",
+                "poisson_ratio", "compressibility", "pughs_ratio", "elastic_anisotropy",
+                "ionic_conductivity", "activation_energy"
+            ]
+            resp = inference_client.predict_properties_sync(
+                cif_text=cif_text,
+                properties=all_props,
+                temperature=temperature_k,
+                formula=clean_form,
+            )
+            props = resp.get("properties", {})
+            for k, v in props.items():
+                if isinstance(v, dict) and v.get("value") is not None:
+                    results[k] = v.get("value")
+            if "ehull" in results and "e_hull" not in results:
+                results["e_hull"] = results["ehull"]
+            meta = resp.get("material_metadata", {})
+            if meta.get("density_g_cm3") is not None:
+                results.setdefault("density", safe_float(meta["density_g_cm3"]))
+            if meta.get("volume_A3") is not None:
+                results.setdefault("volume_A3", safe_float(meta["volume_A3"]))
+            if meta.get("num_sites") is not None:
+                results.setdefault("num_sites", meta["num_sites"])
+            if meta.get("space_group"):
+                results.setdefault("space_group", meta["space_group"])
+            if meta.get("crystal_system"):
+                results.setdefault("crystal_system", meta["crystal_system"])
+            log.info(f"[Enrichment] Successfully enriched '{clean_form}' via Inference API.")
+            return results
+        except Exception as inf_err:
+            log.warning(f"[Enrichment] Inference API call notice for {clean_form}: {inf_err}")
 
-    # Extract symmetry & geometric metrics from Structure
+    # Fallback geometric inspection if structure is available in-memory
     if structure is not None:
         try:
             results.setdefault("density", round(float(structure.density), 3))
@@ -542,7 +464,7 @@ def predict_all_properties_via_endpoint_or_pipeline(
             results.setdefault("space_group", sga.get_space_group_symbol())
             results.setdefault("crystal_system", sga.get_crystal_system())
         except Exception as sym_err:
-            log.debug(f"[Enrichment] SpacegroupAnalyzer error for {clean_form}: {sym_err}")
+            log.debug(f"[Enrichment] Spacegroup fallback notice for {clean_form}: {sym_err}")
 
     return results
 
@@ -739,52 +661,19 @@ def calculate_and_infill_properties(item: Dict[str, Any]) -> Dict[str, Any]:
                 log.debug(f"Could not parse existing MongoDB CIF for {clean_form}: {m_err}")
                 structure = None
 
-    # Step 2: ONLY IF CIF is STILL NOT FOUND in MongoDB, synthesize a new CIF file via CrystalFormer / CIF pipeline / webhook
+    # Step 2: ONLY IF CIF is STILL NOT FOUND in MongoDB, synthesize a new CIF file via Inference API
     if structure is None and clean_form and clean_form != "Unknown":
         try:
-            log.info(f"[Enrichment] CIF not found in MongoDB for '{clean_form}'. Generating new CIF via pipeline/API...")
+            log.info(f"[Enrichment] CIF not found in MongoDB for '{clean_form}'. Requesting from Inference Service...")
             new_cif_str = None
-
-            # Route 1: In-process synthesis via cif_pipeline / CrystalFormer bridge
-            try:
-                from cif_generator.cif_pipeline.models import CompoundQuery
-                from cif_generator.cif_pipeline.orchestrator import run_pipeline
-                from cif_generator.cif_pipeline.config import get_mp_api_key
-
-                cq = CompoundQuery(raw_input=clean_form)
-                res = run_pipeline(
-                    query=cq,
-                    mp_api_key=get_mp_api_key(),
-                    ask_user=lambda q, opts: opts[0] if opts else None,
-                    max_iterations=1,
-                    samples_per_iteration=2
-                )
-                if res and getattr(res, "cif_string", None):
-                    new_cif_str = res.cif_string
-            except Exception as pipe_err:
-                log.debug(f"Direct CIF pipeline generation notice for {clean_form}: {pipe_err}")
-                new_cif_str = None
-
-            # Route 2: Webhook / API fallback (/cif/api/generate)
-            if not new_cif_str:
+            if inference_client is not None:
                 try:
-                    import urllib.request
-                    import json
-                    api_url = "http://localhost:8000/cif/api/generate"
-                    req_data = json.dumps({"formula": clean_form}).encode("utf-8")
-                    req = urllib.request.Request(
-                        api_url,
-                        data=req_data,
-                        headers={"Content-Type": "application/json"}
-                    )
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        if resp.status == 200:
-                            api_data = json.loads(resp.read().decode("utf-8"))
-                            new_cif_str = api_data.get("cif") or api_data.get("cif_string")
-                except Exception as api_err:
-                    log.debug(f"CIF webhook error for {clean_form}: {api_err}")
+                    gen_res = inference_client.generate_cif_sync(clean_form, max_iterations=1, samples_per_iteration=2)
+                    if gen_res.get("success") and gen_res.get("cif_string"):
+                        new_cif_str = gen_res["cif_string"]
+                except Exception as gen_err:
+                    log.debug(f"Inference Service CIF generation notice for {clean_form}: {gen_err}")
 
-            # If successfully generated, parse structure and update material item
             if new_cif_str and isinstance(new_cif_str, str) and new_cif_str.strip():
                 cif_text = new_cif_str
                 item["cif_text"] = new_cif_str
@@ -792,22 +681,21 @@ def calculate_and_infill_properties(item: Dict[str, Any]) -> Dict[str, Any]:
                 item["is_ai_generated"] = True
                 calculated_keys.append("cif_text")
 
-                from pymatgen.core import Structure
-                structure = Structure.from_str(cif_text, fmt="cif")
-                log.info(f"[Enrichment] Successfully generated and parsed new CIF for '{clean_form}'.")
+                try:
+                    from pymatgen.core import Structure
+                    structure = Structure.from_str(cif_text, fmt="cif")
+                except Exception:
+                    structure = None
+                log.info(f"[Enrichment] Successfully synthesized and parsed new CIF for '{clean_form}'.")
 
                 # Store newly generated CIF directly in MongoDB generated_cifs collection!
                 try:
-                    try:
-                        from cif_storage_service import save_generated_cif
-                        save_generated_cif(cif_text=new_cif_str, formula=clean_form, source="CrystalFormer CIF Pipeline")
-                    except ImportError:
-                        from backend.cif_storage_service import save_generated_cif
-                        save_generated_cif(cif_text=new_cif_str, formula=clean_form, source="CrystalFormer CIF Pipeline")
+                    from cif_storage_service import save_generated_cif
+                    save_generated_cif(cif_text=new_cif_str, formula=clean_form, source="Inference-Service-CIF-Pipeline")
                 except Exception as save_err:
                     log.debug(f"Notice caching generated CIF in MongoDB: {save_err}")
-        except Exception as gen_err:
-            log.debug(f"Could not generate CIF for {clean_form}: {gen_err}")
+        except Exception as outer_gen_err:
+            log.debug(f"Could not generate CIF for {clean_form}: {outer_gen_err}")
             structure = None
 
     # Calculate ALL properties using the property-prediction endpoint / pipeline
@@ -1071,7 +959,7 @@ def normalize_formula(formula: str) -> str:
     return str(formula).replace(" ", "").strip()
 
 
-def upsert_materials(database: str, materials: List[Dict[str, Any]]) -> int:
+def upsert_materials(database: str, materials: List[Dict[str, Any]], enrich_missing: bool = False) -> int:
     """
     Upserts a list of materials into the `materials_catalog` collection.
     Standardizes schema across Materials Project, OQMD, AFLOW, JARVIS, and IndianMatter.
@@ -1085,8 +973,9 @@ def upsert_materials(database: str, materials: List[Dict[str, Any]]) -> int:
     now = datetime.utcnow()
 
     for item in materials:
-        # Verify and calculate any null properties using our models
-        calculate_and_infill_properties(item)
+        # Only compute missing properties if explicitly requested (avoids heavy blocking inference on bulk import)
+        if enrich_missing:
+            calculate_and_infill_properties(item)
 
         # Resolve Material ID
         mat_id = (

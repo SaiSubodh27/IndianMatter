@@ -2,42 +2,29 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install OpenMP runtime library needed by LightGBM / XGBoost
+# Install minimal system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgomp1 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and install core FastAPI dependencies with pre-compiled wheels
+# Install lightweight dependencies
+COPY backend/requirements_main.txt /app/requirements_main.txt
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-    fastapi \
-    uvicorn[standard] \
-    pymongo \
-    pymatgen \
-    mp-api \
-    pydantic \
-    python-multipart \
-    itsdangerous \
-    authlib \
-    tenacity \
-    numpy \
-    pandas \
-    scikit-learn \
-    requests \
-    aiohttp
+    pip install --no-cache-dir -r /app/requirements_main.txt
 
-# Copy requirements and install additional dependencies
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt || true
-
-# Copy workspace application code
-COPY . /app
+# Copy backend application code only
+COPY backend /app/backend
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app:/app/backend"
 ENV MONGO_URL="mongodb://mongodb:27017/IndianMaterialsAI"
+ENV INFERENCE_BASE_URL="http://inference:8001"
+ENV INTERNAL_SERVICE_SECRET="indianmatter-internal-secret-token"
 ENV PORT=8000
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

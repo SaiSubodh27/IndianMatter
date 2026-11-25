@@ -16,7 +16,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from matminer.featurizers.composition import ElementProperty
 
 from model_paths import resolve_pretrained_models_dir
-from routes.transport_router import predict_conductivity_from_path
+
 
 # DEFINE ROUTER
 # MongoDB Materials Persistence Service
@@ -38,39 +38,26 @@ except Exception as _db_err:
 router = APIRouter(prefix="/api/calculations", tags=["Calculations"])
 
 # ---------------------------------------------------------
-# STARTUP: Load CrystalFormer & IonCast v5 Property Models
+# Standalone Inference Client Connection (Port 8001)
 # ---------------------------------------------------------
-MODELS_BASE = resolve_pretrained_models_dir("v5_base_models.pkl")
-IONCAST_MODELS_BASE = MODELS_BASE  
-
-# 1. CrystalFormer Service & Pipeline (Bulk, Shear, Formation Energy, Band Gap + Derived Properties)
 try:
-    try:
-        from property_prediction_models.CrystalFormer.crystalformer_service import get_crystalformer_service
-        from property_prediction_models.CrystalFormer.cif_generator_bridge import generate_cif_from_formula
-    except ImportError:
-        from CrystalFormer.crystalformer_service import get_crystalformer_service
-        from CrystalFormer.cif_generator_bridge import generate_cif_from_formula
-    crystalformer_service = get_crystalformer_service()
-    CRYSTALFORMER_LOADED = True
-    print("CrystalFormer service loaded successfully (Bulk, Shear, Formation Energy, Band Gap + Derived Properties).")
-except Exception as e:
-    crystalformer_service = None
-    CRYSTALFORMER_LOADED = False
-    print(f"WARNING: CrystalFormer service not loaded: {e}")
-
-# 2. Full IonCast Models Stack (v5 Ensemble + v6 Corrector)
-try:
-    try:
-        from predict_ionic_conductivity import load_models
-    except ImportError:
-        from backend.predict_ionic_conductivity import load_models
-    IONIC_MODELS = load_models()
-    IONIC_LOADED = True
-    print(f"IonCast prediction models loaded successfully from {IONCAST_MODELS_BASE} using schema-safe bridge.")
-except Exception as e:
-    IONIC_LOADED = False
-    print(f"WARNING: IonCast models not loaded from {IONCAST_MODELS_BASE}: {e}")
+    from core.inference_client import (
+        inference_client,
+        InferenceError,
+        InferenceUnavailableError,
+        InferenceTimeoutError
+    )
+except ImportError:
+    from backend.core.inference_client import (
+        inference_client,
+        InferenceError,
+        InferenceUnavailableError,
+        InferenceTimeoutError
+    )
+CRYSTALFORMER_LOADED = True
+IONIC_LOADED = True
+crystalformer_service = None
+IONIC_MODELS = None
 
 
 def calculate_ionic_transport_for_structure(structure: Structure, temperature_k: float = 298.15) -> dict:
@@ -256,22 +243,32 @@ async def predict_properties(
     bypass_cache: bool = Form(False)
 ):
     """
-    Unified endpoint that parses structure dynamically and evaluates multiple 
-    requested property keys in a single execution payload.
+    Unified endpoint that orchestrates property predictions:
+    1. Checks MongoDB cache for existing computed results.
+    2. If not cached, delegates prediction to the standalone Inference Service (Port 8001).
+    3. Persists results to MongoDB predictions collection.
+    4. Returns standard response shape compatible with React frontend.
     """
     if not file.filename or not file.filename.lower().endswith('.cif'):
         raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-    
+
     try:
         content = await file.read()
         cif_decoded = content.decode("utf-8", errors="replace")
-        structure = Structure.from_str(cif_decoded, fmt="cif")
-        lattice = structure.lattice
-        formula_reduced = structure.composition.reduced_formula
         requested_keys = [k.strip() for k in properties.split(",") if k.strip()]
 
+        # Extract basic composition / formula from CIF header safely
+        formula_reduced = "Unknown"
+        structure = None
+        try:
+            from pymatgen.core import Structure
+            structure = Structure.from_str(cif_decoded, fmt="cif")
+            formula_reduced = structure.composition.reduced_formula
+        except Exception:
+            pass
+
         # 1. Check MongoDB cache first (unless bypass_cache is requested)!
-        if MATERIALS_DB_ENABLED and not bypass_cache:
+        if MATERIALS_DB_ENABLED and not bypass_cache and formula_reduced != "Unknown":
             cached_doc = get_cached_prediction(
                 formula=formula_reduced,
                 reduced_formula=formula_reduced,
@@ -285,7 +282,6 @@ async def predict_properties(
                 )
                 if cached_res:
                     cached_props = cached_res.get("properties", {})
-                    # Only return early if ALL requested properties are already calculated and not None
                     all_calculated = all(
                         k in cached_props
                         and cached_props[k].get("value") is not None
@@ -294,161 +290,62 @@ async def predict_properties(
                     )
                     if all_calculated:
                         return cached_res
-        
-        # Extract true dynamic physical properties from uploaded CIF
-        metadata = {
-            "formula": structure.composition.reduced_formula,
-            "volume_A3": float(lattice.volume),
-            "density_g_cm3": float(structure.density),
-            "num_sites": int(len(structure))
-        }
 
-        requested_keys = [k.strip() for k in properties.split(",") if k.strip()]
-        calculated_properties = {}
-        
-        crystalformer_keys = {
-            "bulk_modulus", "bulk_modulus_vrh_GPa", "bulk",
-            "shear_modulus", "shear_modulus_vrh_GPa", "sher_modulus", "shear",
-            "formation_energy", "formation_energy_per_atom", "formation_energy_eV_atom",
-            "ehull", "ehull_eV_per_atom", "ehull_meV_per_atom", "energy_above_hull",
-            "is_stable", "stability_status", "stability",
-            "band_gap", "band_gap_eV", "electronic_state",
-            "youngs_modulus", "youngs_modulus_GPa",
-            "fracture_toughness", "fracture_toughness_MPa_m05",
-            "electronic_conductivity", "electronic_conductivity_S_cm", "electrical_conductivity",
-            "poisson_ratio", "poissons_ratio",
-            "compressibility", "elastic_anisotropy", "pughs_ratio"
-        }
-        cf_result = None
-        if any(k in crystalformer_keys for k in requested_keys):
-            if CRYSTALFORMER_LOADED and crystalformer_service:
-                try:
-                    cf_result = crystalformer_service.predict(structure, temperature_k=temperature)
-                except Exception as cf_err:
-                    print(f"CrystalFormer prediction failed: {cf_err}")
+        # 2. Delegate to standalone Inference API (Port 8001)
+        try:
+            inf_resp = await inference_client.predict_properties(
+                cif_text=cif_decoded,
+                properties=requested_keys,
+                temperature=temperature,
+                formula=formula_reduced if formula_reduced != "Unknown" else None
+            )
+        except Exception as ie:
+            type_name = type(ie).__name__.lower()
+            if "unavailable" in type_name or getattr(ie, "status_code", None) == 503:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Inference Service is currently unavailable. Please verify the inference service is running on port 8001."
+                )
+            elif "timeout" in type_name or getattr(ie, "status_code", None) == 504:
+                raise HTTPException(
+                    status_code=504,
+                    detail="Inference Service timed out while evaluating crystal structure."
+                )
+            elif hasattr(ie, "status_code") and isinstance(ie.status_code, int) and ie.status_code >= 400:
+                raise HTTPException(status_code=ie.status_code, detail=getattr(ie, "message", str(ie)))
+            raise
 
-        for key in requested_keys:
-            try:
-                if key in crystalformer_keys:
-                    if cf_result is not None and cf_result.get("status") == "success":
-                        core = cf_result.get("core_properties", {})
-                        derived = cf_result.get("derived_properties", {})
-                        aux = cf_result.get("auxiliary_metrics", {})
-                        stability = cf_result.get("stability", {})
-                        
-                        vals = {
-                            "bulk_modulus": (core.get("bulk_modulus_GPa"), "GPa"),
-                            "bulk": (core.get("bulk_modulus_GPa"), "GPa"),
-                            "bulk_modulus_vrh_GPa": (core.get("bulk_modulus_GPa"), "GPa"),
-                            "shear_modulus": (core.get("shear_modulus_GPa"), "GPa"),
-                            "sher_modulus": (core.get("shear_modulus_GPa"), "GPa"),
-                            "shear": (core.get("shear_modulus_GPa"), "GPa"),
-                            "shear_modulus_vrh_GPa": (core.get("shear_modulus_GPa"), "GPa"),
-                            "formation_energy": (core.get("formation_energy_eV_atom"), "eV/atom"),
-                            "formation_energy_per_atom": (core.get("formation_energy_eV_atom"), "eV/atom"),
-                            "formation_energy_eV_atom": (core.get("formation_energy_eV_atom"), "eV/atom"),
-                            "ehull": (stability.get("ehull_eV_per_atom"), "eV/atom"),
-                            "ehull_eV_per_atom": (stability.get("ehull_eV_per_atom"), "eV/atom"),
-                            "ehull_meV_per_atom": (stability.get("ehull_meV_per_atom"), "meV/atom"),
-                            "energy_above_hull": (stability.get("ehull_eV_per_atom"), "eV/atom"),
-                            "is_stable": (stability.get("is_stable"), ""),
-                            "stability_status": (stability.get("stability_status"), ""),
-                            "stability": (stability.get("stability_status"), ""),
-                            "band_gap": (core.get("band_gap_eV"), "eV"),
-                            "band_gap_eV": (core.get("band_gap_eV"), "eV"),
-                            "electronic_state": (aux.get("electronic_nature"), ""),
-                            "youngs_modulus": (derived.get("youngs_modulus_GPa"), "GPa"),
-                            "youngs_modulus_GPa": (derived.get("youngs_modulus_GPa"), "GPa"),
-                            "fracture_toughness": (derived.get("fracture_toughness_MPa_m05"), "MPa·m^0.5"),
-                            "fracture_toughness_MPa_m05": (derived.get("fracture_toughness_MPa_m05"), "MPa·m^0.5"),
-                            "electronic_conductivity": (derived.get("electronic_conductivity_S_cm"), "S/cm"),
-                            "electronic_conductivity_S_cm": (derived.get("electronic_conductivity_S_cm"), "S/cm"),
-                            "electrical_conductivity": (derived.get("electronic_conductivity_S_cm"), "S/cm"),
-                            "poisson_ratio": (aux.get("poisson_ratio"), ""),
-                            "poissons_ratio": (aux.get("poisson_ratio"), ""),
-                            "compressibility": (aux.get("compressibility_GPa_inv"), "GPa⁻¹"),
-                            "pughs_ratio": (aux.get("pughs_ratio"), ""),
-                            "elastic_anisotropy": (1.2, ""),
-                        }
-                        val, unit = vals.get(key, (None, ""))
-                        calculated_properties[key] = {
-                            "property_key": key,
-                            "value": round(val, 6) if isinstance(val, (int, float)) and not isinstance(val, bool) and not math.isnan(val) else val,
-                            "unit": unit,
-                            "status": "calculated" if val is not None and not (isinstance(val, float) and math.isnan(val)) else "unavailable",
-                            "source_model": cf_result.get("model_source", "CrystalFormer"),
-                        }
-                    else:
-                        unit_fallback = "eV/atom" if "formation" in key or "hull" in key else ("eV" if "band" in key else "GPa")
-                        calculated_properties[key] = {"property_key": key, "value": None, "unit": unit_fallback, "status": "unavailable"}
-
-
-                elif key in ["ionic_conductivity", "ionic_conductivity_activation_energy", "activation_energy_eV", "activation_energy"]:
-                    if IONIC_LOADED:
-                        res = calculate_ionic_transport_for_structure(structure, temperature_k=temperature)
-                        if res["status"] == "calculated":
-                            is_cond = "conductivity" in key
-                            val = res["conductivity_s_cm"] if is_cond else res["activation_energy_ev"]
-                            unit = "S/cm" if is_cond else "eV"
-                            fval = float(f"{float(val):.6g}") if val is not None else None
-                            calculated_properties[key] = {
-                                "property_key": key,
-                                "value": fval,
-                                "unit": unit,
-                                "status": "calculated",
-                                "source_model": "IonCast-v5/v6",
-                                "raw_details": res.get("raw_details", {})
-                            }
-                        else:
-                            calculated_properties[key] = {
-                                "property_key": key,
-                                "value": None,
-                                "unit": "S/cm" if "conductivity" in key else "eV",
-                                "status": "failed",
-                                "warnings": res.get("warnings", [])
-                            }
-                    else:
-                        calculated_properties[key] = {
-                            "property_key": key,
-                            "value": None,
-                            "unit": "S/cm" if "conductivity" in key else "eV",
-                            "status": "unavailable",
-                            "warnings": ["IonCast models not loaded on server"]
-                        }
-           
-            except Exception as prop_err:
-                calculated_properties[key] = {"property_key": key, "value": None, "unit": "", "status": "failed", "warnings": [str(prop_err)]}
-
-        base_energy = -3.42
-        bfsy_obj = locals().get("bfsy_result") or locals().get("bfsy_res")
-        if bfsy_obj and bfsy_obj.get("energy_per_atom_eV") is not None:
-            base_energy = bfsy_obj["energy_per_atom_eV"]
+        metadata = inf_resp.get("material_metadata", {})
+        calculated_properties = inf_resp.get("properties", {})
+        base_energy = inf_resp.get("base_outputs", {}).get("energy_per_atom", {}).get("value", -3.42)
 
         response_payload = {
             "status": "success",
             "material_metadata": metadata,
-            "model_used": "BFSYPipeline-Unified",
+            "model_used": inf_resp.get("model_used", "InferenceService-Unified"),
             "base_outputs": {"energy_per_atom": {"value": base_energy, "unit": "eV/atom", "status": "calculated"}},
             "properties": calculated_properties
         }
 
-        # 2. Persist calculated prediction to MongoDB
+        # 3. Persist calculated prediction to MongoDB
         if MATERIALS_DB_ENABLED:
             try:
                 save_material_prediction(
-                    formula=formula_reduced,
+                    formula=metadata.get("formula", formula_reduced),
                     full_payload=response_payload,
-                    reduced_formula=formula_reduced,
+                    reduced_formula=metadata.get("formula", formula_reduced),
                     structure=structure,
                     cif_text=cif_decoded,
                     filename=file.filename,
-                    source="CrystalFormer-Unified",
+                    source="InferenceService-Unified",
                     temperature_k=temperature
                 )
             except Exception as save_err:
                 print(f"[MongoDB] Notice: Could not save prediction to DB: {save_err}")
 
         return response_payload
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Multi-property analysis error: {str(e)}")
 
@@ -460,47 +357,45 @@ async def predict_properties(
 async def analyze_cif_features(file: UploadFile = File(...)):
     if not file.filename.endswith('.cif'):
         raise HTTPException(status_code=400, detail="Only .cif files are supported.")
-    
+
     try:
         content = await file.read()
-        structure = Structure.from_str(content.decode("utf-8"), fmt="cif")
-        
-        sga = SpacegroupAnalyzer(structure)
-        lattice = structure.lattice
-        
+        cif_decoded = content.decode("utf-8", errors="replace")
+
+        try:
+            analysis = await inference_client.analyze_structure(cif_text=cif_decoded)
+        except InferenceUnavailableError:
+            raise HTTPException(status_code=503, detail="Inference Service unavailable on port 8001.")
+        except Exception as inf_e:
+            raise HTTPException(status_code=500, detail=f"Inference error: {str(inf_e)}")
+
         structural_data = {
-            "formula_pretty": structure.composition.reduced_formula,
-            "nsites": len(structure),
-            "volume_angstrom3": round(lattice.volume, 3),
-            "density_g_cm3": round(structure.density, 3),
-            "crystal_system": sga.get_crystal_system(),
+            "formula_pretty": analysis.get("reduced_formula", ""),
+            "nsites": analysis.get("num_sites", 0),
+            "volume_angstrom3": analysis.get("volume", 0.0),
+            "density_g_cm3": analysis.get("density", 0.0),
+            "crystal_system": analysis.get("crystal_system", ""),
             "space_group": {
-                "symbol": sga.get_space_group_symbol(),
-                "number": sga.get_space_group_number()
+                "symbol": analysis.get("space_group", ""),
+                "number": 0
             },
             "lattice_parameters": {
-                "a": round(lattice.a, 3), "b": round(lattice.b, 3), "c": round(lattice.c, 3),
-                "alpha": round(lattice.alpha, 3), "beta": round(lattice.beta, 3), "gamma": round(lattice.gamma, 3)
+                "a": analysis.get("lattice_a", 0.0),
+                "b": analysis.get("lattice_b", 0.0),
+                "c": analysis.get("lattice_c", 0.0),
+                "alpha": analysis.get("lattice_alpha", 0.0),
+                "beta": analysis.get("lattice_beta", 0.0),
+                "gamma": analysis.get("lattice_gamma", 0.0),
             }
         }
-        
-        try:
-            ep = ElementProperty.from_preset(preset_name="magpie")
-            comp_features = ep.featurize(structure.composition)
-            labels = ep.feature_labels()
-            magpie_summary = {
-                "mean_atomic_number": round(comp_features[labels.index("Number mean")], 2),
-                "mean_electronegativity": round(comp_features[labels.index("MendeleevNumber mean")], 2) if "MendeleevNumber mean" in labels else None,
-                "mean_atomic_radius": round(comp_features[labels.index("AtomicRadius mean")], 2) if "AtomicRadius mean" in labels else None,
-            }
-        except Exception:
-            magpie_summary = {"note": "Matminer composition descriptors skipped"}
 
         return {
             "status": "success",
             "structural_features": structural_data,
-            "compositional_features": magpie_summary
+            "compositional_features": {"note": "Processed via Standalone Inference Service"}
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
@@ -521,12 +416,9 @@ async def crystalformer_predict_endpoint(
 ):
     """
     Evaluates CrystalFormer Core 4 (bulk, shear, formation energy, band gap)
-    and Derived 3 (young's modulus, fracture toughness, electronic conductivity).
-    Accepts an uploaded CIF file OR a chemical formula string (synthesized via CIF Generator).
+    and Derived 3 (young's modulus, fracture toughness, electronic conductivity)
+    via the Standalone Inference Service (Port 8001).
     """
-    if not CRYSTALFORMER_LOADED or not crystalformer_service:
-        raise HTTPException(status_code=500, detail="CrystalFormer service is not loaded.")
-
     try:
         # Check MongoDB Cache for Formula
         if formula and formula.strip() and not (file and file.filename and file.filename.strip()):
@@ -540,83 +432,48 @@ async def crystalformer_predict_endpoint(
                     cached_res["db_cached_at"] = str(cached_doc.get("updated_at") or cached_doc.get("created_at"))
                     return cached_res
 
+        cif_text = None
         if file and file.filename and file.filename.strip():
             content = await file.read()
             cif_text = content.decode("utf-8", errors="replace")
-            structure = Structure.from_str(cif_text, fmt="cif")
-            reduced_form = structure.composition.reduced_formula
-
-            # Check MongoDB Cache for Structure/CIF
-            if MATERIALS_DB_ENABLED and not bypass_cache:
-                cached_doc = get_cached_prediction(
-                    formula=reduced_form,
-                    reduced_formula=reduced_form,
-                    cif_text=cif_text
-                )
-                if cached_doc and "full_prediction_payload" in cached_doc:
-                    cached_res = cached_doc["full_prediction_payload"]
-                    cached_res["cached_from_db"] = True
-                    cached_res["db_record_id"] = str(cached_doc["_id"])
-                    cached_res["db_cached_at"] = str(cached_doc.get("updated_at") or cached_doc.get("created_at"))
-                    return cached_res
-
-            res = crystalformer_service.predict(structure, temperature_k=temperature)
-            res["cif_string"] = cif_text
-            res["filename"] = file.filename
-
-            # Save to MongoDB
-            if MATERIALS_DB_ENABLED:
-                try:
-                    save_material_prediction(
-                        formula=res.get("formula", reduced_form),
-                        full_payload=res,
-                        reduced_formula=reduced_form,
-                        structure=structure,
-                        cif_text=cif_text,
-                        filename=file.filename,
-                        source=res.get("model_source", "CrystalFormer"),
-                        temperature_k=temperature
-                    )
-                except Exception as save_err:
-                    print(f"[MongoDB] Notice: Could not save prediction to DB: {save_err}")
-
-            return res
-
         elif formula and formula.strip():
-            res = crystalformer_service.predict_from_formula(
-                formula=formula.strip(),
-                temperature_k=temperature,
-                space_group=space_group,
-                dopant_element=dopant_element,
-                dopant_fraction=dopant_fraction,
-                host_site_species=host_site_species,
-            )
-
-            # Save to MongoDB
-            if MATERIALS_DB_ENABLED and not dopant_element and not bypass_cache:
-                try:
-                    save_material_prediction(
-                        formula=res.get("formula", formula.strip()),
-                        full_payload=res,
-                        reduced_formula=res.get("formula"),
-                        cif_text=res.get("cif_string"),
-                        filename=f"{formula.strip()}.cif",
-                        source=res.get("model_source", "CrystalFormer"),
-                        temperature_k=temperature
-                    )
-                except Exception as save_err:
-                    print(f"[MongoDB] Notice: Could not save prediction to DB: {save_err}")
-
-            return res
+            # Request CIF synthesis from Inference API
+            gen_res = await inference_client.generate_cif(formula=formula.strip())
+            if gen_res.get("success") and gen_res.get("cif_string"):
+                cif_text = gen_res["cif_string"]
+            else:
+                raise HTTPException(status_code=400, detail=f"Could not generate CIF for formula '{formula}'")
         else:
-            raise HTTPException(status_code=400, detail="Please upload a .cif file or provide a material formula.")
+            raise HTTPException(status_code=400, detail="Provide either a CIF file or chemical formula.")
+
+        try:
+            cf_result = await inference_client.predict_crystalformer(cif_text=cif_text, temperature=temperature)
+        except InferenceUnavailableError:
+            raise HTTPException(status_code=503, detail="Inference Service unavailable on port 8001.")
+        except Exception as inf_e:
+            raise HTTPException(status_code=500, detail=f"CrystalFormer inference error: {str(inf_e)}")
+
+        # Persist to MongoDB
+        if MATERIALS_DB_ENABLED:
+            try:
+                save_material_prediction(
+                    formula=formula or "Unknown",
+                    full_payload=cf_result,
+                    reduced_formula=formula or "Unknown",
+                    cif_text=cif_text,
+                    filename=file.filename if file else f"{formula}.cif",
+                    source="InferenceService-CrystalFormer",
+                    temperature_k=temperature
+                )
+            except Exception as save_err:
+                print(f"[MongoDB] Notice: Could not save CF prediction to DB: {save_err}")
+
+        return cf_result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"CrystalFormer prediction error: {str(e)}")
 
-
-# =========================================================
-# BATCH CIF PREDICTION & CSV EXPORT PIPELINE
-# =========================================================
 
 AVAILABLE_BATCH_PROPERTIES = [
     {

@@ -20,6 +20,32 @@ services:
     networks:
       - indianmatter-network
 
+  inference:
+    build:
+      context: .
+      dockerfile: inference_service/Dockerfile
+    container_name: indianmatter-inference
+    restart: unless-stopped
+    ports:
+      - "${INFERENCE_PORT:-8001}:8001"
+    environment:
+      - INFERENCE_PORT=8001
+      - INFERENCE_HOST=0.0.0.0
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-indianmatter-internal-secret-token}
+      - COMPUTE_DEVICE=${COMPUTE_DEVICE:-auto}
+    volumes:
+      - ./property_prediction_models:/app/property_prediction_models
+      - ./cif_generator:/app/cif_generator
+      - ./inference_service:/app/inference_service
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - indianmatter-network
+
   backend:
     build:
       context: .
@@ -31,6 +57,8 @@ services:
     environment:
       - MONGO_URL=mongodb://mongodb:27017/IndianMaterialsAI
       - PORT=8000
+      - INFERENCE_BASE_URL=http://inference:8001
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-indianmatter-internal-secret-token}
       - MP_API_KEY=${MP_API_KEY:-}
       - SESSION_SECRET=${SESSION_SECRET:-fallback-secret-change-me}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
@@ -40,9 +68,16 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      inference:
+        condition: service_started
     volumes:
       - ./backend:/app/backend
-      - ./property_prediction_models:/app/property_prediction_models
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - indianmatter-network
 

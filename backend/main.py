@@ -10,20 +10,11 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Compatibility shim for newer ASE versions where ExpCellFilter moved to ase.filters
-try:
-    import ase.filters
-    import ase.constraints
-    if not hasattr(ase.constraints, "ExpCellFilter") and hasattr(ase.filters, "ExpCellFilter"):
-        ase.constraints.ExpCellFilter = ase.filters.ExpCellFilter
-except Exception:
-    pass #it is related to atomic coordinates and external unit cell vectors (lattic lengths)
-
-# Ensure backend, cif_generator, and property_prediction_models are in sys.path
+# Ensure backend is in sys.path
 BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent
 
-for p in [PROJECT_ROOT, BACKEND_DIR, PROJECT_ROOT / "cif_generator", PROJECT_ROOT / "property_prediction_models"]:
+for p in [PROJECT_ROOT, BACKEND_DIR]:
     p_str = str(p)
     if p_str not in sys.path:
         sys.path.insert(0, p_str)
@@ -44,58 +35,51 @@ from routes import (
     literature_routes,
     lithium_routes,
 )
-from model_service import load_models
-
-# CIF Generator pipeline (integrated from the CIF-generator project).
-# Exposes POST /cif/api/generate, /cif/api/doped-cif, /cif/api/parse-formula, ...
-# and serves its web UI at /cif/.
-try:
-    from webapp import app as cif_generator_app
-    _CIF_APP_AVAILABLE = True
-except Exception as _cif_import_error:  # keep main API up even if heavy ML deps are missing
-    cif_generator_app = None
-    _CIF_APP_AVAILABLE = False
-    print(f"[startup] CIF generator disabled: {_cif_import_error}")
+from core.inference_client import inference_client
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("[startup] Loading global ML models...")
-    load_models()
-    
+    print("=" * 65)
+    print(" IndianMaterialsAI — Main API Gateway (Port 8000)")
+    print("=" * 65)
+
+    # Check connection to Standalone Inference Service
+    try:
+        probe = inference_client.check_health_sync()
+        status_label = probe.get("status", "unknown")
+        print(f"[startup] Inference API probe ({inference_client.base_url}): {status_label}")
+    except Exception as inf_err:
+        print(f"[startup] Inference API probe warning: {inf_err}")
+
     mp_key = os.getenv("MP_API_KEY")
     print(f"[startup] MP_API_KEY {'present' if mp_key else 'MISSING — MP endpoints will return 500'}")
-    
+
     google_id = os.getenv("GOOGLE_CLIENT_ID")
     google_secret = os.getenv("GOOGLE_CLIENT_SECRET")
     if not google_id or not google_secret:
-        print("\n" + "="*60)
-        print("ERROR: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing or empty!")
-        print("Please fill them in the backend/.env file to enable Google Sign-In.")
-        print("="*60 + "\n")
-        
+        print("[startup] Notice: GOOGLE_CLIENT_ID / SECRET not configured.")
+
     github_id = os.getenv("GITHUB_CLIENT_ID")
     github_secret = os.getenv("GITHUB_CLIENT_SECRET")
     if not github_id or not github_secret:
-        print("\n" + "="*60)
-        print("ERROR: GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET is missing or empty!")
-        print("Please fill them in the backend/.env file to enable GitHub Sign-In.")
-        print("="*60 + "\n")
+        print("[startup] Notice: GITHUB_CLIENT_ID / SECRET not configured.")
 
+    print("=" * 65)
     yield
-    print("[shutdown] Cleaning up resources...")
+    print("[shutdown] Main API shutting down...")
 
 
 app = FastAPI(
-    title="Indian Materials AI Backend",
-    description="Authentication, User Management, and Property Prediction Platform",
-    lifespan=lifespan
+    title="Indian Materials AI — Main API",
+    description="Authentication, User Management, Database Catalog, and Gateway API",
+    lifespan=lifespan,
 )
 
 # CORS Middleware Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -105,7 +89,7 @@ app.add_middleware(
 session_secret = os.getenv("SESSION_SECRET", "fallback-secret-change-me")
 app.add_middleware(
     SessionMiddleware,
-    secret_key=session_secret
+    secret_key=session_secret,
 )
 
 # Core & Authentication Routes
@@ -114,6 +98,7 @@ app.include_router(user_routes.router, prefix="/api/users", tags=["Users"])
 
 # Prediction & Inference Pipeline Routes
 app.include_router(cif_routes.router, prefix="/api/cif", tags=["CIF Generator & Analyzer"])
+app.include_router(cif_routes.cif_api_router)  # Mounted at /cif for complete frontend compatibility
 
 # External Databases & Internal Datasets
 app.include_router(materials_routes.router, prefix="/api/materials", tags=["Materials Project"])
@@ -125,21 +110,27 @@ app.include_router(indianmatter.router, prefix="/api/indianmatter", tags=["India
 app.include_router(literature_routes.router, prefix="/api/literature", tags=["Literature"])
 app.include_router(lithium_routes.router, prefix="/api/lithium", tags=["Lithium & Battery Materials"])
 
-# ---------------------------------------------------------
-# CALCULATIONS ROUTER
-# ---------------------------------------------------------
+# Calculations & Property Prediction Routers
 app.include_router(calculator_router)
 app.include_router(transport_router.router, prefix="/api/calculations")
-
-# Mount the integrated CIF generator app (UI at /cif/, API at /cif/api/...)
-if _CIF_APP_AVAILABLE:
-    app.mount("/cif", cif_generator_app)
 
 
 @app.get("/")
 def read_root():
     return {
         "status": "online",
-        "message": "Welcome to the IndianMaterialsAI Internal API",
-        "documentation": "/docs"
+        "service": "IndianMaterialsAI Main API",
+        "port": 8000,
+        "inference_service_url": inference_client.base_url,
+        "documentation": "/docs",
+    }
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "IndianMaterialsAI Main API",
+        "port": 8000,
+        "version": "1.0.0",
     }
