@@ -8,7 +8,12 @@ PROJECT_ROOT = BACKEND_DIR.parent
 
 def resolve_pretrained_models_dir(required_filename: str = "v5_base_models.pkl") -> str:
     """Return the first pretrained_models directory containing the requested file."""
-    candidate_dirs = [
+    env_dir = os.getenv("PRETRAINED_MODELS_DIR") or os.getenv("IONCAST_MODELS_DIR")
+    candidate_dirs = []
+    if env_dir:
+        candidate_dirs.append(Path(env_dir))
+    candidate_dirs.extend([
+        Path("/models/ioncast"),
         PROJECT_ROOT / "property_prediction_models" / "pretrained_models",
         PROJECT_ROOT / "property_prediction_models" / "final_models",
         PROJECT_ROOT / "pretrained_models",
@@ -16,7 +21,7 @@ def resolve_pretrained_models_dir(required_filename: str = "v5_base_models.pkl")
         PROJECT_ROOT / "final_models" / "pretrained_models",
         PROJECT_ROOT / "IonCastBackup" / "pretrained_models",
         BACKEND_DIR / "IonCastBackup" / "pretrained_models",
-    ]
+    ])
 
     for candidate in candidate_dirs:
         if (candidate / required_filename).exists():

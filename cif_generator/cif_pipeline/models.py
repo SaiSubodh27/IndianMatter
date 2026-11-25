@@ -168,3 +168,19 @@ class PipelineResult:
     max_force: Optional[float] = None
     doping_spec: Optional[DopingSpec] = None
     raw_cif_string: Optional[str] = None
+
+    @property
+    def success(self) -> bool:
+        """Convenience property: True if valid CIF was synthesized or retrieved."""
+        return bool(self.cif_string and self.source not in ("failed", "ambiguous_polymorphs"))
+
+    @property
+    def structure(self):
+        """Convenience property: lazily parses and returns a pymatgen Structure object."""
+        if not self.cif_string:
+            return None
+        try:
+            from pymatgen.core import Structure
+            return Structure.from_str(self.cif_string, fmt="cif")
+        except Exception:
+            return None

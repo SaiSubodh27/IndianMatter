@@ -1,0 +1,109 @@
+name: indianmatter-models
+
+services:
+  # 1. Immutable Model Store Container (stores all weights & populates shared /models volume)
+  model-store:
+    build:
+      context: .
+      dockerfile: docker/model-store/Dockerfile
+      args:
+        - FETCH_FROM_HF=${FETCH_FROM_HF:-false}
+        - HF_MODEL_REPO_ID=${HF_MODEL_REPO_ID:-SaiSubodh/indianmatter-models}
+        - HF_TOKEN=${HF_TOKEN:-}
+    image: indianmatter-model-store:latest
+    container_name: indianmatter-model-store
+    restart: unless-stopped
+    volumes:
+      - indianmatter_models:/models
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /models/.ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - indianmatter-network
+
+  # 2. Isolated CIF Generator Runtime (CrystaLLM + MACE-MP-0; numpy==1.26.4, pymatgen<2025.2)
+  cif-generator:
+    build:
+      context: .
+      dockerfile: docker/cif-generator/Dockerfile
+      args:
+        - TORCH_INDEX_URL=${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    image: indianmatter-cif-generator:latest
+    container_name: indianmatter-cif-generator
+    restart: unless-stopped
+    ports:
+      - "${CIF_GENERATOR_PORT:-8002}:8002"
+    environment:
+      - CRYSTALLM_CHECKPOINT_PATH=/models/crystallm/crystallm_v1_small
+      - MACE_MODEL=/models/mace/20231203mace128L1_epoch199model
+      - MACE_DEVICE=${MACE_DEVICE:-cpu}
+      - MP_API_KEY=${MP_API_KEY:-}
+    volumes:
+      - indianmatter_models:/models:ro
+    depends_on:
+      model-store:
+        condition: service_healthy
+    networks:
+      - indianmatter-network
+
+  # 3. Isolated CrystalFormer Runtime (torch==2.1.2, pytorch-lightning==2.1.3, numpy==1.26.4)
+  crystalformer:
+    build:
+      context: .
+      dockerfile: docker/crystalformer/Dockerfile
+      args:
+        - TORCH_INDEX_URL=${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    image: indianmatter-crystalformer:latest
+    container_name: indianmatter-crystalformer
+    restart: unless-stopped
+    ports:
+      - "${CRYSTALFORMER_PORT:-8003}:8003"
+    environment:
+      - CRYSTALFORMER_WEIGHTS_DIR=/models/crystalformer
+      - MP_API_KEY=${MP_API_KEY:-}
+    volumes:
+      - indianmatter_models:/models:ro
+    depends_on:
+      model-store:
+        condition: service_healthy
+    networks:
+      - indianmatter-network
+
+  # 4. Isolated Atomistic & IonCast Surrogate Runtime (torch==2.5.1, matgl<3.0, chgnet, lgbm/xgb/catboost)
+  atomistic-surrogate:
+    build:
+      context: .
+      dockerfile: docker/atomistic-surrogate/Dockerfile
+      args:
+        - TORCH_INDEX_URL=${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    image: indianmatter-atomistic-surrogate:latest
+    container_name: indianmatter-atomistic-surrogate
+    restart: unless-stopped
+    ports:
+      - "${ATOMISTIC_PORT:-8001}:8001"
+    environment:
+      - PRETRAINED_MODELS_DIR=/models/ioncast
+      - CHGNET_MODEL_PATH=/models/chgnet/chgnet_0.3.0_e29f68s314m37.pth.tar
+      - M3GNET_WEIGHTS_DIR=/models/m3gnet
+      - MACE_SMALL_MODEL_PATH=/models/mace/2023-12-10-mace-128-L0_energy_epoch-249.model
+      - MP_API_KEY=${MP_API_KEY:-}
+    volumes:
+      - indianmatter_models:/models:ro
+    depends_on:
+      model-store:
+        condition: service_healthy
+    networks:
+      - indianmatter-network
+
+volumes:
+  indianmatter_models:
+    name: indianmatter_models
+    driver: local
+
+networks:
+  indianmatter-network:
+    name: indianmatter_network
+    driver: bridge

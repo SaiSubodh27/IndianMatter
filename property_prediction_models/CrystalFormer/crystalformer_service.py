@@ -51,7 +51,10 @@ except ImportError:
 log = logging.getLogger("CrystalFormer.service")
 
 # Resolve model and checkpoint directories
+_env_cf_weights = os.getenv("CRYSTALFORMER_WEIGHTS_DIR")
 CANDIDATE_WEIGHTS_DIRS = [
+    *([Path(_env_cf_weights)] if _env_cf_weights else []),
+    Path("/models/crystalformer"),
     BASE_DIR / "weights",
     BASE_DIR / "CrystalFormer" / "crystalframer_weights" / "crystalframer_weights",
     BASE_DIR / "crystalformer_github_repo" / "weights",

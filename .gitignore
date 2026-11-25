@@ -41,3 +41,12 @@ node_modules/
 .env.gpu
 
 *.zip
+
+# Downloaded / staged large model weights
+property_prediction_models/crystallm_weights/
+docker/model-store/models/
+cif_generator/crystallm_repo/
+*.ckpt
+*.pt
+*.pth.tar
+*.model

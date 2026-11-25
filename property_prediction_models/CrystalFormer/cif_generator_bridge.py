@@ -77,9 +77,9 @@ def generate_cif_from_formula(
 
     meta = {
         "formula": structure.composition.reduced_formula,
-        "source": res.provenance or "cif_pipeline_synthesized",
-        "notes": res.notes,
-        "is_relaxed": bool(res.relaxed),
+        "source": getattr(res, "provenance", None) or getattr(res, "source", "cif_pipeline_synthesized"),
+        "notes": getattr(res, "notes", ""),
+        "is_relaxed": bool(not getattr(res, "relaxation_skipped", False) and getattr(res, "relaxation_status", "") != "UNKNOWN"),
         "num_sites": len(structure),
         "volume_A3": float(structure.lattice.volume),
         "density_g_cm3": float(structure.density),
