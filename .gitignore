@@ -50,3 +50,4 @@ cif_generator/crystallm_repo/
 *.pt
 *.pth.tar
 *.model
+property_prediction_models/final_models/m3gnet_matpes_weights/

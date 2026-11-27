@@ -56,4 +56,21 @@ def get_crystallm_checkpoint() -> str:
     ]:
         if (candidate / "ckpt.pt").exists():
             return str(candidate)
+
+    # Fallback: Auto-download CrystaLLM checkpoint from Hugging Face Hub
+    try:
+        from huggingface_hub import hf_hub_download
+        hf_repo = os.getenv("HF_MODEL_REPO_ID", "SaiSubodh/indianmatter-models")
+        dest = _repo_root / "property_prediction_models" / "crystallm_weights" / "crystallm_v1_small"
+        dest.mkdir(parents=True, exist_ok=True)
+        hf_hub_download(
+            repo_id=hf_repo,
+            filename="crystallm/crystallm_v1_small/ckpt.pt",
+            local_dir=str(_repo_root / "property_prediction_models"),
+        )
+        if (dest / "ckpt.pt").exists():
+            return str(dest)
+    except Exception:
+        pass
+
     return ""

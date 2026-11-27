@@ -72,6 +72,38 @@ for d in CANDIDATE_WEIGHTS_DIRS:
         WEIGHTS_DIR = d
         break
 
+if WEIGHTS_DIR is None:
+    try:
+        from huggingface_hub import hf_hub_download
+        hf_repo = os.getenv("HF_MODEL_REPO_ID", "SaiSubodh/indianmatter-models")
+        weights_dest = BASE_DIR / "weights"
+        weights_dest.mkdir(parents=True, exist_ok=True)
+        for ckpt_name in ["mp_e_form.ckpt", "mp_bandgap.ckpt", "mp_bulk_modulus.ckpt", "mp_shear_modulus.ckpt"]:
+            target_file = weights_dest / ckpt_name
+            if not target_file.exists():
+                hf_hub_download(repo_id=hf_repo, filename=f"crystalformer/{ckpt_name}", local_dir=str(BASE_DIR))
+        if (weights_dest / "mp_e_form.ckpt").exists():
+            WEIGHTS_DIR = weights_dest
+            log.info(f"[CrystalFormer] Resolved weights from Hugging Face: {WEIGHTS_DIR}")
+    except Exception as hf_err:
+        log.warning(f"[CrystalFormer] Hugging Face checkpoint auto-download skipped: {hf_err}")
+
+if WEIGHTS_DIR is None:
+    try:
+        from huggingface_hub import hf_hub_download
+        hf_repo = os.getenv("HF_MODEL_REPO_ID", "SaiSubodh/indianmatter-models")
+        weights_dest = BASE_DIR / "weights"
+        weights_dest.mkdir(parents=True, exist_ok=True)
+        for ckpt_name in ["mp_e_form.ckpt", "mp_bandgap.ckpt", "mp_bulk_modulus.ckpt", "mp_shear_modulus.ckpt"]:
+            target_file = weights_dest / ckpt_name
+            if not target_file.exists():
+                hf_hub_download(repo_id=hf_repo, filename=f"crystalformer/{ckpt_name}", local_dir=str(BASE_DIR))
+        if (weights_dest / "mp_e_form.ckpt").exists():
+            WEIGHTS_DIR = weights_dest
+            log.info(f"[CrystalFormer] Resolved weights from Hugging Face: {WEIGHTS_DIR}")
+    except Exception as hf_err:
+        log.warning(f"[CrystalFormer] Hugging Face checkpoint auto-download skipped: {hf_err}")
+
 REPO_DIR = None
 for d in CANDIDATE_REPO_DIRS:
     if d.is_dir() and (d / "models").exists():

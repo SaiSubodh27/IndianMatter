@@ -1,7 +1,21 @@
 # IndianMaterialsAI (IndianMatter Platform)
 
+<p align="center">
+  <a href="https://github.com/SaiSubodh27/IndianMatter"><img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repo" /></a>
+  <a href="https://huggingface.co/SaiSubodh/indianmatter-models"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models%20Hub-yellow?style=for-the-badge" alt="Hugging Face Models" /></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11" /></a>
+  <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-2.2+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch 2.2+" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License: MIT" /></a>
+</p>
+
 > **Next-Generation High-Throughput Materials Discovery & Quantum Property Screening Engine**  
 > Accelerated computational synthesis, graph neural network property prediction, and thermodynamic stability screening for solid-state battery electrolytes and functional crystalline materials.
+
+---
+
+### 🌐 Official Repositories & Hub Links
+- **GitHub Source Code:** [https://github.com/SaiSubodh27/IndianMatter](https://github.com/SaiSubodh27/IndianMatter)
+- **Hugging Face Model Hub:** [https://huggingface.co/SaiSubodh/indianmatter-models](https://huggingface.co/SaiSubodh/indianmatter-models) (All 29 pre-trained checkpoints, force fields & ML models)
 
 ---
 
@@ -428,13 +442,41 @@ Final_ validation/
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/SaiSubodh27/IonCast.git
+git clone https://github.com/SaiSubodh27/IndianMatter.git
 cd "Final_ validation"
 ```
 
 ---
 
-### Step 2: Backend Setup (Python 3.11)
+### Step 2: Model Weights Setup (Hugging Face Hub)
+
+All 29 pre-trained model weights, PyG checkpoints, and foundation potentials are hosted on the **[IndianMatter Hugging Face Model Hub](https://huggingface.co/SaiSubodh/indianmatter-models)** (781.8 MB total payload).
+
+| Model Category | Files on Hugging Face | Framework | Target Physical Property |
+|---|---|---|---|
+| **CrystalFormer** | `mp_e_form.ckpt`, `mp_bandgap.ckpt`, `mp_bulk_modulus.ckpt`, `mp_shear_modulus.ckpt`, `jarvis_*.ckpt` | PyTorch Lightning | Formation energy, Band gap, Bulk/Shear modulus, JARVIS benchmarks |
+| **CrystaLLM** | `crystallm/crystallm_v1_small/ckpt.pt` | PyTorch / nanoGPT | Autoregressive crystal structure (CIF) generation |
+| **IonCast Stack** | `v5_base_models.pkl`, `v5_mlp_models.pkl`, `v5_meta_model.pkl`, `v5_model2_A.pkl`, `v6_corrector_model.pkl` | Scikit-learn / LightGBM | Activation energy ($E_a$), Arrhenius prefactor ($\log_{10} A$), conductivity ($\sigma_i$) |
+| **CHGNet** | `chgnet_model.pt`, `chgnet_0.3.0_e29f68s314m37.pth.tar` | PyTorch / CHGNet | Universal potential energy, forces, atomic relaxation |
+| **M3GNet & MACE** | `m3gnet/model.json`, `m3gnet/model.pt`, `mace/2023-12-10-mace-128-L0_energy_epoch-249.model` | MatGL / MACE | PES potential calculations & relaxation |
+
+#### How Model Resolution Works:
+1. **Automatic Remote Stream & Cache (Default):**
+   The application code is connected directly to Hugging Face Hub. If local weights are missing when a prediction is invoked, the service automatically downloads and caches the required checkpoint into `property_prediction_models/`.
+2. **Offline Pre-Download (Recommended for GPU / Docker):**
+   Pre-download all checkpoints in a single batch before running offline or building container images:
+   ```bash
+   python scripts/download_models_from_hf.py
+   ```
+3. **Upload / Sync New Models to Hugging Face:**
+   To synchronize local fine-tuned checkpoints to the Hugging Face Hub:
+   ```bash
+   python scripts/push_to_huggingface.py --only-new
+   ```
+
+---
+
+### Step 3: Backend Setup (Python 3.11)
 
 1. **Create and activate a virtual or Conda environment:**
    ```bash
@@ -471,7 +513,7 @@ cd "Final_ validation"
 
 ---
 
-### Step 3: Frontend Setup (Vite + React)
+### Step 4: Frontend Setup (Vite + React)
 
 1. **Install Node dependencies:**
    ```bash
